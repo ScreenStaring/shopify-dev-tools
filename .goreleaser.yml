@@ -1,0 +1,13 @@
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  skip: true
