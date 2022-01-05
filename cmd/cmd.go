@@ -66,7 +66,7 @@ func init() {
 		&cli.StringFlag{
 			Name:    "access-token",
 			Usage:   "Shopify access token for shop",
-			EnvVars: []string{"SHOPIFY_ACCESS_TOKEN"},
+			EnvVars: []string{"SHOPIFY_ACCESS_TOKEN", "SHOPIFY_API_TOKEN",},
 		},
 		&cli.StringFlag{
 			Name:    "api-key",

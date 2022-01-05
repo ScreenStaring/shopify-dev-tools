@@ -87,7 +87,7 @@ sdt COMMAND --shop shopname
 You can use the following environment variables to set credentials:
 
 - `SHOPIFY_SHOP`
-- `SHOPIFY_ACCESS_TOKEN`
+- `SHOPIFY_ACCESS_TOKEN` or `SHOPIFY_API_TOKEN`
 - `SHOPIFY_API_PASSWORD`
 - `SHOPIFY_API_KEY`
 
@@ -170,7 +170,7 @@ Webhooks utilities
     OPTIONS:
        --shop value          Shopify domain or shop name to perform command against [$SHOPIFY_SHOP]
        --api-password value  Shopify API password [$SHOPIFY_API_PASSWORD]
-       --access-token value  Shopify access token for shop [$SHOPIFY_ACCESS_TOKEN]
+       --access-token value  Shopify access token for shop [$SHOPIFY_ACCESS_TOKEN, $SHOPIFY_API_TOKEN]
        --api-key value       Shopify API key to for shop [$SHOPIFY_API_KEY]
        --help, -h            show help (default: false)
 
