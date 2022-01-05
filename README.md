@@ -31,7 +31,7 @@ Windows, macOS/OS X, and GNU/Linux are supported.
 
 ### Credentials
 
-You'll need access to the Shopify store you want to execute commands against.
+You'll need access to the Shopify store you want to execute commands against. Also see [Environment Variables](#environment-variables).
 
 #### Access Token
 
