@@ -1,0 +1,5 @@
+v0.0.2  2022-01-05
+--------------------
+- Add support for listing a customer's metafields
+- Add support for setting --access-token via SHOPIFY_API_TOKEN
+- Fix bug preventing metafields from being output as JSONL
