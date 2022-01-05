@@ -117,6 +117,26 @@ func sortMetafields(metafields []shopify.Metafield, options metafieldOptions) {
 	sorter.Sort(metafields)
 }
 
+func customerAction(c *cli.Context) error {
+	if c.NArg() == 0  {
+		return errors.New("Customer id required")
+	}
+
+	id, err := strconv.ParseInt(c.Args().Get(0), 10, 64)
+	if err != nil {
+		return fmt.Errorf("Customer id '%s' invalid: must be an int", c.Args().Get(0))
+	}
+
+	options := contextToOptions(c)
+	metafields, err := cmd.NewShopifyClient(c).Customer.ListMetafields(id, options)
+	if err != nil {
+		return fmt.Errorf("Cannot list metafields for customer: %s", err)
+	}
+
+	printFormatted(metafields, options)
+	return nil
+}
+
 func productAction(c *cli.Context) error {
 	if c.NArg() == 0  {
 		return errors.New("Product id required")
@@ -225,16 +245,25 @@ func init() {
 		Usage:   "Metafield utilities",
 		Subcommands: []*cli.Command{
 			{
+				Name: "customer",
+				Flags: append(cmd.Flags, metafieldFlags...),
+				Aliases: []string{"c"},
+				Action: customerAction,
+				Usage: "List metafields for the given customer",
+			},
+			{
 				Name: "product",
 				Flags: append(cmd.Flags, metafieldFlags...),
 				Aliases: []string{"products", "prod", "p"},
 				Action: productAction,
+				Usage: "List metafields for the given product",
 			},
 			{
 				Name: "shop",
 				Flags: append(cmd.Flags, metafieldFlags...),
 				Aliases: []string{"s"},
 				Action: shopAction,
+				Usage: "List metafields for the given shop",
 			},
 			{
 				Name: "storefront",
@@ -260,6 +289,7 @@ func init() {
 				Aliases: []string{"var", "v"},
 				Flags: append(cmd.Flags, metafieldFlags...),
 				Action: variantAction,
+				Usage: "List metafields for the given variant",
 			},
 		},
 	}

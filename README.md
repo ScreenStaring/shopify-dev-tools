@@ -104,15 +104,15 @@ Metafield utilities
        sdt metafield command [command options] [arguments...]
 
     COMMANDS:
-       product, products, prod, p
-       shop, s
+       customer, c                 List metafields for the given customer
+       product, products, prod, p  List metafields for the given product
+       shop, s                     List metafields for the given shop
        storefront, sf              Storefront API utilities
-       variant, var, v
+       variant, var, v             List metafields for the given variant
        help, h                     Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
-
 
 #### Shop
 
