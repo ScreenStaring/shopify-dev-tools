@@ -133,7 +133,7 @@ func customerAction(c *cli.Context) error {
 		return fmt.Errorf("Cannot list metafields for customer: %s", err)
 	}
 
-	printFormatted(metafields, options)
+	printMetafields(metafields, options)
 	return nil
 }
 
@@ -153,7 +153,7 @@ func productAction(c *cli.Context) error {
 		return fmt.Errorf("Cannot list metafields for product %d: %s", id, err)
 	}
 
-	printFormatted(metafields, options)
+	printMetafields(metafields, options)
 	return nil
 }
 
@@ -209,7 +209,7 @@ func variantAction(c *cli.Context) error {
 		return fmt.Errorf("Cannot list metafields for variant %d: %s", id, err)
 	}
 
-	printFormatted(metafields, options)
+	printMetafields(metafields, options)
 
 	return nil
 }
