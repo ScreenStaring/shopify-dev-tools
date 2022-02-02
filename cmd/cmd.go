@@ -17,15 +17,20 @@ var Flags []cli.Flag
 var accessTokenCommand = regexp.MustCompile(`\A\s*<\s*(.+)\z`)
 
 func NewShopifyClient(c *cli.Context) *shopify.Client {
+	var logging shopify.Option
+
 	app := shopify.App{
 		ApiKey: c.String("api-key"),
 		Password: c.String("api-password"),
 	}
 
-	//logger := &shopify.LeveledLogger{Level: shopify.LevelDebug}
-	//return shopify.NewClient(app, c.String("shop"), c.String("access-token"), shopify.WithLogger(logger))
-
 	shop := c.String("shop")
+
+	if c.Bool("verbose") {
+		logging = shopify.WithLogger(&shopify.LeveledLogger{Level: shopify.LevelDebug})
+		return shopify.NewClient(app, shop, lookupAccessToken(shop, c.String("access-token")), logging)
+	}
+
 	return shopify.NewClient(app, shop, lookupAccessToken(shop, c.String("access-token")))
 }
 
@@ -50,6 +55,10 @@ func lookupAccessToken(shop, token string) string {
 
 func init() {
 	Flags = []cli.Flag{
+		&cli.BoolFlag{
+			Name: "verbose",
+			Usage: "Output Shopify API request/response",
+		},
 		altsrc.NewStringFlag(
 			&cli.StringFlag{
 				Name:    "shop",
