@@ -115,6 +115,23 @@ Metafield utilities
     OPTIONS:
        --help, -h  show help (default: false)
 
+#### ScriptTags
+
+ScriptTag utilities
+
+    NAME:
+       sdt scripttags - ScriptTag utilities
+
+    USAGE:
+       sdt scripttags command [command options] [arguments...]
+
+    COMMANDS:
+       ls       List scripttags for the given shop
+       help, h  Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
+
 #### Shop
 
 Information about the given shop
@@ -148,23 +165,6 @@ Open admin pages
        theme, t                    Open the currently published theme or given theme ID for editing
        themes                      Open themes section of the admin (not for editing)
        help, h                     Shows a list of commands or help for one command
-
-    OPTIONS:
-       --help, -h  show help (default: false)
-
-#### ScriptTags
-
-ScriptTag utilities
-
-    NAME:
-       sdt scripttags - ScriptTag utilities
-
-    USAGE:
-       sdt scripttags command [command options] [arguments...]
-
-    COMMANDS:
-       ls       List scripttags for the given shop
-       help, h  Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
