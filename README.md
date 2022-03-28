@@ -143,8 +143,9 @@ Information about the given shop
        sdt shop command [command options] [arguments...]
 
     COMMANDS:
-       info, i  Information about the shop
-       help, h  Shows a list of commands or help for one command
+       access, a  List access scopes granted to the shop's token
+       info, i    Information about the shop
+       help, h    Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)

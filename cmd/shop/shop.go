@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -25,6 +26,30 @@ func formatField(field string) string {
 
 func accessAction(c *cli.Context) error {
 	// not supported, need to update API client
+
+	scopes, err := cmd.NewShopifyClient(c).AccessScopes.List(nil)
+	if err != nil {
+		return fmt.Errorf("Cannot get info for shop: %s", err)
+	}
+
+	if len(scopes) == 0 {
+		fmt.Println("No scopes defined")
+		return nil
+	}
+
+	t := tabby.New()
+	t.AddHeader("Scope")
+
+	sort.Slice(scopes, func(i, j int) bool {
+		return strings.Compare(scopes[i].Handle, scopes[j].Handle) == -1
+	})
+
+	for _, scope := range scopes {
+		t.AddLine(scope.Handle)
+	}
+
+	t.Print()
+
 	return nil
 }
 
@@ -52,13 +77,13 @@ func init() {
 		Aliases: []string{"s"},
 		Usage:   "Information about the given shop",
 		Subcommands: []*cli.Command{
-			// {
-			// 	Name: "access",
-			// 	Aliases: []string{"a"},
-			// 	Usage:   "Permissions granted to the given token/key",
-			// 	Flags: cmd.Flags,
-			// 	Action: accessAction,
-			// },
+			{
+				Name: "access",
+				Aliases: []string{"a"},
+				Usage:   "List access scopes granted to the shop's token",
+				Flags: cmd.Flags,
+				Action: accessAction,
+			},
 			{
 				Name: "info",
 				Aliases: []string{"i"},
