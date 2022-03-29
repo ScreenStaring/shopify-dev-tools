@@ -113,6 +113,8 @@ func createAction(c *cli.Context) error {
 		Topic: c.String("topic"),
 		Fields: c.StringSlice("fields"),
 		Format: format(c),
+		// Not supported bu bold!
+		//ApiVersion: c.String("api-version"),
 	}
 
 	hook, err := cmd.NewShopifyClient(c).Webhook.Create(options)

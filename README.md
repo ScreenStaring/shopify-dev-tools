@@ -126,8 +126,9 @@ ScriptTag utilities
        sdt scripttags command [command options] [arguments...]
 
     COMMANDS:
-       ls       List scripttags for the given shop
-       help, h  Shows a list of commands or help for one command
+       delete, del, rm, d  Delete the given ScriptTag
+       list, ls            List scripttags for the given shop
+       help, h             Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
