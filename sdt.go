@@ -13,7 +13,7 @@ import (
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/webhooks"
 )
 
-const version = "0.0.2"
+const version = "0.0.3"
 
 func main() {
 	app := &cli.App{

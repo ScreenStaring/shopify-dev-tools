@@ -45,6 +45,7 @@ func lookupAccessToken(shop, token string) string {
 	}
 
 	out, err := exec.Command(match[1], shop).Output()
+	// FIXME: return an error. Exit should be done in caller
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "access token command failed: %s\n", err)
 		os.Exit(2)
