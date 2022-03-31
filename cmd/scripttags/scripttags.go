@@ -18,7 +18,11 @@ type listScriptTagOptions struct {
 }
 
 var Cmd cli.Command
-// Allow for protocol relative URLs
+//
+// Match https://foo.com or //foo.com
+// According to GQL docs this can be *any* URI:
+// https://shopify.dev/api/admin-graphql/2022-01/mutations/scriptTagCreate
+//
 var scriptTagURL = regexp.MustCompile(`(?i)\A(?:https:)?//[\da-z]`)
 
 func deleteAction(c *cli.Context) error {

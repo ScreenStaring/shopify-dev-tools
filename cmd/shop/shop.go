@@ -25,15 +25,13 @@ func formatField(field string) string {
 }
 
 func accessAction(c *cli.Context) error {
-	// not supported, need to update API client
-
 	scopes, err := cmd.NewShopifyClient(c).AccessScopes.List(nil)
 	if err != nil {
-		return fmt.Errorf("Cannot get info for shop: %s", err)
+		return fmt.Errorf("Cannot get access scopes: %s", err)
 	}
 
 	if len(scopes) == 0 {
-		fmt.Println("No scopes defined")
+		fmt.Println("No access scopes defined")
 		return nil
 	}
 
