@@ -21,8 +21,10 @@ Windows, macOS/OS X, and GNU/Linux are supported.
     COMMANDS:
        admin, a                     Open admin pages
        metafield, m, meta           Metafield utilities
-       scripttags                   ScriptTag utilities
+       orders, o                    Information about orders
+       graphql, gql                 Run a GraphQL query against the Admin API
        shop, s                      Information about the given shop
+       scripttags                   ScriptTag utilities
        webhook, webhooks, hooks, w  Webhook utilities
        help, h                      Shows a list of commands or help for one command
 
@@ -114,6 +116,44 @@ Metafield utilities
 
     OPTIONS:
        --help, -h  show help (default: false)
+
+#### Orders
+
+Information about orders
+
+    NAME:
+       sdt orders - Information about orders
+
+    USAGE:
+       sdt orders command [command options] [arguments...]
+
+    COMMANDS:
+       useragent, ua  Info about the web browser used to place the order
+       help, h        Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
+
+#### GraphQL
+
+Run a GraphQL query against the Admin API
+
+    NAME:
+       sdt graphql - Run a GraphQL query against the Admin API
+
+    USAGE:
+       sdt graphql [command options] [query-file.graphql]
+
+    DESCRIPTION:
+       If query-file.graphql is not given query is read from stdin
+
+    OPTIONS:
+       --verbose             Output Shopify API request/response (default: false)
+       --shop value          Shopify domain or shop name to perform command against [$SHOPIFY_SHOP]
+       --api-password value  Shopify API password [$SHOPIFY_API_PASSWORD]
+       --access-token value  Shopify access token for shop [$SHOPIFY_ACCESS_TOKEN, $SHOPIFY_API_TOKEN]
+       --api-key value       Shopify API key to for shop [$SHOPIFY_API_KEY]
+       --help, -h            show help (default: false)
 
 #### ScriptTags
 

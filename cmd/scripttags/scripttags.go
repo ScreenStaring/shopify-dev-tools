@@ -47,7 +47,6 @@ func deleteAction(c *cli.Context) error {
 			return fmt.Errorf("Cannot find script tag with URL %s", options.Src)
 		}
 
-		// Delete all with givv
 		for _, tag := range tags {
 			ids = append(ids, tag.ID)
 		}
