@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	shopify "github.com/bold-commerce/go-shopify/v3"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
-	shopify "github.com/bold-commerce/go-shopify/v3"
 )
 
 var Flags []cli.Flag
@@ -20,7 +20,7 @@ func NewShopifyClient(c *cli.Context) *shopify.Client {
 	var logging shopify.Option
 
 	app := shopify.App{
-		ApiKey: c.String("api-key"),
+		ApiKey:   c.String("api-key"),
 		Password: c.String("api-password"),
 	}
 
@@ -57,15 +57,15 @@ func lookupAccessToken(shop, token string) string {
 func init() {
 	Flags = []cli.Flag{
 		&cli.BoolFlag{
-			Name: "verbose",
+			Name:  "verbose",
 			Usage: "Output Shopify API request/response",
 		},
 		altsrc.NewStringFlag(
 			&cli.StringFlag{
-				Name:    "shop",
-				Usage:   "Shopify domain or shop name to perform command against",
+				Name:     "shop",
+				Usage:    "Shopify domain or shop name to perform command against",
 				Required: true,
-				EnvVars: []string{"SHOPIFY_SHOP"},
+				EnvVars:  []string{"SHOPIFY_SHOP"},
 			},
 		),
 		&cli.StringFlag{
@@ -76,7 +76,7 @@ func init() {
 		&cli.StringFlag{
 			Name:    "access-token",
 			Usage:   "Shopify access token for shop",
-			EnvVars: []string{"SHOPIFY_ACCESS_TOKEN", "SHOPIFY_API_TOKEN",},
+			EnvVars: []string{"SHOPIFY_ACCESS_TOKEN", "SHOPIFY_API_TOKEN"},
 		},
 		&cli.StringFlag{
 			Name:    "api-key",

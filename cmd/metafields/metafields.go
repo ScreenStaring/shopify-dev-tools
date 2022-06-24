@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/urfave/cli/v2"
 	shopify "github.com/bold-commerce/go-shopify/v3"
 	"github.com/cheynewallace/tabby"
+	"github.com/urfave/cli/v2"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
 	"github.com/ScreenStaring/shopify-dev-tools/gql/storefront"
@@ -17,40 +17,40 @@ import (
 
 type metafieldOptions struct {
 	Namespace string `url:"namespace"`
-	Key string `url:"key"`
-	JSONL bool
-	OrderBy []string
+	Key       string `url:"key"`
+	JSONL     bool
+	OrderBy   []string
 }
 
 var Cmd cli.Command
 
 var sortByFieldFuncs = map[string]lessFunc{
-	"namespace": byNamespaceAsc,
-	"namespace:asc": byNamespaceAsc,
+	"namespace":      byNamespaceAsc,
+	"namespace:asc":  byNamespaceAsc,
 	"namespace:desc": byNamespaceDesc,
-	"key": byKeyAsc,
-	"key:asc": byKeyAsc,
-	"key:desc": byKeyDesc,
-	"create": byCreatedAtAsc,
-	"create:asc": byCreatedAtAsc,
-	"create:desc": byCreatedAtDesc,
-	"created": byCreatedAtAsc,
-	"created:asc": byCreatedAtAsc,
-	"created:desc": byCreatedAtDesc,
-	"update": byUpdatedAtAsc,
-	"update:asc": byUpdatedAtAsc,
-	"update:desc": byUpdatedAtDesc,
-	"updated": byUpdatedAtAsc,
-	"updated:asc": byUpdatedAtAsc,
-	"updated:desc": byUpdatedAtDesc,
+	"key":            byKeyAsc,
+	"key:asc":        byKeyAsc,
+	"key:desc":       byKeyDesc,
+	"create":         byCreatedAtAsc,
+	"create:asc":     byCreatedAtAsc,
+	"create:desc":    byCreatedAtDesc,
+	"created":        byCreatedAtAsc,
+	"created:asc":    byCreatedAtAsc,
+	"created:desc":   byCreatedAtDesc,
+	"update":         byUpdatedAtAsc,
+	"update:asc":     byUpdatedAtAsc,
+	"update:desc":    byUpdatedAtDesc,
+	"updated":        byUpdatedAtAsc,
+	"updated:asc":    byUpdatedAtAsc,
+	"updated:desc":   byUpdatedAtDesc,
 }
 
 func contextToOptions(c *cli.Context) metafieldOptions {
-	return metafieldOptions {
-		Key: c.String("key"),
+	return metafieldOptions{
+		Key:       c.String("key"),
 		Namespace: c.String("namespace"),
-		OrderBy: c.StringSlice("order"),
-		JSONL: c.Bool("jsonl"),
+		OrderBy:   c.StringSlice("order"),
+		JSONL:     c.Bool("jsonl"),
 	}
 }
 
@@ -62,7 +62,7 @@ func printMetafields(metafields []shopify.Metafield, options metafieldOptions) {
 	}
 }
 
-func printJSONL(metafields []shopify.Metafield)  {
+func printJSONL(metafields []shopify.Metafield) {
 	for _, metafield := range metafields {
 		line, err := json.Marshal(metafield)
 		if err != nil {
@@ -74,7 +74,7 @@ func printJSONL(metafields []shopify.Metafield)  {
 
 }
 
-func printFormatted(metafields []shopify.Metafield, options metafieldOptions)  {
+func printFormatted(metafields []shopify.Metafield, options metafieldOptions) {
 	sortMetafields(metafields, options)
 
 	t := tabby.New()
@@ -100,7 +100,7 @@ func sortMetafields(metafields []shopify.Metafield, options metafieldOptions) {
 	var funcs []lessFunc
 
 	if len(options.OrderBy) != 0 {
-		for _, field := range(options.OrderBy) {
+		for _, field := range options.OrderBy {
 			funcs = append(funcs, sortByFieldFuncs[field])
 		}
 	} else {
@@ -118,7 +118,7 @@ func sortMetafields(metafields []shopify.Metafield, options metafieldOptions) {
 }
 
 func customerAction(c *cli.Context) error {
-	if c.NArg() == 0  {
+	if c.NArg() == 0 {
 		return errors.New("Customer id required")
 	}
 
@@ -138,10 +138,11 @@ func customerAction(c *cli.Context) error {
 }
 
 func productAction(c *cli.Context) error {
-	if c.NArg() == 0  {
+	if c.NArg() == 0 {
 		return errors.New("Product id required")
 	}
 
+	// TODO: accept handle too (maybe use regex to detect? But handle can be all digits too)
 	id, err := strconv.ParseInt(c.Args().Get(0), 10, 64)
 	if err != nil {
 		return fmt.Errorf("Product id '%s' invalid: must be an int", c.Args().Get(0))
@@ -194,7 +195,7 @@ func storefrontAction(c *cli.Context) error {
 }
 
 func variantAction(c *cli.Context) error {
-	if c.NArg() == 0  {
+	if c.NArg() == 0 {
 		return errors.New("Variant id required")
 	}
 
@@ -245,34 +246,34 @@ func init() {
 		Usage:   "Metafield utilities",
 		Subcommands: []*cli.Command{
 			{
-				Name: "customer",
-				Flags: append(cmd.Flags, metafieldFlags...),
+				Name:    "customer",
+				Flags:   append(cmd.Flags, metafieldFlags...),
 				Aliases: []string{"c"},
-				Action: customerAction,
-				Usage: "List metafields for the given customer",
+				Action:  customerAction,
+				Usage:   "List metafields for the given customer",
 			},
 			{
-				Name: "product",
-				Flags: append(cmd.Flags, metafieldFlags...),
+				Name:    "product",
+				Flags:   append(cmd.Flags, metafieldFlags...),
 				Aliases: []string{"products", "prod", "p"},
-				Action: productAction,
-				Usage: "List metafields for the given product",
+				Action:  productAction,
+				Usage:   "List metafields for the given product",
 			},
 			{
-				Name: "shop",
-				Flags: append(cmd.Flags, metafieldFlags...),
+				Name:    "shop",
+				Flags:   append(cmd.Flags, metafieldFlags...),
 				Aliases: []string{"s"},
-				Action: shopAction,
-				Usage: "List metafields for the given shop",
+				Action:  shopAction,
+				Usage:   "List metafields for the given shop",
 			},
 			{
-				Name: "storefront",
+				Name:    "storefront",
 				Aliases: []string{"sf"},
-				Usage: "Storefront API utilities",
+				Usage:   "Storefront API utilities",
 				Subcommands: []*cli.Command{
 					{
-						Name: "ls",
-						Flags: append(cmd.Flags, metafieldFlags...),
+						Name:   "ls",
+						Flags:  append(cmd.Flags, metafieldFlags...),
 						Action: storefrontAction,
 					},
 					// {
@@ -282,14 +283,13 @@ func init() {
 					// 	Action: storefrontAction,
 					// },
 				},
-
 			},
 			{
-				Name: "variant",
+				Name:    "variant",
 				Aliases: []string{"var", "v"},
-				Flags: append(cmd.Flags, metafieldFlags...),
-				Action: variantAction,
-				Usage: "List metafields for the given variant",
+				Flags:   append(cmd.Flags, metafieldFlags...),
+				Action:  variantAction,
+				Usage:   "List metafields for the given variant",
 			},
 		},
 	}

@@ -1,16 +1,16 @@
 package metafields
 
 import (
+	shopify "github.com/bold-commerce/go-shopify/v3"
 	"sort"
 	"strings"
-	shopify "github.com/bold-commerce/go-shopify/v3"
 )
 
 type lessFunc func(mf1, mf2 *shopify.Metafield) int
 
 type metafieldsSorter struct {
 	metafields []shopify.Metafield
-	less    []lessFunc
+	less       []lessFunc
 }
 
 func (ms *metafieldsSorter) Len() int {
@@ -23,7 +23,7 @@ func (ms *metafieldsSorter) Swap(i, j int) {
 
 func (mf *metafieldsSorter) Less(i, j int) bool {
 	less := false
-	for _, fx := range(mf.less) {
+	for _, fx := range mf.less {
 		order := fx(&mf.metafields[i], &mf.metafields[j])
 		if order == 0 {
 			less = false

@@ -1,22 +1,20 @@
 package gql
 
-
 import (
-	"fmt"
-	"net/http"
 	"encoding/json"
-	"strings"
+	"fmt"
 	"io/ioutil"
+	"net/http"
+	"strings"
 
-	_"github.com/cheynewallace/tabby"
+	_ "github.com/cheynewallace/tabby"
 
 	"github.com/clbanning/mxj"
 )
 
-
 type Client struct {
 	endpoint string
-	token string
+	token    string
 }
 
 const endpoint = "https://%s.myshopify.com/admin/api/2021-07/graphql.json"
@@ -70,7 +68,7 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 	return result, nil
 }
 
-func (c* Client) createRequestBody(query string, variables map[string]interface{}) (string, error) {
+func (c *Client) createRequestBody(query string, variables map[string]interface{}) (string, error) {
 	params := map[string]interface{}{"query": query}
 
 	if len(variables) > 0 {
