@@ -64,7 +64,7 @@ sdt COMMAND --shop shopname --access-token '<shopify-access-token.sh'
 ```
 
 Note that `--access-token`'s argument begins with a `<`. This tells Shopify Development Tools to treat the remaining argument
-as a command, execute it, and use the first line of its output as shop's access token.
+as a command, execute it, and use the first line of its output as the shop's access token.
 
 The access token command will be passed the shop's name, as given on the command-line.
 
