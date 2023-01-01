@@ -254,7 +254,7 @@ func init() {
 			},
 			{
 				Name: "delete",
-				ArgsUsage:   "[topic or webhook ID]",
+				ArgsUsage: "[topic or webhook ID]",
 				Aliases: []string{"del", "rm", "d"},
 				Flags: append(cmd.Flags, deleteFlags...),
 				Action: deleteAction,
