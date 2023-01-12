@@ -37,7 +37,8 @@ func findQuery(c *cli.Context) (string, error) {
 }
 
 func queryAction(c *cli.Context) error {
-	client := gql.NewClient(c.String("shop"), c.String("access-token"))
+	shop := c.String("shop")
+	client := gql.NewClient(shop, cmd.LookupAccessToken(shop, c.String("access-token")))
 
 	query, err := findQuery(c)
 	if err != nil {

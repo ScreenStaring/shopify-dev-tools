@@ -171,7 +171,10 @@ func shopAction(c *cli.Context) error {
 }
 
 func storefrontAction(c *cli.Context) error {
-	metafields, err := storefront.New(c.String("shop"), c.String("access-token")).List()
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	metafields, err := storefront.New(shop, token).List()
 	if err != nil {
 		return err
 	}

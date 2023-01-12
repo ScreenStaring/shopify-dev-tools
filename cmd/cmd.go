@@ -28,17 +28,17 @@ func NewShopifyClient(c *cli.Context) *shopify.Client {
 
 	if c.Bool("verbose") {
 		logging = shopify.WithLogger(&shopify.LeveledLogger{Level: shopify.LevelDebug})
-		return shopify.NewClient(app, shop, lookupAccessToken(shop, c.String("access-token")), logging)
+		return shopify.NewClient(app, shop, LookupAccessToken(shop, c.String("access-token")), logging)
 	}
 
-	return shopify.NewClient(app, shop, lookupAccessToken(shop, c.String("access-token")))
+	return shopify.NewClient(app, shop, LookupAccessToken(shop, c.String("access-token")))
 }
 
 func ParseIntAt(c *cli.Context, pos int) (int64, error) {
 	return strconv.ParseInt(c.Args().Get(pos), 10, 64)
 }
 
-func lookupAccessToken(shop, token string) string {
+func LookupAccessToken(shop, token string) string {
 	match := accessTokenCommand.FindStringSubmatch(token)
 	if len(match) == 0 {
 		return token
