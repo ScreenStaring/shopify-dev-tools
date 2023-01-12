@@ -73,7 +73,7 @@ For example, if your app used Rails `shopify-access-token.sh` may contain the fo
 #!/bin/bash
 
 shop=$1
-ssh example.com 'cd /app && RAILS_ENV=production bundle exec rails r "print Shop.find_by(:shopify_domain => ARGV[0]).token" "$shop"'
+ssh example.com 'cd /app && RAILS_ENV=production bundle exec rails r "print Shop.find_by!(:shopify_domain => ARGV[0]).token" "$shop"'
 ```
 
 Furthermore, you can use the [`SHOPIFY_ACCESS_TOKEN` environment variable](#environment-variables) to reduce the required options to
