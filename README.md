@@ -25,6 +25,7 @@ Windows, macOS/OS X, and GNU/Linux are supported.
        graphql, gql                 Run a GraphQL query against the Admin API
        shop, s                      Information about the given shop
        scripttags                   ScriptTag utilities
+       themes, theme, t             Theme utilities
        webhook, webhooks, hooks, w  Webhook utilities
        help, h                      Shows a list of commands or help for one command
 
@@ -210,6 +211,23 @@ Open admin pages
 
     OPTIONS:
        --help, -h  show help (default: false)
+
+
+#### Themes
+
+    NAME:
+       sdt themes cp - Copy files to a theme
+
+    USAGE:
+       sdt themes cp [command options] themeid source [...] destination
+
+    OPTIONS:
+       --verbose             Output Shopify API request/response (default: false)
+       --shop value          Shopify domain or shop name to perform command against [$SHOPIFY_SHOP]
+       --api-password value  Shopify API password [$SHOPIFY_API_PASSWORD]
+       --access-token value  Shopify access token for shop [$SHOPIFY_ACCESS_TOKEN, $SHOPIFY_API_TOKEN]
+       --api-key value       Shopify API key to for shop [$SHOPIFY_API_KEY]
+       --help, -h            show help (default: false)
 
 #### Webhooks
 

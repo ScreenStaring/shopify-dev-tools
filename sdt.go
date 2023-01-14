@@ -10,6 +10,7 @@ import (
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/orders"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/scripttags"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/shop"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/themes"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/webhooks"
 	"github.com/urfave/cli/v2"
 )
@@ -29,6 +30,7 @@ func main() {
 			&gql.Cmd,
 			&shop.Cmd,
 			&scripttags.Cmd,
+			&themes.Cmd,
 			&webhooks.Cmd,
 		},
 	}
