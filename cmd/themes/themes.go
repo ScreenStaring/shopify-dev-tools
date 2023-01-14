@@ -1,9 +1,13 @@
 package themes
 
 import (
+	"encoding/base64"
 	"fmt"
+	"net/http"
 	"os"
+	"regexp"
 	"strings"
+
 
 	"github.com/urfave/cli/v2"
 	shopify "github.com/bold-commerce/go-shopify/v3"
@@ -12,6 +16,9 @@ import (
 )
 
 var Cmd cli.Command
+var srcURL = regexp.MustCompile(`(?i)\A(?:https?:)//[-a-z\d]+`)
+
+const themePathSeperator = "/"
 
 func isDir(path string) bool {
 	stat, err := os.Stat(path)
@@ -19,37 +26,49 @@ func isDir(path string) bool {
 }
 
 func uploadFile(client *shopify.Client, themeID int64, source, destination string) error {
-	const themePathSeperator = "/"
+	asset := shopify.Asset{ThemeID: themeID, Key: destination}
 
-	if strings.Index(destination, ".") == -1 {
-		if(destination[len(destination) - 1] != themePathSeperator[0]) {
-			destination = destination + themePathSeperator
+	// Src does not work:
+	// https://github.com/bold-commerce/go-shopify/issues/195
+	if srcURL.MatchString(source) {
+		asset.Src = source
+		asset.Key = destination
+	} else {
+		bytes, err := os.ReadFile(source)
+		if err != nil {
+			return fmt.Errorf("Failed to read file '%s': %s", source, err)
 		}
 
-		path := strings.Split(source, string(os.PathSeparator))
-		destination = destination + path[len(path) - 1]
+		// SVG issues? https://github.com/golang/go/issues/47492
+		contentType := http.DetectContentType(bytes)
+		if strings.HasPrefix(contentType, "image") || strings.HasPrefix(contentType, "video") || contentType == "application/octet-stream" {
+			// Attachment does not work:
+			// https://github.com/bold-commerce/go-shopify/issues/195
+			asset.Attachment = base64.StdEncoding.EncodeToString(bytes)
+		} else {
+			// Bytes to String. Not sure it's okay. But for images we need Base64
+			asset.Value = string(bytes)
+		}
+
+		if strings.Index(destination, ".") == -1 {
+			if(destination[len(destination) - 1] != themePathSeperator[0]) {
+				destination = destination + themePathSeperator
+			}
+
+			path := strings.Split(source, string(os.PathSeparator))
+			asset.Key = destination + path[len(path) - 1]
+		}
 	}
 
-	fmt.Printf("Uploading '%s' to '%s'\n", source, destination)
+	fmt.Printf("Uploading '%s' to '%s'\n", source, asset.Key)
 
-	value, err := os.ReadFile(source)
-	if err != nil {
-		return fmt.Errorf("Failed to read file '%s': %s", source, err)
-	}
-
-	asset := shopify.Asset{
-		Key: destination,
-		Value: string(value),
-		ThemeID: themeID,
-	}
-
-	_, err = client.Asset.Update(themeID, asset)
+	_, err := client.Asset.Update(themeID, asset)
 	if err != nil {
 		return fmt.Errorf("Cannot upload asset '%s': %s", source, err)
 	}
 
 	return nil
-}
+	}
 
 func uploadDirectory(client *shopify.Client, themeID int64, source, destination string) error {
 	directory, err := os.Open(source)
@@ -62,11 +81,13 @@ func uploadDirectory(client *shopify.Client, themeID int64, source, destination 
 		return fmt.Errorf("Failed to read directory '%s': %s", directory, err)
 	}
 
+	defer directory.Close()
+
 	for _, file := range(files) {
 		if !file.IsDir() {
-			path := []string{source, file.Name()}
+			path := strings.Join([]string{source, file.Name()}, string(os.PathSeparator))
 
-			err = uploadFile(client, themeID, strings.Join(path, string(os.PathSeparator)), destination)
+			err = uploadFile(client, themeID, path, destination)
 			if err != nil {
 				return err
 			}

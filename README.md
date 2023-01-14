@@ -16,7 +16,7 @@ Windows, macOS/OS X, and GNU/Linux are supported.
        sdt command [command options] [arguments...]
 
     VERSION:
-       0.0.3
+       0.0.4
 
     COMMANDS:
        admin, a                     Open admin pages
@@ -214,6 +214,8 @@ Open admin pages
 
 
 #### Themes
+
+**Does not work with binary or src URL attachments. Need [go-shopify fix](https://github.com/bold-commerce/go-shopify/issues/195)**
 
     NAME:
        sdt themes cp - Copy files to a theme
