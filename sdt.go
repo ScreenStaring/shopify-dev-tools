@@ -8,6 +8,7 @@ import (
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/gql"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/metafields"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/orders"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/products"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/scripttags"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/shop"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/themes"
@@ -27,6 +28,7 @@ func main() {
 			&admin.Cmd,
 			&metafields.Cmd,
 			&orders.Cmd,
+			&products.Cmd,
 			&gql.Cmd,
 			&shop.Cmd,
 			&scripttags.Cmd,

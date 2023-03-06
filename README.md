@@ -22,6 +22,7 @@ Windows, macOS/OS X, and GNU/Linux are supported.
        admin, a                     Open admin pages
        metafield, m, meta           Metafield utilities
        orders, o                    Information about orders
+       products, p                  Do things with products
        graphql, gql                 Run a GraphQL query against the Admin API
        shop, s                      Information about the given shop
        scripttags                   ScriptTag utilities
@@ -131,6 +132,23 @@ Information about orders
     COMMANDS:
        useragent, ua  Info about the web browser used to place the order
        help, h        Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
+
+#### Products
+
+Do things with products
+
+    NAME:
+       sdt products - Do things with products
+
+    USAGE:
+       sdt products command [command options] [arguments...]
+
+    COMMANDS:
+       ls, l    List some of a shop's products)
+       help, h  Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
