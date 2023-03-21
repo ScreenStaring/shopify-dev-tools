@@ -1,3 +1,7 @@
+v0.0.3  2022-04-01
+--------------------
+- Add support for deleting script tags
+
 v0.0.2  2022-01-05
 --------------------
 - Add support for listing a customer's metafields
