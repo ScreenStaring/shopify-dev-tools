@@ -147,7 +147,7 @@ Do things with products
        sdt products command [command options] [arguments...]
 
     COMMANDS:
-       ls, l    List some of a shop's products)
+       ls, l    List some of a shop's products or the products given by the specified IDs
        help, h  Shows a list of commands or help for one command
 
     OPTIONS:
