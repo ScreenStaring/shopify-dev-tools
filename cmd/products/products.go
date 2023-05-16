@@ -71,10 +71,15 @@ func printFormatted(products []shopify.Product, fieldsToPrint []string) {
 		s := reflect.ValueOf(&product).Elem()
 
 		for i := 0; i < s.NumField(); i++ {
-			field := normalizeField(s.Type().Field(i).Name)
+			field := s.Type().Field(i).Name
+			normalizedField := normalizeField(field)
 
-			if isFieldToPrint(field, normalizedFieldsToPrint) {
-				t.AddLine(s.Type().Field(i).Name, s.Field(i).Interface())
+			if len(fieldsToPrint) > 0 {
+				if isFieldToPrint(normalizedField, normalizedFieldsToPrint) {
+					t.AddLine(field, s.Field(i).Interface())
+				}
+			} else {
+				t.AddLine(field, s.Field(i).Interface())
 			}
 		}
 
