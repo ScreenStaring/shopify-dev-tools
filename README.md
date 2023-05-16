@@ -247,6 +247,8 @@ Open admin pages
        --api-key value       Shopify API key to for shop [$SHOPIFY_API_KEY]
        --help, -h            show help (default: false)
 
+Currently `source` can only be a local file
+
 #### Webhooks
 
 Webhooks utilities

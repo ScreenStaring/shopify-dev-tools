@@ -1,7 +1,9 @@
 package themes
 
 import (
+	"encoding/base64"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -18,7 +20,7 @@ func isDir(path string) bool {
 	return err == nil && stat.IsDir()
 }
 
-func uploadFile(client *shopify.Client, themeID int64, source, destination string) error {
+func destinationPath(source, destination string) string {
 	const themePathSeperator = "/"
 
 	if strings.Index(destination, ".") == -1 {
@@ -30,6 +32,12 @@ func uploadFile(client *shopify.Client, themeID int64, source, destination strin
 		destination = destination + path[len(path) - 1]
 	}
 
+	return destination
+}
+
+func uploadFile(client *shopify.Client, themeID int64, source, destination string) error {
+	destination = destinationPath(source, destination)
+
 	fmt.Printf("Uploading '%s' to '%s'\n", source, destination)
 
 	value, err := os.ReadFile(source)
@@ -37,10 +45,13 @@ func uploadFile(client *shopify.Client, themeID int64, source, destination strin
 		return fmt.Errorf("Failed to read file '%s': %s", source, err)
 	}
 
-	asset := shopify.Asset{
-		Key: destination,
-		Value: string(value),
-		ThemeID: themeID,
+	asset := shopify.Asset{Key: destination, ThemeID: themeID}
+
+	// Others? Maybe always b64 encode?
+	if strings.HasPrefix(http.DetectContentType(value), "image/") {
+		asset.Attachment = base64.StdEncoding.EncodeToString(value)
+	} else {
+		asset.Value = string(value)
 	}
 
 	_, err = client.Asset.Update(themeID, asset)
