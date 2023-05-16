@@ -1,3 +1,12 @@
+v0.0.4  2023-05-16
+--------------------
+- Add theme command to copy files to a theme
+- Add gql command to execute a GraphQL Admin API query
+- Add products command to output a shop's prodcuts
+- Update go-shopify
+- Always use latest stable version of GraphQL Admin API
+- Support access token lookup command in other commands
+
 v0.0.3  2022-04-01
 --------------------
 - Add support for deleting script tags
