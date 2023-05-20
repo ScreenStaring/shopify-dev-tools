@@ -47,8 +47,8 @@ func uploadFile(client *shopify.Client, themeID int64, source, destination strin
 
 	asset := shopify.Asset{Key: destination, ThemeID: themeID}
 
-	// Others? Maybe always b64 encode?
-	if strings.HasPrefix(http.DetectContentType(value), "image/") {
+	contentType := http.DetectContentType(value)
+	if strings.HasPrefix(contentType, "image") || strings.HasPrefix(contentType, "video") || contentType == "application/octet-stream" {
 		asset.Attachment = base64.StdEncoding.EncodeToString(value)
 	} else {
 		asset.Value = string(value)
