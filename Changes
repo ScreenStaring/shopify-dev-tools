@@ -1,7 +1,7 @@
 v0.0.4  2023-05-16
 --------------------
 - Add theme command to copy files to a theme
-- Add gql command to execute a GraphQL Admin API query
+- Add graphql command to execute a GraphQL Admin API query
 - Add products command to output a shop's prodcuts
 - Update go-shopify
 - Always use latest stable version of GraphQL Admin API
