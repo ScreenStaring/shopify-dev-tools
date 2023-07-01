@@ -141,6 +141,7 @@ func init() {
 			Name:    "fields",
 			Aliases: []string{"f"},
 			Usage:   "Comma separated list of fields to output",
+			EnvVars: []string{"SHOPIFY_PRODUCT_FIELDS"},
 		},
 		&cli.Int64Flag{
 			Name:    "limit",
