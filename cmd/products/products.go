@@ -103,8 +103,6 @@ func listProducts(c *cli.Context) error {
 		}
 
 	} else {
-		options.Limit = 10
-
 		if len(c.String("status")) > 0 {
 			options.Status = c.String("status")
 		}
@@ -147,6 +145,7 @@ func init() {
 		&cli.Int64Flag{
 			Name:    "limit",
 			Aliases: []string{"l"},
+			Value: 10,
 		},
 		&cli.StringFlag{
 			Name:    "status",
