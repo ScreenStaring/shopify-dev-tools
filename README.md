@@ -20,6 +20,7 @@ Windows, macOS/OS X, and GNU/Linux are supported.
 
     COMMANDS:
        admin, a                     Open admin pages
+       charges                      Do things with charges (only recurring for now)
        metafield, m, meta           Metafield utilities
        orders, o                    Information about orders
        products, p                  Do things with products
@@ -96,6 +97,10 @@ You can use the following environment variables to set credentials:
 - `SHOPIFY_API_PASSWORD`
 - `SHOPIFY_API_KEY`
 
+Other environment variables:
+
+- `SHOPIFY_PRODUCT_FIELDS` - default fields for the `products` command's `--fields` flag
+
 ### Commands
 
 #### Metafields
@@ -115,6 +120,21 @@ Metafield utilities
        storefront, sf              Storefront API utilities
        variant, var, v             List metafields for the given variant
        help, h                     Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
+
+#### Charges
+
+    NAME:
+       sdt charges - Do things with charges (only recurring for now)
+
+    USAGE:
+       sdt charges command [command options] [arguments...]
+
+    COMMANDS:
+       ls, l    List the shop's recurring charges or the recurring charges given by the specified IDs
+       help, h  Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)

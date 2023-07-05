@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/admin"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/charges"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/gql"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/metafields"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/orders"
@@ -26,6 +27,7 @@ func main() {
 		UseShortOptionHandling: true,
 		Commands: []*cli.Command{
 			&admin.Cmd,
+			&charges.Cmd,
 			&metafields.Cmd,
 			&orders.Cmd,
 			&products.Cmd,
