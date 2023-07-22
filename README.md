@@ -20,7 +20,7 @@ Windows, macOS/OS X, and GNU/Linux are supported.
 
     COMMANDS:
        admin, a                     Open admin pages
-       charges                      Do things with charges (only recurring for now)
+       charges, c, ch               Do things with charges
        metafield, m, meta           Metafield utilities
        orders, o                    Information about orders
        products, p                  Do things with products
@@ -135,8 +135,9 @@ Do things with charges (only recurring for now)
        sdt charges command [command options] [arguments...]
 
     COMMANDS:
-       ls, l    List the shop's recurring charges or the recurring charges given by the specified IDs
-       help, h  Shows a list of commands or help for one command
+       ls, l      List the shop's recurring charges or the recurring charges given by the specified IDs
+       create, c  Create a one-time charge (Application Charge)
+       help, h    Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
