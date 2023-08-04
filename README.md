@@ -126,17 +126,17 @@ Metafield utilities
 
 #### Charges
 
-Do things with charges (only recurring for now)
+Do things with charges
 
     NAME:
-       sdt charges - Do things with charges (only recurring for now)
+       sdt charges - Do things with charges
 
     USAGE:
        sdt charges command [command options] [arguments...]
 
     COMMANDS:
-       ls, l      List the shop's recurring charges or the recurring charges given by the specified IDs
-       create, c  Create a one-time charge (Application Charge)
+       ls, l      List the shop's charges or the charges given by the specified IDs
+       create, c  Create a one-time charge (application charge)
        help, h    Shows a list of commands or help for one command
 
     OPTIONS:
