@@ -170,7 +170,28 @@ func shopAction(c *cli.Context) error {
 	return nil
 }
 
-func storefrontAction(c *cli.Context) error {
+func variantAction(c *cli.Context) error {
+	if c.NArg() == 0 {
+		return errors.New("Variant id required")
+	}
+
+	id, err := strconv.ParseInt(c.Args().Get(0), 10, 64)
+	if err != nil {
+		return fmt.Errorf("Variant id '%s' invalid: must be an int", c.Args().Get(0))
+	}
+
+	options := contextToOptions(c)
+	metafields, err := cmd.NewShopifyClient(c).Variant.ListMetafields(id, options)
+	if err != nil {
+		return fmt.Errorf("Cannot list metafields for variant %d: %s", id, err)
+	}
+
+	printMetafields(metafields, options)
+
+	return nil
+}
+
+func storefrontListAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
 
@@ -197,23 +218,20 @@ func storefrontAction(c *cli.Context) error {
 	return nil
 }
 
-func variantAction(c *cli.Context) error {
-	if c.NArg() == 0 {
-		return errors.New("Variant id required")
+func storefrontEnableAction(c *cli.Context) error {
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	if(c.Args().Len() < 2) {
+		return fmt.Errorf("You must supply a key and owner")
 	}
 
-	id, err := strconv.ParseInt(c.Args().Get(0), 10, 64)
+	id, err := storefront.New(shop, token).Enable(c.Args().Get(0), c.Args().Get(1))
 	if err != nil {
-		return fmt.Errorf("Variant id '%s' invalid: must be an int", c.Args().Get(0))
+		return err
 	}
 
-	options := contextToOptions(c)
-	metafields, err := cmd.NewShopifyClient(c).Variant.ListMetafields(id, options)
-	if err != nil {
-		return fmt.Errorf("Cannot list metafields for variant %d: %s", id, err)
-	}
-
-	printMetafields(metafields, options)
+	fmt.Printf("Created %s \n", id)
 
 	return nil
 }
@@ -242,7 +260,6 @@ func init() {
 		},
 	}
 
-	// create!
 	Cmd = cli.Command{
 		Name:    "metafield",
 		Aliases: []string{"m", "meta"},
@@ -277,14 +294,17 @@ func init() {
 					{
 						Name:   "ls",
 						Flags:  append(cmd.Flags, metafieldFlags...),
-						Action: storefrontAction,
+						Usage: "List accessible metafields",
+						Action: storefrontListAction,
 					},
-					// {
-					// 	// --key, --namespace --owner
-					// 	Name: "create",
-					// 	Flags: append(cmd.Flags, metafieldFlags...),
-					// 	Action: storefrontAction,
-					// },
+					{
+						Name: "enable",
+						Aliases: []string{"e"},
+						Usage: "Make a metafield accessible",
+						ArgsUsage: "NAMESPACE.KEY OWNER",
+						Flags: cmd.Flags,
+						Action: storefrontEnableAction,
+					},
 				},
 			},
 			{
