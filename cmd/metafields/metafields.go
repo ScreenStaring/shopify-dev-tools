@@ -87,7 +87,7 @@ func printFormatted(metafields []shopify.Metafield, options metafieldOptions) {
 		// format JSON strings
 		// also check for string types that look like json: /\A\{"[^"]+":/ or /\A[/ and /\]\Z/
 		t.AddLine("Value", metafield.Value)
-		t.AddLine("Type", metafield.ValueType)
+		t.AddLine("Type", metafield.Type)
 		t.AddLine("Created", metafield.CreatedAt)
 		t.AddLine("Updated", metafield.UpdatedAt)
 		t.Print()
