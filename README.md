@@ -154,6 +154,7 @@ Information about orders
 
     COMMANDS:
        useragent, ua  Info about the web browser used to place the order
+       ls             List the shop's orders or the orders given by the specified IDs
        help, h        Shows a list of commands or help for one command
 
     OPTIONS:
