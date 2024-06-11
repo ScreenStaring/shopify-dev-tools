@@ -38,6 +38,10 @@ func ParseIntAt(c *cli.Context, pos int) (int64, error) {
 	return strconv.ParseInt(c.Args().Get(pos), 10, 64)
 }
 
+func PrintSeparator() {
+	fmt.Printf("%s\n", strings.Repeat("-", 20))
+}
+
 func LookupAccessToken(shop, token string) string {
 	match := accessTokenCommand.FindStringSubmatch(token)
 	if len(match) == 0 {
