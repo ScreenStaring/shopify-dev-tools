@@ -1,3 +1,12 @@
+v0.0.5  2024-10-09
+--------------------
+- Add orders ls command to list orders
+- Add charges command to list and create charges
+- Add command to enable Storefront API metafields
+- Add more content types for theme uploads
+- Add SHOPIFY_PRODUCT_FIELDS env variable for setting product fields
+- Fix metafields type display
+
 v0.0.4  2023-05-16
 --------------------
 - Add theme command to copy files to a theme
