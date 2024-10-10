@@ -1,6 +1,7 @@
 version: 2
 builds:
-  - env:
+  - binary: sdt
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
