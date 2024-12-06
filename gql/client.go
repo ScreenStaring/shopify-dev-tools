@@ -17,13 +17,18 @@ type Client struct {
 	token    string
 }
 
-const endpoint = "https://%s.myshopify.com/admin/api/graphql.json"
+// We omit the "/" after API for the case where there's no version.
+const endpoint = "https://%s.myshopify.com/admin/api%s/graphql.json"
 
-func NewClient(shop, token string) *Client {
+func NewClient(shop, token, version string) *Client {
+	if len(version) > 0 {
+		version = "/" + version
+	}
+
 	// allow for NAME.myshopify.com or just NAME
 	shop = strings.SplitN(shop, ".", 2)[0]
 
-	return &Client{endpoint: fmt.Sprintf(endpoint, shop), token: token}
+	return &Client{endpoint: fmt.Sprintf(endpoint, shop, version), token: token}
 }
 
 func (c *Client) Query(q string) (mxj.Map, error) {

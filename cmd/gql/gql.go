@@ -38,7 +38,7 @@ func findQuery(c *cli.Context) (string, error) {
 
 func queryAction(c *cli.Context) error {
 	shop := c.String("shop")
-	client := gql.NewClient(shop, cmd.LookupAccessToken(shop, c.String("access-token")))
+	client := gql.NewClient(shop, cmd.LookupAccessToken(shop, c.String("access-token")), c.String("api-version"))
 
 	query, err := findQuery(c)
 	if err != nil {
@@ -59,13 +59,21 @@ func queryAction(c *cli.Context) error {
 }
 
 func init() {
+	flags := []cli.Flag{
+		&cli.StringFlag{
+			Name:    "api-version",
+			Aliases: []string{"a"},
+			Usage:   "API version to use; default is a versionless call",
+		},
+	}
+
 	Cmd = cli.Command{
 		Name:        "graphql",
 		Aliases:     []string{"gql"},
 		ArgsUsage:   "[query-file.graphql]",
 		Usage:       "Run a GraphQL query against the Admin API",
 		Description: "If query-file.graphql is not given query is read from stdin",
-		Flags:       cmd.Flags,
+		Flags:       append(cmd.Flags, flags...),
 		Action:      queryAction,
 	}
 }

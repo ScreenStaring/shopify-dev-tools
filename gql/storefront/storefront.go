@@ -54,7 +54,7 @@ const enableMutation = `
 `
 
 func New(shop, token string) *Storefront {
-	client := gql.NewClient(shop, token)
+	client := gql.NewClient(shop, token, "")
 	return &Storefront{client}
 }
 
