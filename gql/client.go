@@ -20,6 +20,9 @@ type Client struct {
 const endpoint = "https://%s.myshopify.com/admin/api/graphql.json"
 
 func NewClient(shop, token string) *Client {
+	// allow for NAME.myshopify.com or just NAME
+	shop = strings.SplitN(shop, ".", 2)[0]
+
 	return &Client{endpoint: fmt.Sprintf(endpoint, shop), token: token}
 }
 
