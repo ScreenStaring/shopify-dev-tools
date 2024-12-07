@@ -191,12 +191,13 @@ Run a GraphQL query against the Admin API
        If query-file.graphql is not given query is read from stdin
 
     OPTIONS:
-       --verbose             Output Shopify API request/response (default: false)
-       --shop value          Shopify domain or shop name to perform command against [$SHOPIFY_SHOP]
-       --api-password value  Shopify API password [$SHOPIFY_API_PASSWORD]
-       --access-token value  Shopify access token for shop [$SHOPIFY_ACCESS_TOKEN, $SHOPIFY_API_TOKEN]
-       --api-key value       Shopify API key to for shop [$SHOPIFY_API_KEY]
-       --help, -h            show help (default: false)
+       --verbose                      Output Shopify API request/response (default: false)
+       --shop value                   Shopify domain or shop name to perform command against [$SHOPIFY_SHOP]
+       --api-password value           Shopify API password [$SHOPIFY_API_PASSWORD]
+       --access-token value           Shopify access token for shop [$SHOPIFY_ACCESS_TOKEN, $SHOPIFY_API_TOKEN]
+       --api-key value                Shopify API key to for shop [$SHOPIFY_API_KEY]
+       --api-version value, -a value  API version to use; default is a versionless call
+       --help, -h                     show help (default: false)
 
 #### ScriptTags
 
