@@ -16,6 +16,7 @@ var Cmd cli.Command
 type listOrdersOptions struct {
 	Ids []int64 `url:"ids,comma,omitempty"`
 	CreatedAtMin time.Time `url:"created_at_min,omitempty"`
+	Status string `url:"status,omitempty"`
 }
 
 func userAgentAction(c *cli.Context) error {
@@ -48,8 +49,7 @@ func userAgentAction(c *cli.Context) error {
 }
 
 func listAction(c *cli.Context) error {
-	var options listOrdersOptions
-
+	options := listOrdersOptions{Status: "open"}
 
 	if c.NArg() > 0 {
 		for i := 0; i < c.NArg(); i++ {
@@ -61,6 +61,10 @@ func listAction(c *cli.Context) error {
 			options.Ids = append(options.Ids, id)
 		}
 
+	}
+
+	if len(c.String("status")) > 0 {
+		options.Status = c.String("status")
 	}
 
 	orders, err := cmd.NewShopifyClient(c).Order.List(options)
@@ -139,10 +143,19 @@ func printLineItems(lines []shopify.LineItem) {
 }
 
 func init() {
+	ordersFlags := []cli.Flag{
+		&cli.StringFlag{
+			Name:    "status",
+			Aliases: []string{"s"},
+			Usage:   "Orders status to filter, defaults to 'open'",
+		},
+	}
+
 	Cmd = cli.Command{
 		Name:  "orders",
 		Aliases: []string{"o"},
 		Usage:   "Information about orders",
+
 		Subcommands: []*cli.Command{
 			{
 				Name: "useragent",
@@ -154,7 +167,7 @@ func init() {
 			{
 				Name: "ls",
 				Usage:   "List the shop's orders or the orders given by the specified IDs",
-				Flags: cmd.Flags,
+				Flags: append(cmd.Flags, ordersFlags...),
 				Action: listAction,
 			},
 		},
