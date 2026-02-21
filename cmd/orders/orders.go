@@ -2,9 +2,7 @@ package orders
 
 import (
 	"fmt"
-	"time"
 
-	shopify "github.com/bold-commerce/go-shopify/v3"
 	"github.com/urfave/cli/v2"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
 	"github.com/cheynewallace/tabby"
@@ -12,12 +10,6 @@ import (
 
 var Cmd cli.Command
 
-// TODO: implement
-type listOrdersOptions struct {
-	Ids []int64 `url:"ids,comma,omitempty"`
-	CreatedAtMin time.Time `url:"created_at_min,omitempty"`
-	Status string `url:"status,omitempty"`
-}
 
 func userAgentAction(c *cli.Context) error {
 	if(c.Args().Len() == 0) {
@@ -49,36 +41,33 @@ func userAgentAction(c *cli.Context) error {
 }
 
 func listAction(c *cli.Context) error {
-	options := listOrdersOptions{Status: "open"}
+	var ids []int64
 
-	if c.NArg() > 0 {
-		for i := 0; i < c.NArg(); i++ {
-			id, err := cmd.ParseIntAt(c, i)
-			if err != nil {
-				return fmt.Errorf("Order id '%s' invalid: must be an int", c.Args().Get(i))
-			}
-
-			options.Ids = append(options.Ids, id)
+	for i := 0; i < c.NArg(); i++ {
+		id, err := cmd.ParseIntAt(c, i)
+		if err != nil {
+			return fmt.Errorf("Order id '%s' invalid: must be an int", c.Args().Get(i))
 		}
-
+		ids = append(ids, id)
 	}
 
+	status := "open"
 	if len(c.String("status")) > 0 {
-		options.Status = c.String("status")
+		status = c.String("status")
 	}
 
-	orders, err := cmd.NewShopifyClient(c).Order.List(options)
+	shop := c.String("shop")
+	orders, err := listOrders(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, status, c.Int("limit"))
 	if err != nil {
-		return fmt.Errorf("Cannot list orders: %s", err)
+		return err
 	}
-
 
 	printOrders(orders)
 
 	return nil
 }
 
-func printOrders(orders []shopify.Order) {
+func printOrders(orders []Order) {
 	t := tabby.New()
 	for _, order := range orders {
 		t.AddLine("Id", order.ID)
@@ -87,11 +76,13 @@ func printOrders(orders []shopify.Order) {
 		t.AddLine("Updated At", order.UpdatedAt)
 		t.AddLine("Canceled At", order.CancelledAt)
 		t.AddLine("Closed At", order.ClosedAt)
-		t.AddLine("Order Status URL", order.OrderStatusUrl)
+		t.AddLine("Financial Status", order.DisplayFinancialStatus)
+		t.AddLine("Fulfillment Status", order.DisplayFulfillmentStatus)
+
 
 		note := order.Note
-		if len(note) > 0 {
-			note = "\"" + note + "\""
+		if len(order.Note) > 0 {
+			note = fmt.Sprintf("%q", order.Note)
 		}
 
 		t.AddLine("Note", note)
@@ -123,7 +114,7 @@ func truncate(val string) string {
 	return cut
 }
 
-func printLineItems(lines []shopify.LineItem) {
+func printLineItems(lines []LineItem) {
 	x := tabby.New()
 	x.AddHeader("ID", "Product ID", "Variant ID", "SKU", "Title", "Quantity", "Status")
 
@@ -147,7 +138,13 @@ func init() {
 		&cli.StringFlag{
 			Name:    "status",
 			Aliases: []string{"s"},
-			Usage:   "Orders status to filter, defaults to 'open'",
+			Usage:   "GraphQL Admin API orders status to filter, defaults to 'open'",
+		},
+		&cli.IntFlag{
+			Name:    "limit",
+			Aliases: []string{"l"},
+			Usage:   "Maximum number of orders to return, must be <= 250",
+			Value:   10,
 		},
 	}
 
