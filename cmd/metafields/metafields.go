@@ -222,7 +222,7 @@ func storefrontEnableAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
 
-	if(c.Args().Len() < 2) {
+	if c.Args().Len() < 2 {
 		return fmt.Errorf("You must supply a key and owner")
 	}
 
@@ -232,6 +232,57 @@ func storefrontEnableAction(c *cli.Context) error {
 	}
 
 	fmt.Printf("Created %s \n", id)
+
+	return nil
+}
+
+func parseMetafieldArg(arg string) (metafieldInput, error) {
+	parts := strings.SplitN(arg, "@", 2)
+	if len(parts) != 2 {
+		return metafieldInput{}, fmt.Errorf("invalid metafield argument %q: must be in GID@namespace.key format", arg)
+	}
+
+	nk := strings.SplitN(parts[1], ".", 2)
+	if len(nk) != 2 {
+		return metafieldInput{}, fmt.Errorf("invalid metafield argument %q: namespace.key portion must contain a dot", arg)
+	}
+
+	return metafieldInput{OwnerID: parts[0], Namespace: nk[0], Key: nk[1]}, nil
+}
+
+func deleteAction(c *cli.Context) error {
+	if c.NArg() == 0 {
+		return errors.New("One or more metafield GIDs required")
+	}
+
+	var inputs []metafieldInput
+	for _, arg := range c.Args().Slice() {
+		mf, err := parseMetafieldArg(arg)
+		if err != nil {
+			return err
+		}
+		inputs = append(inputs, mf)
+	}
+
+	shop := c.String("shop")
+	deleted, err := deleteMetafields(shop, cmd.LookupAccessToken(shop, c.String("access-token")), inputs)
+	if err != nil {
+		return err
+	}
+
+	t := tabby.New()
+	for _, mf := range deleted {
+		t.AddLine("Gid", mf.OwnerID)
+		t.AddLine("Key", mf.Key)
+		t.AddLine("Namespace", mf.Namespace)
+		if mf.Error != "" {
+			t.AddLine("Result", mf.Error)
+		} else {
+			t.AddLine("Result", "Deleted")
+		}
+		t.Print()
+		fmt.Printf("%s\n", strings.Repeat("-", 20))
+	}
 
 	return nil
 }
@@ -266,6 +317,14 @@ func init() {
 		Usage:   "Metafield utilities",
 		Subcommands: []*cli.Command{
 			{
+				Name:      "delete",
+				Aliases:   []string{"d"},
+				ArgsUsage: "GID@namespace.key [GID@namespace.key ...]",
+				Flags:     cmd.Flags,
+				Action:    deleteAction,
+				Usage:     "Delete one or more metafields",
+			},
+			{
 				Name:    "customer",
 				Flags:   append(cmd.Flags, metafieldFlags...),
 				Aliases: []string{"c"},
@@ -294,16 +353,16 @@ func init() {
 					{
 						Name:   "ls",
 						Flags:  append(cmd.Flags, metafieldFlags...),
-						Usage: "List accessible metafields",
+						Usage:  "List accessible metafields",
 						Action: storefrontListAction,
 					},
 					{
-						Name: "enable",
-						Aliases: []string{"e"},
-						Usage: "Make a metafield accessible",
+						Name:      "enable",
+						Aliases:   []string{"e"},
+						Usage:     "Make a metafield accessible",
 						ArgsUsage: "NAMESPACE.KEY OWNER",
-						Flags: cmd.Flags,
-						Action: storefrontEnableAction,
+						Flags:     cmd.Flags,
+						Action:    storefrontEnableAction,
 					},
 				},
 			},

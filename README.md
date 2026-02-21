@@ -114,6 +114,7 @@ Metafield utilities
        sdt metafield command [command options] [arguments...]
 
     COMMANDS:
+       delete, d                   Delete one or more metafields
        customer, c                 List metafields for the given customer
        product, products, prod, p  List metafields for the given product
        shop, s                     List metafields for the given shop

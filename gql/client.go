@@ -73,7 +73,37 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 		return result, fmt.Errorf("Failed to unmarshal GraphQL response body: %s", err)
 	}
 
+	if err := responseErrors(result); err != nil {
+		return result, err
+	}
+
 	return result, nil
+}
+
+func responseErrors(result mxj.Map) error {
+	errors, _ := result.ValuesForPath("errors")
+	if len(errors) == 0 {
+		return nil
+	}
+
+	var messages []string
+	for _, e := range errors {
+		eMap := e.(map[string]interface{})
+		message := fmt.Sprint(eMap["message"])
+
+		if path, ok := eMap["path"]; ok {
+			items := path.([]interface{})
+			parts := make([]string, len(items))
+			for i, p := range items {
+				parts[i] = fmt.Sprint(p)
+			}
+			message += fmt.Sprintf(" at %s", strings.Join(parts, "."))
+		}
+
+		messages = append(messages, message)
+	}
+
+	return fmt.Errorf("%s", strings.Join(messages, ", "))
 }
 
 func (c *Client) createRequestBody(query string, variables map[string]interface{}) (string, error) {
