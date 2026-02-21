@@ -1,3 +1,10 @@
+v0.0.6  2025-08-24
+--------------------
+- Add GraphQL command option to specify an API version
+- Add orders command option to specify a status
+- Support full Shopify domain as argument to GraphQL client
+- Fix order listing bug
+
 v0.0.5  2024-10-09
 --------------------
 - Add orders ls command to list orders
