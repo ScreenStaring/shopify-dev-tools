@@ -1,3 +1,8 @@
+v0.0.7  2026-02-21
+--------------------
+- Add command to delete metafields
+- Fix orders ls command issues and move from REST to GraphQL API
+
 v0.0.6  2025-08-24
 --------------------
 - Add GraphQL command option to specify an API version
