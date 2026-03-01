@@ -4,56 +4,42 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"strconv"
-	"strings"
 
 	"github.com/urfave/cli/v2"
-	shopify "github.com/bold-commerce/go-shopify/v3"
 	"github.com/cheynewallace/tabby"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
 )
-
-type webhookOptions struct {
-	// sort..
-	JSONL bool
-}
-
-type listWebhookOptions struct {
-	Topic string `url:"topic"`
-}
 
 var Cmd cli.Command
 var webhookName = regexp.MustCompile(`(?i)\A[_a-zA-Z]+/[_a-zA-Z]+\z`)
 
 func format(c *cli.Context) string {
 	if c.Bool("xml") {
-		return "xml"
+		return "XML"
 	}
 
-	return "json"
+	return "JSON"
 }
 
-func printFormatted(webhooks []shopify.Webhook)  {
+func printFormatted(webhooks []Webhook)  {
 	t := tabby.New()
 	for _, webhook := range webhooks {
 		t.AddLine("Id", webhook.ID)
-		t.AddLine("Address", webhook.Address)
+		t.AddLine("Address", webhook.Endpoint)
 		t.AddLine("Topic", webhook.Topic)
 		t.AddLine("Fields", webhook.Fields)
-		// Not in shopify-go:
-		//t.AddLine("api version", webhook.APIVersion)
-		// ---
-		// webhook.MetafieldNamespaces
+		t.AddLine("Metafield Namespaces", webhook.MetafieldNamespaces)
+		t.AddLine("API Version", webhook.ApiVersion)
 		t.AddLine("Created", webhook.CreatedAt)
 		t.AddLine("Updated", webhook.UpdatedAt)
 		t.Print()
 
-		fmt.Printf("%s\n", strings.Repeat("-", 20))
+		cmd.PrintSeparator()
 	}
 }
 
-func printJSONL(webhooks []shopify.Webhook)  {
+func printJSONL(webhooks []Webhook)  {
 	for _, webhook := range webhooks {
 		line, err := json.Marshal(webhook)
 		if err != nil {
@@ -64,108 +50,72 @@ func printJSONL(webhooks []shopify.Webhook)  {
 	}
 }
 
-func findAllWebhooks(client *shopify.Client) ([]int64, error) {
-	var hookIDs []int64
-
-	// FIXME: pagination
-	webhooks, err := client.Webhook.List(nil)
-	if err != nil {
-		return []int64{}, fmt.Errorf("Cannot list webhooks: %s", err)
-	}
-
-	for _, webhook := range webhooks {
-		hookIDs = append(hookIDs, webhook.ID)
-	}
-
-	return hookIDs, nil
-}
-
-func findGivenWebhooks(client *shopify.Client, wanted []string) ([]int64, error) {
-	var hookIDs []int64
-
-	for _, arg := range wanted {
-		if webhookName.MatchString(arg) {
-			options := listWebhookOptions{Topic: arg}
-			webhooks, err := client.Webhook.List(options)
-			if err != nil {
-				return []int64{}, fmt.Errorf("Cannot list webhooks for topic %s: %s", options.Topic, err)
-			}
-
-			for _, webhook := range webhooks {
-				hookIDs = append(hookIDs, webhook.ID)
-			}
-		} else {
-			id, err := strconv.ParseInt(arg, 10, 64)
-			if err != nil {
-				return []int64{}, fmt.Errorf("Webhook id '%s' is invalid: must be an int", arg)
-			}
-
-			hookIDs = append(hookIDs, id)
-		}
-	}
-
-	return hookIDs, nil
-}
-
 func createAction(c *cli.Context) error {
-	options := shopify.Webhook{
-		Address: c.String("address"),
-		Topic: c.String("topic"),
-		Fields: c.StringSlice("fields"),
-		Format: format(c),
-		// Not supported bu bold!
-		//ApiVersion: c.String("api-version"),
-	}
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
 
-	hook, err := cmd.NewShopifyClient(c).Webhook.Create(options)
-	if err != nil {
-		return fmt.Errorf("Cannot create webhook: %s", err)
-	}
-
-	fmt.Printf("Webhook created: %d\n", hook.ID)
-	return nil
-}
-
-func deleteAction(c *cli.Context) error {
-	var err error
-	var hookIDs []int64
-
-	client := cmd.NewShopifyClient(c)
-
-	if(c.Bool("all")) {
-		hookIDs, err = findAllWebhooks(client)
-	} else {
-		if(c.Args().Len() == 0) {
-			return fmt.Errorf("You must supply a webhook id or topic")
-		}
-
-		hookIDs, err = findGivenWebhooks(client, c.Args().Slice())
-	}
-
+	id, err := createWebhook(shop, token, c.String("topic"), c.String("address"), format(c), c.StringSlice("fields"))
 	if err != nil {
 		return err
 	}
 
-	if len(hookIDs) == 0 {
-		return fmt.Errorf("No webhooks found")
-	}
+	fmt.Printf("Webhook created: %s\n", id)
+	return nil
+}
 
-	for _, id := range hookIDs {
-		err = client.Webhook.Delete(id)
+func deleteAction(c *cli.Context) error {
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	var webhooks []Webhook
+
+	if c.Bool("all") {
+		var err error
+		webhooks, err = listWebhooks(shop, token, nil)
 		if err != nil {
-			return fmt.Errorf("Cannot delete webhook %d: %s", id, err)
+			return err
+		}
+	} else {
+		if c.Args().Len() == 0 {
+			return fmt.Errorf("You must supply a webhook id or topic")
+		}
+
+		for _, arg := range c.Args().Slice() {
+			if webhookName.MatchString(arg) {
+				found, err := listWebhooks(shop, token, []string{arg})
+				if err != nil {
+					return fmt.Errorf("Cannot list webhooks for topic %s: %s", arg, err)
+				}
+				webhooks = append(webhooks, found...)
+			} else {
+				webhooks = append(webhooks, Webhook{GID: webhookGID(arg)})
+			}
 		}
 	}
 
-	fmt.Printf("%d webhook(s) deleted\n", len(hookIDs))
+	if len(webhooks) == 0 {
+		return fmt.Errorf("No webhooks found")
+	}
+
+	for _, w := range webhooks {
+		err := deleteWebhook(shop, token, w.GID)
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Printf("%d webhook(s) deleted\n", len(webhooks))
 
 	return nil
 }
 
 func listAction(c *cli.Context) error {
-	hooks, err := cmd.NewShopifyClient(c).Webhook.List(nil)
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	hooks, err := listWebhooks(shop, token, nil)
 	if err != nil {
-		return fmt.Errorf("Cannot list webhooks: %s", err)
+		return err
 	}
 
 	if c.Bool("jsonl") {
@@ -174,33 +124,6 @@ func listAction(c *cli.Context) error {
 		printFormatted(hooks)
 	}
 
-	return nil
-}
-
-func updateAction(c *cli.Context) error {
-	if(c.Args().Len() == 0) {
-		return fmt.Errorf("You must supply a webhook id to update")
-	}
-
-	id, err := strconv.ParseInt(c.Args().Get(0), 10, 64)
-	if err != nil {
-		return fmt.Errorf("Webhook id '%s' is invalid: must be an int", c.Args().Get(0))
-	}
-
-	options := shopify.Webhook{
-		ID: id,
-		Address: c.String("address"),
-		Topic: c.String("topic"),
-		Fields: c.StringSlice("fields"),
-		Format: format(c),
-	}
-
-	_, err = cmd.NewShopifyClient(c).Webhook.Update(options)
-	if err != nil {
-		return fmt.Errorf("Cannot update webhook: %s", err)
-	}
-
-	fmt.Println("Webhook updated")
 	return nil
 }
 
@@ -266,14 +189,6 @@ func init() {
 				Action: listAction,
 				Usage: "List the shop's webhooks",
 			},
-			// {
-			// 	Name: "update",
-			// 	Aliases: []string{"u"},
-			// 	// No! FLags here are optional!
-			// 	Flags: append(cmd.Flags, createFlags...),
-			// 	Action: updateAction,
-			// 	Usage: "Update the given webhook",
-			// },
 		},
 	}
 }
