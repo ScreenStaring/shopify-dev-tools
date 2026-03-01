@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/urfave/cli/v2"
 	"github.com/cheynewallace/tabby"
@@ -50,11 +51,24 @@ func printJSONL(webhooks []Webhook)  {
 	}
 }
 
+func splitFields(raw []string) []string {
+	var fields []string
+	for _, f := range raw {
+		for _, part := range strings.Split(f, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				fields = append(fields, part)
+			}
+		}
+	}
+	return fields
+}
+
 func createAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
 
-	id, err := createWebhook(shop, token, c.String("topic"), c.String("address"), format(c), c.StringSlice("fields"))
+	id, err := createWebhook(shop, token, c.String("topic"), c.String("address"), format(c), splitFields(c.StringSlice("fields")))
 	if err != nil {
 		return err
 	}
