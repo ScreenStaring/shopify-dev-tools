@@ -68,6 +68,21 @@ mutation webhookSubscriptionDelete($id: ID!) {
 }
 `
 
+const webhookSubscriptionUpdateMutation = `
+mutation webhookSubscriptionUpdate($id: ID!, $webhookSubscription: WebhookSubscriptionInput!) {
+  webhookSubscriptionUpdate(id: $id, webhookSubscription: $webhookSubscription) {
+    webhookSubscription {
+      id
+      legacyResourceId
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+`
+
 type Webhook struct {
 	ID         int64    `json:"id"`
 	GID        string   `json:"-"`
@@ -219,6 +234,26 @@ func createWebhook(shop, token, topic, address, format string, fields []string) 
 	}
 
 	return fmt.Sprint(id), nil
+}
+
+func updateWebhook(shop, token, gid string, input map[string]interface{}) error {
+	client := gql.NewClient(shop, token, "")
+
+	data, err := client.Mutation(webhookSubscriptionUpdateMutation, map[string]interface{}{
+		"id":                  gid,
+		"webhookSubscription": input,
+	})
+	if err != nil {
+		return fmt.Errorf("Cannot update webhook: %s", err)
+	}
+
+	userErrors, _ := data.ValuesForPath("data.webhookSubscriptionUpdate.userErrors")
+	if len(userErrors) > 0 {
+		ueMap := userErrors[0].(map[string]interface{})
+		return fmt.Errorf("Cannot update webhook: %s", ueMap["message"])
+	}
+
+	return nil
 }
 
 func deleteWebhook(shop, token, gid string) error {

@@ -123,6 +123,39 @@ func deleteAction(c *cli.Context) error {
 	return nil
 }
 
+func updateAction(c *cli.Context) error {
+	if c.Args().Len() == 0 {
+		return fmt.Errorf("You must supply a webhook id to update")
+	}
+
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	gid := webhookGID(c.Args().Get(0))
+
+	input := map[string]interface{}{}
+	if c.IsSet("address") {
+		input["callbackUrl"] = c.String("address")
+	}
+	if c.IsSet("topic") {
+		input["topic"] = topicToEnum(c.String("topic"))
+	}
+	if c.IsSet("fields") {
+		input["includeFields"] = splitFields(c.StringSlice("fields"))
+	}
+
+	if len(input) == 0 {
+		return fmt.Errorf("You must supply at least one option to update")
+	}
+
+	err := updateWebhook(shop, token, gid, input)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Webhook updated")
+	return nil
+}
+
 func listAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
@@ -163,6 +196,21 @@ func init() {
 		},
 	}
 
+	updateFlags := []cli.Flag{
+		&cli.StringFlag{
+			Name: "address",
+			Aliases: []string{"a"},
+		},
+		&cli.StringSliceFlag{
+			Name: "fields",
+			Aliases: []string{"f"},
+		},
+		&cli.StringFlag{
+			Name: "topic",
+			Aliases: []string{"t"},
+		},
+	}
+
 	deleteFlags := []cli.Flag{
 		&cli.BoolFlag{
 			Name: "all",
@@ -196,6 +244,14 @@ func init() {
 				Flags: append(cmd.Flags, deleteFlags...),
 				Action: deleteAction,
 				Usage: "Delete the given webhook",
+			},
+			{
+				Name: "update",
+				ArgsUsage: "[webhook ID]",
+				Aliases: []string{"u"},
+				Flags: append(cmd.Flags, updateFlags...),
+				Action: updateAction,
+				Usage: "Update the given webhook",
 			},
 			{
 				Name: "ls",
