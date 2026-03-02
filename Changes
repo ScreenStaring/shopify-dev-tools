@@ -1,3 +1,10 @@
+v0.0.8  2026-03-02
+--------------------
+- Use GraphQL for all webhooks commands. This changes how the ls command displays the webhook topic
+- Add command to update webhooks
+- Fix sdt exit status on failure
+- Fix webhook create's -f option
+
 v0.0.7  2026-02-21
 --------------------
 - Add command to delete metafields
