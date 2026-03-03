@@ -2,14 +2,11 @@ package products
 
 import (
 	"encoding/json"
-
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
-	shopify "github.com/bold-commerce/go-shopify/v3"
 	"github.com/cheynewallace/tabby"
 	"github.com/urfave/cli/v2"
 
@@ -18,23 +15,7 @@ import (
 
 var Cmd cli.Command
 
-// func createProducts(c *cli.Context) error {
-// 	if c.NArg() == 0 {
-// 		return errors.New("CSV required")
-// 	}
-
-// 	return nil
-// }
-
-type listProductOptions struct {
-	Fields       []string  `url:"fields,comma,omitempty"`
-	Ids          []int64   `url:"ids,comma,omitempty"`
-	Limit        int64     `url:"limit,omitempty"`
-	Status       string    `url:"status,omitempty"`
-	UpdatedAtMin time.Time `url:"updated_at_min,omitempty"`
-}
-
-func printJSONL(products []shopify.Product) {
+func printJSONL(products []Product) {
 	for _, product := range products {
 		line, err := json.Marshal(product)
 		if err != nil {
@@ -43,6 +24,22 @@ func printJSONL(products []shopify.Product) {
 
 		fmt.Println(string(line))
 	}
+}
+
+func displayFieldName(name string) string {
+	var result strings.Builder
+	for i, r := range name {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			prev := name[i-1]
+			if prev >= 'a' && prev <= 'z' {
+				result.WriteByte(' ')
+			} else if prev >= 'A' && prev <= 'Z' && i+1 < len(name) && name[i+1] >= 'a' && name[i+1] <= 'z' {
+				result.WriteByte(' ')
+			}
+		}
+		result.WriteRune(r)
+	}
+	return result.String()
 }
 
 func normalizeField(name string) string {
@@ -59,7 +56,29 @@ func isFieldToPrint(field string, selectedFields []string) bool {
 	return false
 }
 
-func printFormatted(products []shopify.Product, fieldsToPrint []string) {
+func printOptions(options []ProductOption) {
+	t := tabby.New()
+	t.AddHeader("Name", "Values")
+
+	for _, opt := range options {
+		t.AddLine(opt.Name, strings.Join(opt.Values, ", "))
+	}
+
+	t.Print()
+}
+
+func printVariants(variants []Variant) {
+	t := tabby.New()
+	t.AddHeader("ID", "Title", "SKU", "Barcode", "Price", "Compare At Price", "Inventory")
+
+	for _, v := range variants {
+		t.AddLine(v.ID, v.Title, v.SKU, v.Barcode, v.Price, v.CompareAtPrice, v.InventoryQuantity)
+	}
+
+	t.Print()
+}
+
+func printFormatted(products []Product, fieldsToPrint []string) {
 	t := tabby.New()
 	normalizedFieldsToPrint := []string{}
 
@@ -73,58 +92,68 @@ func printFormatted(products []shopify.Product, fieldsToPrint []string) {
 		for i := 0; i < s.NumField(); i++ {
 			field := s.Type().Field(i).Name
 			normalizedField := normalizeField(field)
+			label := displayFieldName(field)
+
+			if normalizedField == "options" || normalizedField == "variants" {
+				continue
+			}
 
 			if len(fieldsToPrint) > 0 {
 				if isFieldToPrint(normalizedField, normalizedFieldsToPrint) {
-					t.AddLine(field, s.Field(i).Interface())
+					t.AddLine(label, s.Field(i).Interface())
 				}
 			} else {
-				t.AddLine(field, s.Field(i).Interface())
+				t.AddLine(label, s.Field(i).Interface())
 			}
 		}
 
 		t.Print()
-		fmt.Printf("%s\n", strings.Repeat("-", 20))
+
+		showAll := len(fieldsToPrint) == 0
+
+		if showAll || isFieldToPrint("options", normalizedFieldsToPrint) {
+			fmt.Println("Options")
+			printOptions(product.Options)
+			fmt.Print("\n")
+		}
+
+		if showAll || isFieldToPrint("variants", normalizedFieldsToPrint) {
+			fmt.Println("Variants")
+			printVariants(product.Variants)
+			fmt.Print("\n")
+		}
+
+		cmd.PrintSeparator()
 	}
 }
 
 func listProducts(c *cli.Context) error {
-	var products []shopify.Product
-	var options listProductOptions
+	var ids []int64
+	var fields []string
 
-	if c.NArg() > 0 {
-		for i := 0; i < c.NArg(); i++ {
-			id, err := strconv.ParseInt(c.Args().Get(i), 10, 64)
-			if err != nil {
-				return fmt.Errorf("Product id '%s' invalid: must be an int", c.Args().Get(0))
-			}
-
-			options.Ids = append(options.Ids, id)
+	for i := 0; i < c.NArg(); i++ {
+		id, err := strconv.ParseInt(c.Args().Get(i), 10, 64)
+		if err != nil {
+			return fmt.Errorf("Product id '%s' invalid: must be an int", c.Args().Get(0))
 		}
 
-	} else {
-		if len(c.String("status")) > 0 {
-			options.Status = c.String("status")
-		}
-
-		if c.Int64("limit") > 0 {
-			options.Limit = c.Int64("limit")
-		}
+		ids = append(ids, id)
 	}
 
 	if len(c.String("fields")) > 0 {
-		options.Fields = strings.Split(c.String("fields"), ",")
+		fields = strings.Split(c.String("fields"), ",")
 	}
 
-	products, err := cmd.NewShopifyClient(c).Product.List(options)
+	shop := c.String("shop")
+	products, err := fetchProducts(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, c.String("status"), int(c.Int64("limit")))
 	if err != nil {
-		return fmt.Errorf("Cannot list products: %s", err)
+		return err
 	}
 
 	if c.Bool("jsonl") {
 		printJSONL(products)
 	} else {
-		printFormatted(products, options.Fields)
+		printFormatted(products, fields)
 	}
 
 	return nil
