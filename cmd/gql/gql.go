@@ -1,13 +1,16 @@
 package gql
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
 	"github.com/ScreenStaring/shopify-dev-tools/gql"
+	"github.com/clbanning/mxj"
 	"github.com/urfave/cli/v2"
 )
 
@@ -36,6 +39,23 @@ func findQuery(c *cli.Context) (string, error) {
 	return string(query), nil
 }
 
+func parseVariables(args []string) (map[string]interface{}, error) {
+	variables := map[string]interface{}{}
+	for _, v := range args {
+		parts := strings.SplitN(v, "=", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("Invalid variable format %q, must be name=value", v)
+		}
+		// Typecast to match type in query
+		var parsed interface{}
+		if err := json.Unmarshal([]byte(parts[1]), &parsed); err != nil {
+			parsed = parts[1]
+		}
+		variables[parts[0]] = parsed
+	}
+	return variables, nil
+}
+
 func queryAction(c *cli.Context) error {
 	shop := c.String("shop")
 	client := gql.NewClient(shop, cmd.LookupAccessToken(shop, c.String("access-token")), c.String("api-version"))
@@ -45,7 +65,17 @@ func queryAction(c *cli.Context) error {
 		return err
 	}
 
-	result, err := client.Query(query)
+	variables, err := parseVariables(c.StringSlice("variable"))
+	if err != nil {
+		return err
+	}
+
+	var result mxj.Map
+	if strings.HasPrefix(strings.TrimSpace(query), "mutation") {
+		result, err = client.Mutation(query, variables)
+	} else {
+		result, err = client.Query(query, variables)
+	}
 	if err != nil {
 		return err
 	}
@@ -64,6 +94,11 @@ func init() {
 			Name:    "api-version",
 			Aliases: []string{"a"},
 			Usage:   "API version to use; default is a versionless call",
+		},
+		&cli.StringSliceFlag{
+			Name:    "variable",
+			Aliases: []string{"v"},
+			Usage:   "GraphQL variable in the format name=value; can be specified multiple times",
 		},
 	}
 
