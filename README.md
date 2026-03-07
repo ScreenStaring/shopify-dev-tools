@@ -35,11 +35,11 @@ Windows, macOS/OS X, and GNU/Linux are supported.
        --help, -h     show help (default: false)
        --version, -v  print the version (default: false)
 
-### Credentials
+## Credentials
 
 You'll need access to the Shopify store you want to execute commands against. Also see [Environment Variables](#environment-variables).
 
-#### Access Token
+### Access Token
 
 If the store has your app installed you can use the credentials generated when the shop installed your app:
 ```
@@ -49,7 +49,7 @@ sdt COMMAND --shop shopname --access-token value
 In this scenario you will likely need to execute the command against many shops, and having to lookup the token every
 time you need it can become annoying. To simplify this process you can [specify an Access Token Command](#access-token-command).
 
-#### Key & Password
+### Key & Password
 
 If you have access to the store via the Shopify Admin you can authenticate by
 [generating private app API credentials](https://shopify.dev/tutorials/generate-api-credentials). Once obtained they can be specified as follows:
@@ -57,7 +57,7 @@ If you have access to the store via the Shopify Admin you can authenticate by
 sdt COMMAND --shop shopname --api-key thekey --api-password thepassword
 ```
 
-#### Access Token Command
+### Access Token Command
 
 Instead of specifying an access token per store you can provide a custom command that can lookup the token for the given `shop`.
 For example:
@@ -88,7 +88,7 @@ export SHOPIFY_ACCESS_TOKEN='<shopify-access-token.sh'
 sdt COMMAND --shop shopname
 ```
 
-#### Environment Variables
+### Environment Variables
 
 You can use the following environment variables to set credentials:
 
@@ -101,9 +101,9 @@ Other environment variables:
 
 - `SHOPIFY_PRODUCT_FIELDS` - default fields for the `products` command's `--fields` flag
 
-### Commands
+## Commands
 
-#### Metafields
+### Metafields
 
 Metafield utilities
 
@@ -125,7 +125,7 @@ Metafield utilities
     OPTIONS:
        --help, -h  show help (default: false)
 
-#### Charges
+### Charges
 
 Do things with charges
 
@@ -143,7 +143,7 @@ Do things with charges
     OPTIONS:
        --help, -h  show help (default: false)
 
-#### Orders
+### Orders
 
 Information about orders
 
@@ -161,7 +161,7 @@ Information about orders
     OPTIONS:
        --help, -h  show help (default: false)
 
-#### Products
+### Products
 
 Do things with products
 
@@ -172,13 +172,36 @@ Do things with products
        sdt products command [command options] [arguments...]
 
     COMMANDS:
-       ls, l    List some of a shop's products or the products given by the specified IDs
-       help, h  Shows a list of commands or help for one command
+       ls, l      List some of a shop's products or the products given by the specified IDs
+       import, i  Import products synchronously from a Shopify CSV file
+       bulk, b    Import prodcuts from a Shopify CSV file using the Bulk API
+       help, h    Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
 
-#### GraphQL
+#### Bulk Importing
+
+You can bulk import products using [Shopify's CSV format](https://help.shopify.com/en/manual/products/import-export/using-csv).
+Note that not all product and variant attributes are supported.
+
+Shopify Development Tools has 2 bulk imports commands:
+
+1. `bulk` - import products using the [Shopify Admin GraphQL Bulk API](https://shopify.dev/docs/api/usage/bulk-operations/imports)
+1. `import` - synchronously import
+
+Both operations perform an upsert, i.e., the product is created it if does not exist and updated if it does. Use the `-i`/`--identify-by` option
+to specify the identifier.
+
+A good use of `import` over bulk is to seed your store for automated tests.
+
+#### Asynchronously Using the Bulk API
+
+1. `sdt products bulk import` with the appropriate arguments. This will return an ID you can use to check the bulk operation's status
+1. `sdt products bulk status ID` to check the status
+1. If you'd like to cancel: `sdt products bulk cancel ID`
+
+### GraphQL
 
 Run a GraphQL query against the Admin API
 
@@ -200,7 +223,7 @@ Run a GraphQL query against the Admin API
        --api-version value, -a value  API version to use; default is a versionless call
        --help, -h                     show help (default: false)
 
-#### ScriptTags
+### ScriptTags
 
 ScriptTag utilities
 
@@ -218,7 +241,7 @@ ScriptTag utilities
     OPTIONS:
        --help, -h  show help (default: false)
 
-#### Shop
+### Shop
 
 Information about the given shop
 
@@ -236,7 +259,7 @@ Information about the given shop
     OPTIONS:
        --help, -h  show help (default: false)
 
-#### Shopify Admin
+### Shopify Admin
 
 Open admin pages
 
@@ -257,7 +280,7 @@ Open admin pages
        --help, -h  show help (default: false)
 
 
-#### Themes
+### Themes
 
     NAME:
        sdt themes cp - Copy files to a theme
@@ -275,7 +298,7 @@ Open admin pages
 
 Currently `source` can only be a local file
 
-#### Webhooks
+### Webhooks
 
 Webhooks utilities
 

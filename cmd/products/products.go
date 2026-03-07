@@ -189,6 +189,12 @@ func init() {
 		},
 	}
 
+	identifyByFlag := &cli.StringFlag{
+		Name:    "identify-by",
+		Aliases: []string{"i"},
+		Usage:   "Identifier property for productSet: 'id' or 'handle'",
+	}
+
 	Cmd = cli.Command{
 		Name:    "products",
 		Aliases: []string{"p"},
@@ -202,29 +208,34 @@ func init() {
 				Flags:     append(cmd.Flags, productFlags...),
 				Action:    listProducts,
 			},
-			// {
-			// 	Name: "create",
-			// 	Aliases: []string{"c"},
-			// 	Usage:   "Create products from the give Shopify CSV",
-			// 	Flags: cmd.Flags,
-			// 	Action: createProducts,
-			// },
+			{
+				Name:      "import",
+				Aliases:   []string{"i"},
+				Usage:     "Import products synchronously from a Shopify CSV file",
+				ArgsUsage: "products.csv",
+				Flags: append(cmd.Flags,
+					identifyByFlag,
+					&cli.IntFlag{
+						Name:    "parallel",
+						Aliases: []string{"p"},
+						Value:   5,
+						Usage:   "Number of parallel API calls to make",
+					},
+				),
+				Action: syncImportProducts,
+			},
 			{
 				Name:    "bulk",
 				Aliases: []string{"b"},
-				Usage:   "Bulk product operations",
+				Usage:     "Import products from a Shopify CSV file using the Bulk API",
 				Subcommands: []*cli.Command{
 					{
 						Name:      "import",
 						Aliases:   []string{"i"},
-						Usage:     "Import products from a Shopify CSV file",
-						ArgsUsage: "<csv-file>",
-						Flags: append(cmd.Flags, &cli.StringFlag{
-							Name:    "identify-by",
-							Aliases: []string{"i"},
-							Usage:   "Identifier property for productSet: 'id' or 'handle'",
-						}),
-						Action: importProducts,
+						Usage:     "Import a Shopify CSV file",
+						ArgsUsage: "products.csv",
+						Flags:     append(cmd.Flags, identifyByFlag),
+						Action:    importProducts,
 					},
 					{
 						Name:      "status",
