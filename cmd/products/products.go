@@ -11,11 +11,12 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/products/gql"
 )
 
 var Cmd cli.Command
 
-func printJSONL(products []Product) {
+func printJSONL(products []gql.Product) {
 	for _, product := range products {
 		line, err := json.Marshal(product)
 		if err != nil {
@@ -56,7 +57,7 @@ func isFieldToPrint(field string, selectedFields []string) bool {
 	return false
 }
 
-func printOptions(options []ProductOption) {
+func printOptions(options []gql.ProductOption) {
 	t := tabby.New()
 	t.AddHeader("Name", "Values")
 
@@ -67,7 +68,7 @@ func printOptions(options []ProductOption) {
 	t.Print()
 }
 
-func printVariants(variants []Variant) {
+func printVariants(variants []gql.Variant) {
 	t := tabby.New()
 	t.AddHeader("ID", "Title", "SKU", "Barcode", "Price", "Compare At Price", "Inventory")
 
@@ -78,7 +79,7 @@ func printVariants(variants []Variant) {
 	t.Print()
 }
 
-func printFormatted(products []Product, fieldsToPrint []string) {
+func printFormatted(products []gql.Product, fieldsToPrint []string) {
 	t := tabby.New()
 	normalizedFieldsToPrint := []string{}
 
@@ -145,7 +146,7 @@ func listProducts(c *cli.Context) error {
 	}
 
 	shop := c.String("shop")
-	products, err := fetchProducts(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, c.String("status"), int(c.Int64("limit")))
+	products, err := gql.FetchProducts(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, c.String("status"), int(c.Int64("limit")))
 	if err != nil {
 		return err
 	}
@@ -175,7 +176,7 @@ func init() {
 		&cli.Int64Flag{
 			Name:    "limit",
 			Aliases: []string{"l"},
-			Value: 10,
+			Value:   10,
 		},
 		&cli.StringFlag{
 			Name:    "status",
@@ -208,6 +209,41 @@ func init() {
 			// 	Flags: cmd.Flags,
 			// 	Action: createProducts,
 			// },
+			{
+				Name:    "bulk",
+				Aliases: []string{"b"},
+				Usage:   "Bulk product operations",
+				Subcommands: []*cli.Command{
+					{
+						Name:      "import",
+						Aliases:   []string{"i"},
+						Usage:     "Import products from a Shopify CSV file",
+						ArgsUsage: "<csv-file>",
+						Flags: append(cmd.Flags, &cli.StringFlag{
+							Name:    "identify-by",
+							Aliases: []string{"i"},
+							Usage:   "Identifier property for productSet: 'id' or 'handle'",
+						}),
+						Action: importProducts,
+					},
+					{
+						Name:      "status",
+						Aliases:   []string{"s"},
+						Usage:     "Check the status of a bulk import operation",
+						ArgsUsage: "<operation-id>",
+						Flags:     cmd.Flags,
+						Action:    importStatus,
+					},
+					{
+						Name:      "cancel",
+						Aliases:   []string{"c"},
+						Usage:     "Cancel a running bulk import operation",
+						ArgsUsage: "<operation-id>",
+						Flags:     cmd.Flags,
+						Action:    cancelBulkOperation,
+					},
+				},
+			},
 		},
 	}
 }

@@ -1,11 +1,11 @@
-package products
+package gql
 
 import (
 	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/ScreenStaring/shopify-dev-tools/gql"
+	gqlclient "github.com/ScreenStaring/shopify-dev-tools/gql"
 )
 
 const productsQuery = `
@@ -148,8 +148,8 @@ func buildQuery(ids []int64, status string) (string, int) {
 	return "", 0
 }
 
-func fetchProducts(shop, token string, ids []int64, status string, limit int) ([]Product, error) {
-	client := gql.NewClient(shop, token, "")
+func FetchProducts(shop, token string, ids []int64, status string, limit int) ([]Product, error) {
+	client := gqlclient.NewClient(shop, token, "")
 
 	query, first := buildQuery(ids, status)
 	if first == 0 {
