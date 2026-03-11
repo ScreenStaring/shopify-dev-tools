@@ -185,15 +185,15 @@ Do things with products
 You can bulk import products using [Shopify's CSV format](https://help.shopify.com/en/manual/products/import-export/using-csv).
 Note that not all product and variant attributes are supported.
 
-Shopify Development Tools has 2 bulk imports commands:
+Shopify Development Tools has 2 commands for importing products:
 
 1. `bulk` - import products using the [Shopify Admin GraphQL Bulk API](https://shopify.dev/docs/api/usage/bulk-operations/imports)
 1. `import` - synchronously import
 
-Both operations perform an upsert, i.e., the product is created it if does not exist and updated if it does. Use the `-i`/`--identify-by` option
-to specify the identifier.
+Both operations perform an upsert, i.e., the product is created it if does not exist and updated if it does.
+Use the `-i`/`--identify-by` option to specify the identifier.
 
-A good use of `import` over bulk is to seed your store for automated tests.
+A good use of `import` over `bulk` is to seed your store for automated tests.
 
 #### Asynchronously Using the Bulk API
 
@@ -221,6 +221,7 @@ Run a GraphQL query against the Admin API
        --access-token value           Shopify access token for shop [$SHOPIFY_ACCESS_TOKEN, $SHOPIFY_API_TOKEN]
        --api-key value                Shopify API key to for shop [$SHOPIFY_API_KEY]
        --api-version value, -a value  API version to use; default is a versionless call
+       --variable value, -v value     GraphQL variable in the format name=value; can be specified multiple times
        --help, -h                     show help (default: false)
 
 ### ScriptTags
