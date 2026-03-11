@@ -161,7 +161,7 @@ func FetchProducts(shop, token string, ids []int64, status string, limit int) ([
 		vars["query"] = query
 	}
 
-	data, err := client.Query(productsQuery, vars)
+	data, err := client.Execute(productsQuery, vars)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot list products: %s", err)
 	}

@@ -29,7 +29,7 @@ type productSetResponse struct {
 func ProductSet(shop, token string, variables map[string]interface{}) (*ProductSetResult, error) {
 	client := gqlclient.NewClient(shop, token, "")
 
-	data, err := client.Mutation(productSetMutation, variables)
+	data, err := client.Execute(productSetMutation, variables)
 	if err != nil {
 		return nil, fmt.Errorf("productSet mutation failed: %s", err)
 	}

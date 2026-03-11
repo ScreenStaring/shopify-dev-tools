@@ -31,7 +31,7 @@ func NewClient(shop, token, version string) *Client {
 	return &Client{endpoint: fmt.Sprintf(endpoint, shop, version), token: token}
 }
 
-func (c *Client) Query(q string, variables ...map[string]interface{}) (mxj.Map, error) {
+func (c *Client) Execute(q string, variables ...map[string]interface{}) (mxj.Map, error) {
 	merged := map[string]interface{}{}
 	for _, v := range variables {
 		for k, val := range v {
@@ -39,10 +39,6 @@ func (c *Client) Query(q string, variables ...map[string]interface{}) (mxj.Map, 
 		}
 	}
 	return c.request(q, merged)
-}
-
-func (c *Client) Mutation(q string, variables map[string]interface{}) (mxj.Map, error) {
-	return c.request(q, variables)
 }
 
 func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map, error) {

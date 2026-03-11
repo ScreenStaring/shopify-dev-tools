@@ -124,7 +124,7 @@ func listOrders(shop, token string, ids []int64, status string, limit int) ([]Or
 		first = limit
 	}
 
-	data, err := client.Query(ordersQuery, map[string]interface{}{"query": query, "first": first})
+	data, err := client.Execute(ordersQuery, map[string]interface{}{"query": query, "first": first})
 	if err != nil {
 		return nil, fmt.Errorf("Cannot list orders: %s", err)
 	}

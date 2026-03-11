@@ -79,7 +79,7 @@ func deleteMetafields(shop, token string, metafields []metafieldInput) ([]Delete
 
 	client := gql.NewClient(shop, token, "")
 
-	data, err := client.Mutation(metafieldsDeleteMutation, map[string]interface{}{
+	data, err := client.Execute(metafieldsDeleteMutation, map[string]interface{}{
 		"metafields": inputs,
 	})
 	if err != nil {

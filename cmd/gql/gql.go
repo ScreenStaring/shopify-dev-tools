@@ -10,7 +10,6 @@ import (
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
 	"github.com/ScreenStaring/shopify-dev-tools/gql"
-	"github.com/clbanning/mxj"
 	"github.com/urfave/cli/v2"
 )
 
@@ -70,12 +69,7 @@ func queryAction(c *cli.Context) error {
 		return err
 	}
 
-	var result mxj.Map
-	if strings.HasPrefix(strings.TrimSpace(query), "mutation") {
-		result, err = client.Mutation(query, variables)
-	} else {
-		result, err = client.Query(query, variables)
-	}
+	result, err := client.Execute(query, variables)
 	if err != nil {
 		return err
 	}

@@ -168,7 +168,7 @@ func listWebhooks(shop, token string, topics []string) ([]Webhook, error) {
 		variables["topics"] = enumTopics
 	}
 
-	data, err := client.Query(webhookSubscriptionsQuery, variables)
+	data, err := client.Execute(webhookSubscriptionsQuery, variables)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot list webhooks: %s", err)
 	}
@@ -214,7 +214,7 @@ func createWebhook(shop, token, topic, address, format string, fields []string) 
 		input["includeFields"] = fields
 	}
 
-	data, err := client.Mutation(webhookSubscriptionCreateMutation, map[string]interface{}{
+	data, err := client.Execute(webhookSubscriptionCreateMutation, map[string]interface{}{
 		"topic":               topicToEnum(topic),
 		"webhookSubscription": input,
 	})
@@ -239,7 +239,7 @@ func createWebhook(shop, token, topic, address, format string, fields []string) 
 func updateWebhook(shop, token, gid string, input map[string]interface{}) error {
 	client := gql.NewClient(shop, token, "")
 
-	data, err := client.Mutation(webhookSubscriptionUpdateMutation, map[string]interface{}{
+	data, err := client.Execute(webhookSubscriptionUpdateMutation, map[string]interface{}{
 		"id":                  gid,
 		"webhookSubscription": input,
 	})
@@ -259,7 +259,7 @@ func updateWebhook(shop, token, gid string, input map[string]interface{}) error 
 func deleteWebhook(shop, token, gid string) error {
 	client := gql.NewClient(shop, token, "")
 
-	data, err := client.Mutation(webhookSubscriptionDeleteMutation, map[string]interface{}{
+	data, err := client.Execute(webhookSubscriptionDeleteMutation, map[string]interface{}{
 		"id": gid,
 	})
 	if err != nil {

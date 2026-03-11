@@ -74,7 +74,7 @@ func stringifyUserErrors(errors []interface{}) string {
 func (sf *Storefront) List() ([]map[string]interface{}, error)  {
 	var result []map[string]interface{}
 
-	data, err := sf.client.Query(listQuery)
+	data, err := sf.client.Execute(listQuery)
 	if err != nil {
 		return result, fmt.Errorf("Failed to retrieve storefront metafields: %s", err)
 	}
@@ -99,7 +99,7 @@ func (sf *Storefront) Enable(name, owner string) (string, error)  {
 		return result, fmt.Errorf("Metafield key %s invalid: must be in namespace.key format", name)
 	}
 
-	data, err := sf.client.Mutation(enableMutation, map[string]interface{}{"namespace": key[0], "key": key[1], "owner": strings.ToUpper(owner)})
+	data, err := sf.client.Execute(enableMutation, map[string]interface{}{"namespace": key[0], "key": key[1], "owner": strings.ToUpper(owner)})
 	if err != nil {
 		return result, fmt.Errorf("Failed to enable storefront metafield %s: %s", name, err)
 	}
