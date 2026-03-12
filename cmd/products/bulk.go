@@ -248,7 +248,6 @@ func importStatus(c *cli.Context) error {
 		t.AddLine("Result URL", result.URL)
 	}
 	t.Print()
-	fmt.Println("Errors")
 
 	if result.Status == "COMPLETED" && result.URL != "" {
 		errors, err := downloadBulkResults(result.URL)
@@ -257,6 +256,7 @@ func importStatus(c *cli.Context) error {
 		}
 
 		if len(errors) > 0 {
+			fmt.Println("Errors")
 			et := tabby.New()
 			et.AddHeader("Row", "Message")
 			for _, e := range errors {
