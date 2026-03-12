@@ -90,16 +90,23 @@ func responseErrors(result mxj.Map) error {
 
 	var messages []string
 	for _, e := range errors {
-		eMap := e.(map[string]interface{})
+		eMap, ok := e.(map[string]interface{})
+		if !ok {
+			messages = append(messages, fmt.Sprint(e))
+			continue
+		}
+
 		message := fmt.Sprint(eMap["message"])
 
 		if path, ok := eMap["path"]; ok {
-			items := path.([]interface{})
-			parts := make([]string, len(items))
-			for i, p := range items {
-				parts[i] = fmt.Sprint(p)
+			items, ok := path.([]interface{})
+			if ok {
+				parts := make([]string, len(items))
+				for i, p := range items {
+					parts[i] = fmt.Sprint(p)
+				}
+				message += fmt.Sprintf(" at %s", strings.Join(parts, "."))
 			}
-			message += fmt.Sprintf(" at %s", strings.Join(parts, "."))
 		}
 
 		messages = append(messages, message)
