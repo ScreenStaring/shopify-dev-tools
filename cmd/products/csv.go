@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -22,14 +23,32 @@ type variantOptionValue struct {
 	Name       string `json:"name"`
 }
 
+type inventoryItemInput struct {
+	Tracked          *bool `json:"tracked,omitempty"`
+	RequiresShipping *bool `json:"requiresShipping,omitempty"`
+}
+
+type inventoryQuantityInput struct {
+	LocationID string `json:"locationId"`
+	Name       string `json:"name"`
+	Quantity   int    `json:"quantity"`
+}
+
 type importVariant struct {
-	OptionValues   []variantOptionValue `json:"optionValues,omitempty"`
-	SKU            string               `json:"sku,omitempty"`
-	Price          string               `json:"price,omitempty"`
-	CompareAtPrice string               `json:"compareAtPrice,omitempty"`
-	Barcode        string               `json:"barcode,omitempty"`
-	Taxable        *bool                `json:"taxable,omitempty"`
-	InventoryPolicy string              `json:"inventoryPolicy,omitempty"`
+	OptionValues        []variantOptionValue     `json:"optionValues,omitempty"`
+	SKU                 string                   `json:"sku,omitempty"`
+	Price               string                   `json:"price,omitempty"`
+	CompareAtPrice      string                   `json:"compareAtPrice,omitempty"`
+	Barcode             string                   `json:"barcode,omitempty"`
+	Taxable             *bool                    `json:"taxable,omitempty"`
+	InventoryPolicy     string                   `json:"inventoryPolicy,omitempty"`
+	InventoryItem       *inventoryItemInput      `json:"inventoryItem,omitempty"`
+	InventoryQuantities []inventoryQuantityInput `json:"inventoryQuantities,omitempty"`
+}
+
+type fileInput struct {
+	OriginalSource string `json:"originalSource"`
+	ContentType    string `json:"contentType"`
 }
 
 type importProduct struct {
@@ -41,6 +60,7 @@ type importProduct struct {
 	ProductType     string              `json:"productType,omitempty"`
 	Tags            []string            `json:"tags,omitempty"`
 	Status          string              `json:"status,omitempty"`
+	Files           []fileInput         `json:"files,omitempty"`
 	ProductOptions  []optionCreateInput `json:"productOptions,omitempty"`
 	Variants        []importVariant     `json:"variants,omitempty"`
 }
@@ -95,7 +115,7 @@ func parseBoolPtr(s string) *bool {
 	return &v
 }
 
-func parseCSV(filename string) ([]importProductInput, error) {
+func parseCSV(filename string, locations map[string]string) ([]importProductInput, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot open CSV file: %s", err)
@@ -198,6 +218,11 @@ func parseCSV(filename string) ([]importProductInput, error) {
 				}
 			}
 
+			var files []fileInput
+			if u := get(row, "product image url"); u != "" {
+				files = append(files, fileInput{OriginalSource: u, ContentType: "IMAGE"})
+			}
+
 			current = &importProduct{
 				ID:              get(row, "id"),
 				Handle:          handle,
@@ -207,6 +232,7 @@ func parseCSV(filename string) ([]importProductInput, error) {
 				ProductType:     get(row, "type"),
 				Tags:            tags,
 				Status:          status,
+				Files:           files,
 			}
 
 		}
@@ -237,16 +263,73 @@ func parseCSV(filename string) ([]importProductInput, error) {
 		taxable := get(row, "variant taxable")
 		inventoryPolicy := get(row, "variant inventory policy")
 
+		if inventoryPolicy == "" {
+			if v := get(row, "continue selling when out of stock"); v != "" {
+				if strings.EqualFold(v, "true") {
+					inventoryPolicy = "CONTINUE"
+				} else {
+					inventoryPolicy = "DENY"
+				}
+			}
+		}
+
+		var inventoryItem *inventoryItemInput
+		if v := get(row, "requires shipping"); v != "" {
+			inventoryItem = &inventoryItemInput{RequiresShipping: parseBoolPtr(v)}
+		}
+
+		var inventoryQuantities []inventoryQuantityInput
+		location := get(row, "location")
+		if location != "" {
+			locationID, ok := locations[location]
+			if !ok {
+				return nil, fmt.Errorf("Unknown location %q", location)
+			}
+
+			for _, iqType := range []struct {
+				column string
+				name   string
+			}{
+				{"available", "available"},
+				{"on hand", "on_hand"},
+			} {
+				if qtyStr := get(row, iqType.column); qtyStr != "" {
+					qty, err := strconv.Atoi(qtyStr)
+					if err != nil {
+						return nil, fmt.Errorf("Invalid %s value %q: %s", iqType.column, qtyStr, err)
+					}
+					inventoryQuantities = []inventoryQuantityInput{
+						{
+							LocationID: locationID,
+							Name:       iqType.name,
+							Quantity:   qty,
+						},
+					}
+					break
+				}
+			}
+		}
+
+		if len(inventoryQuantities) > 0 {
+			tracked := true
+			if inventoryItem == nil {
+				inventoryItem = &inventoryItemInput{}
+			}
+			inventoryItem.Tracked = &tracked
+		}
+
 		hasVariantData := len(variantOpts) > 0 || sku != "" || price != ""
 		if hasVariantData {
 			v := importVariant{
-				OptionValues:    variantOpts,
-				SKU:             sku,
-				Price:           price,
-				CompareAtPrice:  compareAt,
-				Barcode:         barcode,
-				Taxable:         parseBoolPtr(taxable),
-				InventoryPolicy: inventoryPolicy,
+				OptionValues:        variantOpts,
+				SKU:                 sku,
+				Price:               price,
+				CompareAtPrice:      compareAt,
+				Barcode:             barcode,
+				Taxable:             parseBoolPtr(taxable),
+				InventoryPolicy:     inventoryPolicy,
+				InventoryItem:       inventoryItem,
+				InventoryQuantities: inventoryQuantities,
 			}
 			current.Variants = append(current.Variants, v)
 		}

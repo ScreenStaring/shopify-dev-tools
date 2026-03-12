@@ -23,9 +23,14 @@ func syncImportProducts(c *cli.Context) error {
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
 	parallel := c.Int("parallel")
 
+	locations, err := gql.FetchLocations(shop, token)
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("Parsing %s...\n", csvFile)
 
-	products, err := parseCSV(csvFile)
+	products, err := parseCSV(csvFile, locations)
 	if err != nil {
 		return err
 	}

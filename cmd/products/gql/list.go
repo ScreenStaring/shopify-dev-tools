@@ -148,6 +148,59 @@ func buildQuery(ids []int64, status string) (string, int) {
 	return "", 0
 }
 
+const locationsQuery = `
+{
+  locations(first: 250, includeLegacy: false, includeInactive: false) {
+    edges {
+      node {
+        id
+        name
+      }
+    }
+  }
+}
+`
+
+type locationsResponse struct {
+	Data struct {
+		Locations struct {
+			Edges []struct {
+				Node struct {
+					ID   string `json:"id"`
+					Name string `json:"name"`
+				} `json:"node"`
+			} `json:"edges"`
+		} `json:"locations"`
+	} `json:"data"`
+}
+
+// FetchLocations returns a map of location name to GID for all active locations.
+func FetchLocations(shop, token string) (map[string]string, error) {
+	client := gqlclient.NewClient(shop, token, "")
+
+	data, err := client.Execute(locationsQuery)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot fetch locations: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot re-encode locations response: %s", err)
+	}
+
+	var response locationsResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return nil, fmt.Errorf("Cannot parse locations response: %s", err)
+	}
+
+	locations := make(map[string]string)
+	for _, edge := range response.Data.Locations.Edges {
+		locations[edge.Node.Name] = edge.Node.ID
+	}
+
+	return locations, nil
+}
+
 func FetchProducts(shop, token string, ids []int64, status string, limit int) ([]Product, error) {
 	client := gqlclient.NewClient(shop, token, "")
 
