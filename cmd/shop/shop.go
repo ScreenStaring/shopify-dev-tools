@@ -25,7 +25,10 @@ func formatField(field string) string {
 }
 
 func accessAction(c *cli.Context) error {
-	scopes, err := cmd.NewShopifyClient(c).AccessScopes.List(nil)
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	scopes, err := findAccessScopes(shop, token)
 	if err != nil {
 		return fmt.Errorf("Cannot get access scopes: %s", err)
 	}
@@ -38,12 +41,10 @@ func accessAction(c *cli.Context) error {
 	t := tabby.New()
 	t.AddHeader("Scope")
 
-	sort.Slice(scopes, func(i, j int) bool {
-		return strings.Compare(scopes[i].Handle, scopes[j].Handle) == -1
-	})
+	sort.Strings(scopes)
 
 	for _, scope := range scopes {
-		t.AddLine(scope.Handle)
+		t.AddLine(scope)
 	}
 
 	t.Print()
@@ -52,13 +53,16 @@ func accessAction(c *cli.Context) error {
 }
 
 func infoAction(c *cli.Context) error {
-	shop, err := cmd.NewShopifyClient(c).Shop.Get(nil)
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	info, err := findShop(shop, token)
 	if err != nil {
 		return fmt.Errorf("Cannot get info for shop: %s", err)
 	}
 
 	t := tabby.New()
-	s := reflect.ValueOf(shop).Elem()
+	s := reflect.ValueOf(info).Elem()
 
 	for i := 0; i < s.NumField(); i++ {
 		t.AddLine(formatField(s.Type().Field(i).Name), s.Field(i).Interface())
