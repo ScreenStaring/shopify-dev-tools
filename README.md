@@ -16,7 +16,7 @@ Windows, macOS/OS X, and GNU/Linux are supported.
        sdt command [command options] [arguments...]
 
     VERSION:
-       0.0.8
+       0.1.0
 
     COMMANDS:
        admin, a                     Open admin pages
@@ -182,9 +182,9 @@ Do things with products
 
 #### Bulk Importing
 
-You can bulk import products and their inventories in a single spreadsheet. The format is a combination of using Shopify's
+You can bulk import products and their inventories in a single spreadsheet. The format is a combination of Shopify's
 [product CSV format](https://help.shopify.com/en/manual/products/import-export/using-csv) and its [inventory CSV format](https://help.shopify.com/en/manual/products/inventory/setup/inventory-csv).
-Only one of available and on hand inventory counts can be set. Note that setting "current"/"new" not supported, and these columns do not have parenthesis.
+Only one of available and on hand inventory counts can be set at a time. Note that setting "current"/"new" not supported, and these columns do not have parenthesis.
 
 Shopify Development Tools has 2 commands for importing products:
 
