@@ -138,7 +138,7 @@ func importProducts(c *cli.Context) error {
 	}
 
 	if len(products) == 0 {
-		return fmt.Errorf("No products found in CSV")
+		return fmt.Errorf("No products found in CSV. Does the identifier column exist?")
 	}
 
 	setProductIdentifiers(products, c.String("identify-by"))
