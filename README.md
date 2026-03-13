@@ -16,7 +16,7 @@ Windows, macOS/OS X, and GNU/Linux are supported.
        sdt command [command options] [arguments...]
 
     VERSION:
-       0.1.0
+       0.0.9
 
     COMMANDS:
        admin, a                     Open admin pages
