@@ -189,8 +189,8 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 			finalize()
 
 			status := "DRAFT"
-			if strings.EqualFold(get(row, "published"), "true") {
-				status = "ACTIVE"
+			if s := get(row, "status"); s != "" {
+				status = strings.ToUpper(s)
 			}
 
 			var tags []string
