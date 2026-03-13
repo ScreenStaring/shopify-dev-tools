@@ -182,8 +182,9 @@ Do things with products
 
 #### Bulk Importing
 
-You can bulk import products using [Shopify's CSV format](https://help.shopify.com/en/manual/products/import-export/using-csv).
-Note that not all product and variant attributes are supported.
+You can bulk import products and their inventories in a single spreadsheet. The format is a combination of using Shopify's
+[product CSV format](https://help.shopify.com/en/manual/products/import-export/using-csv) and its [inventory CSV format](https://help.shopify.com/en/manual/products/inventory/setup/inventory-csv).
+Only one of available and on hand inventory counts can be set. Note that setting "current"/"new" not supported, and these columns do not have parenthesis.
 
 Shopify Development Tools has 2 commands for importing products:
 
