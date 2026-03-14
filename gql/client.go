@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 
 	_ "github.com/cheynewallace/tabby"
@@ -13,14 +14,22 @@ import (
 )
 
 type Client struct {
-	endpoint string
-	token    string
+	endpoint  string
+	token     string
+	costDebug bool
+	verbose   bool
 }
 
 // We omit the "/" after API for the case where there's no version.
 const endpoint = "https://%s.myshopify.com/admin/api%s/graphql.json"
 
-func NewClient(shop, token, version string) *Client {
+func NewClient(shop, token string, options ...map[string]interface{}) *Client {
+	opts := map[string]interface{}{}
+	if len(options) > 0 {
+		opts = options[0]
+	}
+
+	version, _ := opts["version"].(string)
 	if len(version) > 0 {
 		version = "/" + version
 	}
@@ -28,7 +37,15 @@ func NewClient(shop, token, version string) *Client {
 	// allow for NAME.myshopify.com or just NAME
 	shop = strings.SplitN(shop, ".", 2)[0]
 
-	return &Client{endpoint: fmt.Sprintf(endpoint, shop, version), token: token}
+	extras, _ := opts["extras"].(bool)
+	verbose, _ := opts["verbose"].(bool)
+
+	return &Client{
+		endpoint:  fmt.Sprintf(endpoint, shop, version),
+		token:     token,
+		costDebug: extras,
+		verbose:   verbose,
+	}
 }
 
 func (c *Client) Execute(q string, variables ...map[string]interface{}) (mxj.Map, error) {
@@ -58,6 +75,19 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-Shopify-Access-Token", c.token)
+	if c.costDebug {
+		req.Header.Add("Shopify-GraphQL-Cost-Debug", "1")
+	}
+
+	if c.verbose {
+		fmt.Fprintf(os.Stderr, "> %s %s\n", req.Method, req.URL)
+		for name, values := range req.Header {
+			for _, v := range values {
+				fmt.Fprintf(os.Stderr, "> %s: %s\n", name, v)
+			}
+		}
+		fmt.Fprintf(os.Stderr, ">\n%s\n\n", body)
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -66,6 +96,16 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 
 	defer resp.Body.Close()
 	bytes, err := ioutil.ReadAll(resp.Body)
+
+	if c.verbose {
+		fmt.Fprintf(os.Stderr, "< %s\n", resp.Status)
+		for name, values := range resp.Header {
+			for _, v := range values {
+				fmt.Fprintf(os.Stderr, "< %s: %s\n", name, v)
+			}
+		}
+		fmt.Fprintf(os.Stderr, "<\n%s\n\n", string(bytes))
+	}
 
 	// results in parse error
 	//result, err = mxj.NewMapJsonReader(resp.Body)

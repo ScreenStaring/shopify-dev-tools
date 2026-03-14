@@ -57,7 +57,12 @@ func parseVariables(args []string) (map[string]interface{}, error) {
 
 func queryAction(c *cli.Context) error {
 	shop := c.String("shop")
-	client := gql.NewClient(shop, cmd.LookupAccessToken(shop, c.String("access-token")), c.String("api-version"))
+	options := map[string]interface{}{
+		"version": c.String("api-version"),
+		"extras":  c.Bool("extras"),
+		"verbose": c.Bool("verbose"),
+	}
+	client := gql.NewClient(shop, cmd.LookupAccessToken(shop, c.String("access-token")), options)
 
 	query, err := findQuery(c)
 	if err != nil {
@@ -93,6 +98,11 @@ func init() {
 			Name:    "variable",
 			Aliases: []string{"v"},
 			Usage:   "GraphQL variable in the format name=value; can be specified multiple times",
+		},
+		&cli.BoolFlag{
+			Name:    "extras",
+			Aliases: []string{"x"},
+			Usage:   "Include extension information in the response",
 		},
 	}
 

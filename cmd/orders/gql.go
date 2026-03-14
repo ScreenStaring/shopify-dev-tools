@@ -117,7 +117,7 @@ func buildQuery(ids []int64, status string) (string, int) {
 }
 
 func listOrders(shop, token string, ids []int64, status string, limit int) ([]Order, error) {
-	client := gql.NewClient(shop, token, "")
+	client := gql.NewClient(shop, token)
 
 	query, first := buildQuery(ids, status)
 	if first == 0 {

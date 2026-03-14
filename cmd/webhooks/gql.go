@@ -157,7 +157,7 @@ func webhookGID(id string) string {
 }
 
 func listWebhooks(shop, token string, topics []string) ([]Webhook, error) {
-	client := gql.NewClient(shop, token, "")
+	client := gql.NewClient(shop, token)
 
 	variables := map[string]interface{}{"first": 250}
 	if len(topics) > 0 {
@@ -204,7 +204,7 @@ func listWebhooks(shop, token string, topics []string) ([]Webhook, error) {
 }
 
 func createWebhook(shop, token, topic, address, format string, fields []string) (string, error) {
-	client := gql.NewClient(shop, token, "")
+	client := gql.NewClient(shop, token)
 
 	input := map[string]interface{}{
 		"callbackUrl": address,
@@ -237,7 +237,7 @@ func createWebhook(shop, token, topic, address, format string, fields []string) 
 }
 
 func updateWebhook(shop, token, gid string, input map[string]interface{}) error {
-	client := gql.NewClient(shop, token, "")
+	client := gql.NewClient(shop, token)
 
 	data, err := client.Execute(webhookSubscriptionUpdateMutation, map[string]interface{}{
 		"id":                  gid,
@@ -257,7 +257,7 @@ func updateWebhook(shop, token, gid string, input map[string]interface{}) error 
 }
 
 func deleteWebhook(shop, token, gid string) error {
-	client := gql.NewClient(shop, token, "")
+	client := gql.NewClient(shop, token)
 
 	data, err := client.Execute(webhookSubscriptionDeleteMutation, map[string]interface{}{
 		"id": gid,

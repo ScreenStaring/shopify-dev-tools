@@ -27,7 +27,7 @@ type productSetResponse struct {
 }
 
 func ProductSet(shop, token string, variables map[string]interface{}) (*ProductSetResult, error) {
-	client := gqlclient.NewClient(shop, token, "")
+	client := gqlclient.NewClient(shop, token)
 
 	data, err := client.Execute(productSetMutation, variables)
 	if err != nil {

@@ -145,7 +145,7 @@ type bulkOperationStatusResponse struct {
 }
 
 func StagedUpload(shop, token string, fileSize int) (*StagedTarget, error) {
-	client := gqlclient.NewClient(shop, token, "")
+	client := gqlclient.NewClient(shop, token)
 
 	input := []map[string]interface{}{
 		{
@@ -186,7 +186,7 @@ func StagedUpload(shop, token string, fileSize int) (*StagedTarget, error) {
 }
 
 func StartBulkMutation(shop, token, stagedUploadPath string) (string, string, error) {
-	client := gqlclient.NewClient(shop, token, "")
+	client := gqlclient.NewClient(shop, token)
 
 	data, err := client.Execute(bulkOperationRunMutationQuery, map[string]interface{}{
 		"mutation":         productSetMutation,
@@ -215,7 +215,7 @@ func StartBulkMutation(shop, token, stagedUploadPath string) (string, string, er
 }
 
 func FetchBulkOperationStatus(shop, token, operationID string) (*BulkOperationResult, error) {
-	client := gqlclient.NewClient(shop, token, "")
+	client := gqlclient.NewClient(shop, token)
 
 	data, err := client.Execute(bulkOperationStatusQuery, map[string]interface{}{
 		"id": operationID,
@@ -253,7 +253,7 @@ type bulkOperationCancelResponse struct {
 }
 
 func CancelBulkOperation(shop, token, operationID string) (string, string, error) {
-	client := gqlclient.NewClient(shop, token, "")
+	client := gqlclient.NewClient(shop, token)
 
 	data, err := client.Execute(bulkOperationCancelMutation, map[string]interface{}{
 		"id": operationID,

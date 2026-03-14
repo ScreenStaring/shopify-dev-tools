@@ -176,7 +176,7 @@ type locationsResponse struct {
 
 // FetchLocations returns a map of location name to GID for all active locations.
 func FetchLocations(shop, token string) (map[string]string, error) {
-	client := gqlclient.NewClient(shop, token, "")
+	client := gqlclient.NewClient(shop, token)
 
 	data, err := client.Execute(locationsQuery)
 	if err != nil {
@@ -202,7 +202,7 @@ func FetchLocations(shop, token string) (map[string]string, error) {
 }
 
 func FetchProducts(shop, token string, ids []int64, status string, limit int) ([]Product, error) {
-	client := gqlclient.NewClient(shop, token, "")
+	client := gqlclient.NewClient(shop, token)
 
 	query, first := buildQuery(ids, status)
 	if first == 0 {

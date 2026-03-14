@@ -164,7 +164,7 @@ type accessScopesResponse struct {
 }
 
 func findShop(shop, token string) (*ShopInfo, error) {
-	client := gql.NewClient(shop, token, "")
+	client := gql.NewClient(shop, token)
 
 	data, err := client.Execute(shopQuery)
 	if err != nil {
@@ -225,7 +225,7 @@ func findShop(shop, token string) (*ShopInfo, error) {
 }
 
 func findAccessScopes(shop, token string) ([]string, error) {
-	client := gql.NewClient(shop, token, "")
+	client := gql.NewClient(shop, token)
 
 	data, err := client.Execute(accessScopesQuery)
 	if err != nil {
