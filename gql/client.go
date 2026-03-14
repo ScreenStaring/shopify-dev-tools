@@ -97,6 +97,13 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 	defer resp.Body.Close()
 	bytes, err := ioutil.ReadAll(resp.Body)
 
+	if resp.StatusCode != http.StatusOK {
+		if len(bytes) > 0 {
+			return result, fmt.Errorf("query failed with HTTP response code %d: %s", resp.StatusCode, string(bytes))
+		}
+		return result, fmt.Errorf("query failed with HTTP response code %d", resp.StatusCode)
+	}
+
 	if c.verbose {
 		fmt.Fprintf(os.Stderr, "< %s\n", resp.Status)
 		for name, values := range resp.Header {
