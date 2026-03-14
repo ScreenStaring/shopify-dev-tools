@@ -223,6 +223,7 @@ Run a GraphQL query against the Admin API
        --api-key value                Shopify API key to for shop [$SHOPIFY_API_KEY]
        --api-version value, -a value  API version to use; default is a versionless call
        --variable value, -v value     GraphQL variable in the format name=value; can be specified multiple times
+       --extras, -x                   Include extension information in the response (default: false)
        --help, -h                     show help (default: false)
 
 ### ScriptTags
