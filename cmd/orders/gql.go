@@ -116,8 +116,8 @@ func buildQuery(ids []int64, status string) (string, int) {
 	return "status:" + status, 0
 }
 
-func listOrders(shop, token string, ids []int64, status string, limit int) ([]Order, error) {
-	client := gql.NewClient(shop, token)
+func listOrders(shop, token, apiVersion string, ids []int64, status string, limit int) ([]Order, error) {
+	client := gql.NewClient(shop, token, map[string]interface{}{"version": apiVersion})
 
 	query, first := buildQuery(ids, status)
 	if first == 0 {
