@@ -3,6 +3,8 @@ package products
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -128,6 +130,55 @@ func printFormatted(products []gql.Product, fieldsToPrint []string) {
 	}
 }
 
+func toProductGID(id string) string {
+	if strings.HasPrefix(id, "gid://") {
+		return id
+	}
+	return "gid://shopify/Product/" + id
+}
+
+func deleteProducts(c *cli.Context) error {
+	var ids []string
+
+	if c.NArg() > 0 {
+		for i := 0; i < c.NArg(); i++ {
+			ids = append(ids, c.Args().Get(i))
+		}
+	} else {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("Cannot read from stdin: %s", err)
+		}
+
+		for _, line := range strings.Split(strings.TrimRight(string(data), "\n"), "\n") {
+			if line != "" {
+				ids = append(ids, line)
+			}
+		}
+	}
+
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	for _, id := range ids {
+		gid := toProductGID(id)
+		result, err := gql.ProductDelete(shop, token, gid)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error deleting product %s: %s\n", id, err)
+			continue
+		}
+
+		if len(result.UserErrors) > 0 {
+			fmt.Fprintf(os.Stderr, "Error deleting product %s: %s\n", id, strings.Join(result.UserErrors, ", "))
+			continue
+		}
+
+		fmt.Println("Deleted %s\n", result.DeletedProductID)
+	}
+
+	return nil
+}
+
 func listProducts(c *cli.Context) error {
 	var ids []int64
 	var fields []string
@@ -207,6 +258,15 @@ func init() {
 				ArgsUsage: "[ID [ID ...]]",
 				Flags:     append(cmd.Flags, productFlags...),
 				Action:    listProducts,
+			},
+			{
+				Name:      "delete",
+				Aliases:   []string{"d"},
+				Usage:     "Delete products by ID",
+				ArgsUsage: "[ID [ID ...]]",
+				Description: "If IDs are not given they're read from stdin",
+				Flags:     cmd.Flags,
+				Action:    deleteProducts,
 			},
 			{
 				Name:      "import",
