@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cheynewallace/tabby"
 	"github.com/urfave/cli/v2"
 	shopify "github.com/bold-commerce/go-shopify/v3"
 
@@ -89,6 +90,26 @@ func uploadDirectory(client *shopify.Client, themeID int64, source, destination 
 	return nil
 }
 
+func listAction(c *cli.Context) error {
+	client := cmd.NewShopifyClient(c)
+
+	themes, err := client.Theme.List(nil)
+	if err != nil {
+		return fmt.Errorf("Cannot list themes: %s", err)
+	}
+
+	t := tabby.New()
+	t.AddHeader("ID", "Name", "Role", "Theme Store ID", "Created", "Updated")
+
+	for _, theme := range themes {
+		t.AddLine(theme.ID, theme.Name, theme.Role, theme.ThemeStoreID, theme.CreatedAt, theme.UpdatedAt)
+	}
+
+	t.Print()
+
+	return nil
+}
+
 func copyAction(c *cli.Context) error {
 	if c.NArg() < 1 {
 		return fmt.Errorf("You must supply a theme id")
@@ -131,6 +152,12 @@ func init() {
 		Aliases: []string{"theme", "t"},
 		Usage:   "Theme utilities",
 		Subcommands: []*cli.Command{
+			{
+				Name:   "ls",
+				Usage:  "List the shop's themes",
+				Flags:  cmd.Flags,
+				Action: listAction,
+			},
 			{
 				Name: "cp",
 				Aliases: []string{"copy"},
