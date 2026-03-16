@@ -1,3 +1,22 @@
+v0.0.10 2026-03-16
+--------------------
+- Add `metafield definitions` command  to list  metafield definitions
+- Add `theme ls` command to list a shop's themes
+- Add `--api-version` argument to `products` and `webhooks`  commands
+- Add `products export` command to export product identifiers (replaces `shopify_id_export` command)
+- Add `products delete` command
+- Add support to `graphql` command to output extensions property
+- Fix version argument to `graphql` command
+- Use GraphQL for `shop` command
+
+v0.0.9  2026-03-16
+--------------------
+- Add products bulk command for product importing use the Bulk API
+- Add products import command for synchronous product importing
+- Add support for variables to the graphql command
+- Use GraphQL for the shop command
+- Use GraphQL for the products list command
+
 v0.0.8  2026-03-02
 --------------------
 - Use GraphQL for all webhooks commands. This changes how the ls command displays the webhook topic
