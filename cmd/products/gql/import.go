@@ -26,8 +26,8 @@ type productSetResponse struct {
 	} `json:"data"`
 }
 
-func ProductSet(shop, token string, variables map[string]interface{}) (*ProductSetResult, error) {
-	client := gqlclient.NewClient(shop, token)
+func ProductSet(shop, token string, variables map[string]interface{}, options map[string]interface{}) (*ProductSetResult, error) {
+	client := gqlclient.NewClient(shop, token, options)
 
 	data, err := client.Execute(productSetMutation, variables)
 	if err != nil {

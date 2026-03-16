@@ -144,8 +144,8 @@ type bulkOperationStatusResponse struct {
 	} `json:"data"`
 }
 
-func StagedUpload(shop, token string, fileSize int) (*StagedTarget, error) {
-	client := gqlclient.NewClient(shop, token)
+func StagedUpload(shop, token string, fileSize int, options map[string]interface{}) (*StagedTarget, error) {
+	client := gqlclient.NewClient(shop, token, options)
 
 	input := []map[string]interface{}{
 		{
@@ -185,8 +185,8 @@ func StagedUpload(shop, token string, fileSize int) (*StagedTarget, error) {
 	return &response.Data.StagedUploadsCreate.StagedTargets[0], nil
 }
 
-func StartBulkMutation(shop, token, stagedUploadPath string) (string, string, error) {
-	client := gqlclient.NewClient(shop, token)
+func StartBulkMutation(shop, token, stagedUploadPath string, options map[string]interface{}) (string, string, error) {
+	client := gqlclient.NewClient(shop, token, options)
 
 	data, err := client.Execute(bulkOperationRunMutationQuery, map[string]interface{}{
 		"mutation":         productSetMutation,
@@ -214,8 +214,8 @@ func StartBulkMutation(shop, token, stagedUploadPath string) (string, string, er
 	return op.ID, op.Status, nil
 }
 
-func FetchBulkOperationStatus(shop, token, operationID string) (*BulkOperationResult, error) {
-	client := gqlclient.NewClient(shop, token)
+func FetchBulkOperationStatus(shop, token, operationID string, options map[string]interface{}) (*BulkOperationResult, error) {
+	client := gqlclient.NewClient(shop, token, options)
 
 	data, err := client.Execute(bulkOperationStatusQuery, map[string]interface{}{
 		"id": operationID,
@@ -252,8 +252,8 @@ type bulkOperationCancelResponse struct {
 	} `json:"data"`
 }
 
-func CancelBulkOperation(shop, token, operationID string) (string, string, error) {
-	client := gqlclient.NewClient(shop, token)
+func CancelBulkOperation(shop, token, operationID string, options map[string]interface{}) (string, string, error) {
+	client := gqlclient.NewClient(shop, token, options)
 
 	data, err := client.Execute(bulkOperationCancelMutation, map[string]interface{}{
 		"id": operationID,

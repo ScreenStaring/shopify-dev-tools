@@ -24,8 +24,8 @@ type productsCountResponse struct {
 	} `json:"data"`
 }
 
-func FetchProductCount(shop, token, status string) (int, error) {
-	client := gqlclient.NewClient(shop, token)
+func FetchProductCount(shop, token, status string, options map[string]interface{}) (int, error) {
+	client := gqlclient.NewClient(shop, token, options)
 
 	vars := map[string]interface{}{}
 	if len(status) > 0 {
@@ -108,8 +108,8 @@ type productsExportResponse struct {
 	} `json:"data"`
 }
 
-func FetchAllProducts(shop, token, status string, fn func(Product) error) error {
-	client := gqlclient.NewClient(shop, token)
+func FetchAllProducts(shop, token, status string, fn func(Product) error, options map[string]interface{}) error {
+	client := gqlclient.NewClient(shop, token, options)
 
 	vars := map[string]interface{}{"first": 250}
 	if len(status) > 0 {
@@ -333,8 +333,8 @@ type locationsResponse struct {
 }
 
 // FetchLocations returns a map of location name to GID for all active locations.
-func FetchLocations(shop, token string) (map[string]string, error) {
-	client := gqlclient.NewClient(shop, token)
+func FetchLocations(shop, token string, options map[string]interface{}) (map[string]string, error) {
+	client := gqlclient.NewClient(shop, token, options)
 
 	data, err := client.Execute(locationsQuery)
 	if err != nil {
@@ -359,8 +359,8 @@ func FetchLocations(shop, token string) (map[string]string, error) {
 	return locations, nil
 }
 
-func FetchProducts(shop, token string, ids []int64, status string, limit int) ([]Product, error) {
-	client := gqlclient.NewClient(shop, token)
+func FetchProducts(shop, token string, ids []int64, status string, limit int, options map[string]interface{}) ([]Product, error) {
+	client := gqlclient.NewClient(shop, token, options)
 
 	query, first := buildQuery(ids, status)
 	if first == 0 {

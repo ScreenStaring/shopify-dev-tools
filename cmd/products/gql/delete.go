@@ -36,8 +36,8 @@ type productDeleteResponse struct {
 	} `json:"data"`
 }
 
-func ProductDelete(shop, token, id string) (*ProductDeleteResult, error) {
-	client := gqlclient.NewClient(shop, token)
+func ProductDelete(shop, token, id string, options map[string]interface{}) (*ProductDeleteResult, error) {
+	client := gqlclient.NewClient(shop, token, options)
 
 	data, err := client.Execute(productDeleteMutation, map[string]interface{}{"id": id})
 	if err != nil {

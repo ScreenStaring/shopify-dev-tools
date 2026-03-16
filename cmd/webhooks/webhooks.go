@@ -67,8 +67,9 @@ func splitFields(raw []string) []string {
 func createAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
 
-	id, err := createWebhook(shop, token, c.String("topic"), c.String("address"), format(c), splitFields(c.StringSlice("fields")))
+	id, err := createWebhook(shop, token, c.String("topic"), c.String("address"), format(c), splitFields(c.StringSlice("fields")), options)
 	if err != nil {
 		return err
 	}
@@ -80,12 +81,13 @@ func createAction(c *cli.Context) error {
 func deleteAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
 
 	var webhooks []Webhook
 
 	if c.Bool("all") {
 		var err error
-		webhooks, err = listWebhooks(shop, token, nil)
+		webhooks, err = listWebhooks(shop, token, nil, options)
 		if err != nil {
 			return err
 		}
@@ -96,7 +98,7 @@ func deleteAction(c *cli.Context) error {
 
 		for _, arg := range c.Args().Slice() {
 			if webhookName.MatchString(arg) {
-				found, err := listWebhooks(shop, token, []string{arg})
+				found, err := listWebhooks(shop, token, []string{arg}, options)
 				if err != nil {
 					return fmt.Errorf("Cannot list webhooks for topic %s: %s", arg, err)
 				}
@@ -112,7 +114,7 @@ func deleteAction(c *cli.Context) error {
 	}
 
 	for _, w := range webhooks {
-		err := deleteWebhook(shop, token, w.GID)
+		err := deleteWebhook(shop, token, w.GID, options)
 		if err != nil {
 			return err
 		}
@@ -130,6 +132,7 @@ func updateAction(c *cli.Context) error {
 
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
 	gid := webhookGID(c.Args().Get(0))
 
 	input := map[string]interface{}{}
@@ -147,7 +150,7 @@ func updateAction(c *cli.Context) error {
 		return fmt.Errorf("You must supply at least one option to update")
 	}
 
-	err := updateWebhook(shop, token, gid, input)
+	err := updateWebhook(shop, token, gid, input, options)
 	if err != nil {
 		return err
 	}
@@ -159,8 +162,9 @@ func updateAction(c *cli.Context) error {
 func listAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
 
-	hooks, err := listWebhooks(shop, token, nil)
+	hooks, err := listWebhooks(shop, token, nil, options)
 	if err != nil {
 		return err
 	}
@@ -175,6 +179,11 @@ func listAction(c *cli.Context) error {
 }
 
 func init() {
+	apiVersionFlag := &cli.StringFlag{
+		Name:  "api-version",
+		Usage: "API version to use; default is a versionless call",
+	}
+
 	createFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name: "address",
@@ -194,6 +203,7 @@ func init() {
 			Required: true,
 			Aliases: []string{"t"},
 		},
+		apiVersionFlag,
 	}
 
 	updateFlags := []cli.Flag{
@@ -209,6 +219,7 @@ func init() {
 			Name: "topic",
 			Aliases: []string{"t"},
 		},
+		apiVersionFlag,
 	}
 
 	deleteFlags := []cli.Flag{
@@ -216,6 +227,7 @@ func init() {
 			Name: "all",
 			Aliases: []string{"a"},
 		},
+		apiVersionFlag,
 	}
 
 	listFlags := []cli.Flag{
@@ -223,6 +235,7 @@ func init() {
 			Name: "jsonl",
 			Aliases: []string{"j"},
 		},
+		apiVersionFlag,
 	}
 
 	Cmd = cli.Command{

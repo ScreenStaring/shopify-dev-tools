@@ -124,8 +124,9 @@ func importProducts(c *cli.Context) error {
 	csvFile := c.Args().First()
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
 
-	locations, err := gql.FetchLocations(shop, token)
+	locations, err := gql.FetchLocations(shop, token, options)
 	if err != nil {
 		return err
 	}
@@ -152,7 +153,7 @@ func importProducts(c *cli.Context) error {
 
 	fmt.Println("Creating staged upload...")
 
-	target, err := gql.StagedUpload(shop, token, len(jsonlData))
+	target, err := gql.StagedUpload(shop, token, len(jsonlData), options)
 	if err != nil {
 		return err
 	}
@@ -177,7 +178,7 @@ func importProducts(c *cli.Context) error {
 		stagedUploadPath = target.ResourceURL
 	}
 
-	operationID, status, err := gql.StartBulkMutation(shop, token, stagedUploadPath)
+	operationID, status, err := gql.StartBulkMutation(shop, token, stagedUploadPath, options)
 	if err != nil {
 		return err
 	}
@@ -231,8 +232,9 @@ func importStatus(c *cli.Context) error {
 
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
 
-	result, err := gql.FetchBulkOperationStatus(shop, token, operationID)
+	result, err := gql.FetchBulkOperationStatus(shop, token, operationID, options)
 	if err != nil {
 		return err
 	}
@@ -286,8 +288,9 @@ func cancelBulkOperation(c *cli.Context) error {
 
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
 
-	id, status, err := gql.CancelBulkOperation(shop, token, operationID)
+	id, status, err := gql.CancelBulkOperation(shop, token, operationID, options)
 	if err != nil {
 		return err
 	}

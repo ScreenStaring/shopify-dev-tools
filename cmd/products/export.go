@@ -32,7 +32,9 @@ func exportProducts(c *cli.Context) error {
 		format = "JSON"
 	}
 
-	total, err := gql.FetchProductCount(shop, token, status)
+	options := map[string]interface{}{"version": c.String("api-version")}
+
+	total, err := gql.FetchProductCount(shop, token, status, options)
 	if err != nil {
 		return err
 	}
@@ -61,7 +63,7 @@ func exportProducts(c *cli.Context) error {
 		fmt.Fprintf(os.Stderr, "\rProcessing %d/%d", count, total)
 
 		return nil
-	})
+	}, options)
 
 	if err != nil {
 		return err

@@ -21,9 +21,10 @@ func syncImportProducts(c *cli.Context) error {
 	csvFile := c.Args().First()
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
 	parallel := c.Int("parallel")
 
-	locations, err := gql.FetchLocations(shop, token)
+	locations, err := gql.FetchLocations(shop, token, options)
 	if err != nil {
 		return err
 	}
@@ -75,7 +76,7 @@ func syncImportProducts(c *cli.Context) error {
 				return
 			}
 
-			result, err := gql.ProductSet(shop, token, variables)
+			result, err := gql.ProductSet(shop, token, variables, options)
 			if err != nil {
 				results[idx].Err = err
 				return

@@ -160,10 +160,11 @@ func deleteProducts(c *cli.Context) error {
 
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
 
 	for _, id := range ids {
 		gid := toProductGID(id)
-		result, err := gql.ProductDelete(shop, token, gid)
+		result, err := gql.ProductDelete(shop, token, gid, options)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error deleting product %s: %s\n", id, err)
 			continue
@@ -198,7 +199,8 @@ func listProducts(c *cli.Context) error {
 	}
 
 	shop := c.String("shop")
-	products, err := gql.FetchProducts(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, c.String("status"), int(c.Int64("limit")))
+	options := map[string]interface{}{"version": c.String("api-version")}
+	products, err := gql.FetchProducts(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, c.String("status"), int(c.Int64("limit")), options)
 	if err != nil {
 		return err
 	}
@@ -213,6 +215,11 @@ func listProducts(c *cli.Context) error {
 }
 
 func init() {
+	apiVersionFlag := &cli.StringFlag{
+		Name:  "api-version",
+		Usage: "API version to use; default is a versionless call",
+	}
+
 	productFlags := []cli.Flag{
 		// &cli.StringSliceFlag{
 		// 	Name:    "order",
@@ -239,6 +246,7 @@ func init() {
 			Aliases: []string{"j"},
 			Usage:   "Output the products in JSONL format",
 		},
+		apiVersionFlag,
 	}
 
 	identifyByFlag := &cli.StringFlag{
@@ -266,7 +274,7 @@ func init() {
 				Usage:     "Delete products by ID",
 				ArgsUsage: "[ID [ID ...]]",
 				Description: "If IDs are not given they're read from stdin",
-				Flags:     cmd.Flags,
+				Flags:     append(cmd.Flags, apiVersionFlag),
 				Action:    deleteProducts,
 			},
 			{
@@ -282,6 +290,7 @@ func init() {
 						Value:   5,
 						Usage:   "Number of parallel API calls to make",
 					},
+					apiVersionFlag,
 				),
 				Action: syncImportProducts,
 			},

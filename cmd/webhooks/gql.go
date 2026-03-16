@@ -156,8 +156,8 @@ func webhookGID(id string) string {
 	return "gid://shopify/WebhookSubscription/" + id
 }
 
-func listWebhooks(shop, token string, topics []string) ([]Webhook, error) {
-	client := gql.NewClient(shop, token)
+func listWebhooks(shop, token string, topics []string, options map[string]interface{}) ([]Webhook, error) {
+	client := gql.NewClient(shop, token, options)
 
 	variables := map[string]interface{}{"first": 250}
 	if len(topics) > 0 {
@@ -203,8 +203,8 @@ func listWebhooks(shop, token string, topics []string) ([]Webhook, error) {
 	return result, nil
 }
 
-func createWebhook(shop, token, topic, address, format string, fields []string) (string, error) {
-	client := gql.NewClient(shop, token)
+func createWebhook(shop, token, topic, address, format string, fields []string, options map[string]interface{}) (string, error) {
+	client := gql.NewClient(shop, token, options)
 
 	input := map[string]interface{}{
 		"callbackUrl": address,
@@ -236,8 +236,8 @@ func createWebhook(shop, token, topic, address, format string, fields []string) 
 	return fmt.Sprint(id), nil
 }
 
-func updateWebhook(shop, token, gid string, input map[string]interface{}) error {
-	client := gql.NewClient(shop, token)
+func updateWebhook(shop, token, gid string, input map[string]interface{}, options map[string]interface{}) error {
+	client := gql.NewClient(shop, token, options)
 
 	data, err := client.Execute(webhookSubscriptionUpdateMutation, map[string]interface{}{
 		"id":                  gid,
@@ -256,8 +256,8 @@ func updateWebhook(shop, token, gid string, input map[string]interface{}) error 
 	return nil
 }
 
-func deleteWebhook(shop, token, gid string) error {
-	client := gql.NewClient(shop, token)
+func deleteWebhook(shop, token, gid string, options map[string]interface{}) error {
+	client := gql.NewClient(shop, token, options)
 
 	data, err := client.Execute(webhookSubscriptionDeleteMutation, map[string]interface{}{
 		"id": gid,
