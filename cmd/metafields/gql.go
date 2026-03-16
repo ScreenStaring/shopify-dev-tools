@@ -1,6 +1,7 @@
 package metafields
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -8,6 +9,117 @@ import (
 
 	"github.com/ScreenStaring/shopify-dev-tools/gql"
 )
+
+const metafieldDefinitionsQuery = `
+query($ownerType: MetafieldOwnerType!, $first: Int!, $after: String, $namespace: String) {
+  metafieldDefinitions(ownerType: $ownerType, first: $first, after: $after, namespace: $namespace) {
+    edges {
+      node {
+        id
+        name
+        namespace
+        key
+        description
+        type {
+          name
+        }
+        ownerType
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+`
+
+type MetafieldDefinition struct {
+	ID          string
+	Name        string
+	Namespace   string
+	Key         string
+	Description string
+	Type        string
+	OwnerType   string
+}
+
+type metafieldDefinitionsResponse struct {
+	Data struct {
+		MetafieldDefinitions struct {
+			Edges []struct {
+				Node struct {
+					ID          string `json:"id"`
+					Name        string `json:"name"`
+					Namespace   string `json:"namespace"`
+					Key         string `json:"key"`
+					Description string `json:"description"`
+					Type        struct {
+						Name string `json:"name"`
+					} `json:"type"`
+					OwnerType string `json:"ownerType"`
+				} `json:"node"`
+			} `json:"edges"`
+			PageInfo struct {
+				HasNextPage bool   `json:"hasNextPage"`
+				EndCursor   string `json:"endCursor"`
+			} `json:"pageInfo"`
+		} `json:"metafieldDefinitions"`
+	} `json:"data"`
+}
+
+func listMetafieldDefinitions(shop, token, ownerType, namespace string, options map[string]interface{}) ([]MetafieldDefinition, error) {
+	client := gql.NewClient(shop, token, options)
+
+	vars := map[string]interface{}{
+		"ownerType": ownerType,
+		"first":     250,
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	var definitions []MetafieldDefinition
+
+	for {
+		data, err := client.Execute(metafieldDefinitionsQuery, vars)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafield definitions: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafield definitions: %s", err)
+		}
+
+		var response metafieldDefinitionsResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot list metafield definitions: %s", err)
+		}
+
+		for _, edge := range response.Data.MetafieldDefinitions.Edges {
+			n := edge.Node
+			definitions = append(definitions, MetafieldDefinition{
+				ID:          n.ID,
+				Name:        n.Name,
+				Namespace:   n.Namespace,
+				Key:         n.Key,
+				Description: n.Description,
+				Type:        n.Type.Name,
+				OwnerType:   n.OwnerType,
+			})
+		}
+
+		if !response.Data.MetafieldDefinitions.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.MetafieldDefinitions.PageInfo.EndCursor
+	}
+
+	return definitions, nil
+}
 
 const metafieldsDeleteMutation = `
 mutation metafieldsDelete($metafields: [MetafieldIdentifierInput!]!) {

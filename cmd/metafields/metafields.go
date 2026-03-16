@@ -250,6 +250,37 @@ func parseMetafieldArg(arg string) (metafieldInput, error) {
 	return metafieldInput{OwnerID: parts[0], Namespace: nk[0], Key: nk[1]}, nil
 }
 
+func definitionsAction(c *cli.Context) error {
+	if c.NArg() == 0 {
+		return errors.New("Resource name required")
+	}
+
+	ownerType := strings.ToUpper(c.Args().Get(0))
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
+
+	definitions, err := listMetafieldDefinitions(shop, token, ownerType, c.String("namespace"), options)
+	if err != nil {
+		return err
+	}
+
+	t := tabby.New()
+	for _, def := range definitions {
+		t.AddLine("Gid", def.ID)
+		t.AddLine("Name", def.Name)
+		t.AddLine("Namespace", def.Namespace)
+		t.AddLine("Key", def.Key)
+		t.AddLine("Description", def.Description)
+		t.AddLine("Type", def.Type)
+		t.AddLine("Owner Type", def.OwnerType)
+		t.Print()
+		fmt.Printf("%s\n", strings.Repeat("-", 20))
+	}
+
+	return nil
+}
+
 func deleteAction(c *cli.Context) error {
 	if c.NArg() == 0 {
 		return errors.New("One or more metafield GIDs required")
@@ -311,14 +342,37 @@ func init() {
 		},
 	}
 
+	apiVersionFlag := &cli.StringFlag{
+		Name:    "api-version",
+		Aliases: []string{"a"},
+		Usage:   "API version to use; default is a versionless call",
+	}
+
 	Cmd = cli.Command{
 		Name:    "metafield",
 		Aliases: []string{"m", "meta"},
 		Usage:   "Metafield utilities",
 		Subcommands: []*cli.Command{
 			{
+				Name:    "definitions",
+				Aliases: []string{"d"},
+				Usage:   "Metafield definition utilities",
+				Subcommands: []*cli.Command{
+					{
+						Name:      "ls",
+						ArgsUsage: "resource",
+						Flags: append(cmd.Flags, apiVersionFlag, &cli.StringFlag{
+							Name:    "namespace",
+							Aliases: []string{"n"},
+							Usage:   "Filter by namespace",
+						}),
+						Action:    definitionsAction,
+						Usage:     "List metafield definitions for the given resource",
+					},
+				},
+			},
+			{
 				Name:      "delete",
-				Aliases:   []string{"d"},
 				ArgsUsage: "GID@namespace.key [GID@namespace.key ...]",
 				Flags:     cmd.Flags,
 				Action:    deleteAction,
