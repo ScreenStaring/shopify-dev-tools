@@ -355,7 +355,7 @@ func init() {
 		Subcommands: []*cli.Command{
 			{
 				Name:    "definitions",
-				Aliases: []string{"d"},
+				Aliases: []string{"def"},
 				Usage:   "Metafield definition utilities",
 				Subcommands: []*cli.Command{
 					{
@@ -373,6 +373,7 @@ func init() {
 			},
 			{
 				Name:      "delete",
+				Aliases: []string{"d"},
 				ArgsUsage: "GID@namespace.key [GID@namespace.key ...]",
 				Flags:     cmd.Flags,
 				Action:    deleteAction,
