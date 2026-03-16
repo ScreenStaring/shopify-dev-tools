@@ -114,6 +114,7 @@ Metafield utilities
        sdt metafield command [command options] [arguments...]
 
     COMMANDS:
+       definitions, def            Metafield definition utilities
        delete, d                   Delete one or more metafields
        customer, c                 List metafields for the given customer
        product, products, prod, p  List metafields for the given product
@@ -320,18 +321,18 @@ Open admin pages
 ### Themes
 
     NAME:
-       sdt themes cp - Copy files to a theme
+       sdt themes - Theme utilities
 
     USAGE:
-       sdt themes cp [command options] themeid source [...] destination
+       sdt themes command [command options] [arguments...]
+
+    COMMANDS:
+       ls        List the shop's themes
+       cp, copy  Copy files to a theme
+       help, h   Shows a list of commands or help for one command
 
     OPTIONS:
-       --verbose             Output Shopify API request/response (default: false)
-       --shop value          Shopify domain or shop name to perform command against [$SHOPIFY_SHOP]
-       --api-password value  Shopify API password [$SHOPIFY_API_PASSWORD]
-       --access-token value  Shopify access token for shop [$SHOPIFY_ACCESS_TOKEN, $SHOPIFY_API_TOKEN]
-       --api-key value       Shopify API key to for shop [$SHOPIFY_API_KEY]
-       --help, -h            show help (default: false)
+       --help, -h  show help (default: false)
 
 Currently `source` can only be a local file
 
