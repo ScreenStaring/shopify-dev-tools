@@ -174,6 +174,7 @@ Do things with products
     COMMANDS:
        ls, l      List some of a shop's products or the products given by the specified IDs
        import, i  Import products synchronously from a Shopify CSV file
+       export, e  Export product and variant IDs, and other identifiers, to a CSV or JSON file
        bulk, b    Import prodcuts from a Shopify CSV file using the Bulk API
        help, h    Shows a list of commands or help for one command
 
@@ -201,6 +202,39 @@ A good use of `import` over `bulk` is to seed your store for automated tests.
 1. `sdt products bulk import` with the appropriate arguments. This will return an ID you can use to check the bulk operation's status
 1. `sdt products bulk status ID` to check the status
 1. If you'd like to cancel: `sdt products bulk cancel ID`
+
+
+#### Exporting Product Identifiers
+
+Dump Shopify product and variant IDs —along with other identifiers— to a CSV or JSON file.
+
+##### CSV
+
+```
+# assuming env authentication
+sdt products export --shop YOUR_SHOP
+```
+
+This will output `YOUR_SHOP.csv`
+
+##### JSON
+
+```
+# assuming env authentication
+sdt products export --shop YOUR_SHOP -j
+```
+
+This will output `YOUR_SHOP.json` with the products as a JSON array.
+
+If you're cross-referencing IDs it may be useful to set the root property for the JSON object output for each product/variant.
+
+This will output each object with the variant's SKU as the root:
+
+```
+sdt products export --shop YOUR_SHOP -j -r sku
+```
+
+Valid properties for the `-r`/`--json-root` option are: `product_id`, `product_title`, `barcode`, `handle`, `variant_id`, `sku`.
 
 ### GraphQL
 
@@ -323,7 +357,8 @@ Webhooks utilities
 
 ## See Also
 
-- [Shopify ID Export](https://github.com/ScreenStaring/shopify_id_export/) - Dump Shopify product and variant IDs —along with other identifiers— to a CSV or JSON file.
+- [`ShopifyAPI::GraphQL::Request`](https://github.com/ScreenStaring/shopify_api-graphql-request) - Ruby gem to Simplify GraphQL queries and mutations for Shopify Admin API. Built-in pagination, retry, error handling, and more!
+- [`ShopifyAPI::GraphQL::Bulk`](https://github.com/ScreenStaring/shopify_api-graphql-bulk) - Ruby gem to bulk import data with the Shopify GraphQL Admin Bulk API
 
 ## License
 
