@@ -8,6 +8,164 @@ import (
 	gqlclient "github.com/ScreenStaring/shopify-dev-tools/gql"
 )
 
+const productsCountQuery = `
+query($query: String) {
+  productsCount(query: $query) {
+    count
+  }
+}
+`
+
+type productsCountResponse struct {
+	Data struct {
+		ProductsCount struct {
+			Count int `json:"count"`
+		} `json:"productsCount"`
+	} `json:"data"`
+}
+
+func FetchProductCount(shop, token, status string) (int, error) {
+	client := gqlclient.NewClient(shop, token)
+
+	vars := map[string]interface{}{}
+	if len(status) > 0 {
+		vars["query"] = "status:" + status
+	}
+
+	data, err := client.Execute(productsCountQuery, vars)
+	if err != nil {
+		return 0, fmt.Errorf("Cannot fetch product count: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return 0, fmt.Errorf("Cannot re-encode product count response: %s", err)
+	}
+
+	var response productsCountResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return 0, fmt.Errorf("Cannot parse product count response: %s", err)
+	}
+
+	return response.Data.ProductsCount.Count, nil
+}
+
+const productsExportQuery = `
+query($first: Int!, $after: String, $query: String) {
+  products(first: $first, after: $after, query: $query) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        legacyResourceId
+        title
+        productType
+        handle
+        variants(first: 250) {
+          edges {
+            node {
+              legacyResourceId
+              title
+              sku
+              barcode
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`
+
+type productsExportResponse struct {
+	Data struct {
+		Products struct {
+			PageInfo struct {
+				HasNextPage bool   `json:"hasNextPage"`
+				EndCursor   string `json:"endCursor"`
+			} `json:"pageInfo"`
+			Edges []struct {
+				Node struct {
+					LegacyResourceId int64  `json:"legacyResourceId,string"`
+					Title            string `json:"title"`
+					ProductType      string `json:"productType"`
+					Handle           string `json:"handle"`
+					Variants         struct {
+						Edges []struct {
+							Node struct {
+								LegacyResourceId int64  `json:"legacyResourceId,string"`
+								Title            string `json:"title"`
+								SKU              string `json:"sku"`
+								Barcode          string `json:"barcode"`
+							} `json:"node"`
+						} `json:"edges"`
+					} `json:"variants"`
+				} `json:"node"`
+			} `json:"edges"`
+		} `json:"products"`
+	} `json:"data"`
+}
+
+func FetchAllProducts(shop, token, status string, fn func(Product) error) error {
+	client := gqlclient.NewClient(shop, token)
+
+	vars := map[string]interface{}{"first": 250}
+	if len(status) > 0 {
+		vars["query"] = "status:" + status
+	}
+
+	for {
+		data, err := client.Execute(productsExportQuery, vars)
+		if err != nil {
+			return fmt.Errorf("Cannot fetch products: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return fmt.Errorf("Cannot re-encode products response: %s", err)
+		}
+
+		var response productsExportResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return fmt.Errorf("Cannot parse products response: %s", err)
+		}
+
+		for _, edge := range response.Data.Products.Edges {
+			n := edge.Node
+			product := Product{
+				ID:          n.LegacyResourceId,
+				Title:       n.Title,
+				ProductType: n.ProductType,
+				Handle:      n.Handle,
+			}
+
+			for _, vEdge := range n.Variants.Edges {
+				v := vEdge.Node
+				product.Variants = append(product.Variants, Variant{
+					ID:      v.LegacyResourceId,
+					Title:   v.Title,
+					SKU:     v.SKU,
+					Barcode: v.Barcode,
+				})
+			}
+
+			if err := fn(product); err != nil {
+				return err
+			}
+		}
+
+		if !response.Data.Products.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.Products.PageInfo.EndCursor
+	}
+
+	return nil
+}
+
 const productsQuery = `
 query($first: Int!, $query: String) {
   products(first: $first, query: $query) {

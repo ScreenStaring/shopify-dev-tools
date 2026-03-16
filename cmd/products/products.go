@@ -13,6 +13,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/products/exportformat"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/products/gql"
 )
 
@@ -283,6 +284,28 @@ func init() {
 					},
 				),
 				Action: syncImportProducts,
+			},
+			{
+				Name:    "export",
+				Aliases: []string{"e"},
+				Usage:   "Export product and variant IDs, and other identifiers, to a CSV or JSON file",
+				Flags: append(cmd.Flags,
+					&cli.StringFlag{
+						Name:    "status",
+						Aliases: []string{"s"},
+					},
+					&cli.BoolFlag{
+						Name:    "json",
+						Aliases: []string{"j"},
+						Usage:   "Output in JSON format",
+					},
+					&cli.StringFlag{
+						Name:    "json-root",
+						Aliases: []string{"r"},
+						Usage:   fmt.Sprintf("Top-level property for JSON output, one of: %s", strings.Join(exportformat.JSONRootProperties, ", ")),
+					},
+				),
+				Action: exportProducts,
 			},
 			{
 				Name:    "bulk",
