@@ -306,6 +306,328 @@ func buildQuery(ids []int64, status string) (string, int) {
 	return "", 0
 }
 
+const productsInventoryQuery = `
+query($first: Int!, $after: String) {
+  products(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        legacyResourceId
+        title
+        variants(first: 250) {
+          edges {
+            node {
+              legacyResourceId
+              title
+              sku
+              barcode
+              inventoryItem {
+                inventoryLevels(first: 20) {
+                  edges {
+                    node {
+                      location {
+                        name
+                      }
+                      quantities(names: ["available", "on_hand"]) {
+                        name
+                        quantity
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`
+
+type InventoryLevel struct {
+	Location  string
+	Available int
+	OnHand    int
+}
+
+type VariantInventory struct {
+	VariantID       int64
+	VariantTitle    string
+	SKU             string
+	Barcode         string
+	InventoryLevels []InventoryLevel
+}
+
+type ProductInventory struct {
+	ProductID    int64
+	ProductTitle string
+	Variants     []VariantInventory
+}
+
+type productsInventoryResponse struct {
+	Data struct {
+		Products struct {
+			PageInfo struct {
+				HasNextPage bool   `json:"hasNextPage"`
+				EndCursor   string `json:"endCursor"`
+			} `json:"pageInfo"`
+			Edges []struct {
+				Node struct {
+					LegacyResourceId int64  `json:"legacyResourceId,string"`
+					Title            string `json:"title"`
+					Variants         struct {
+						Edges []struct {
+							Node struct {
+								LegacyResourceId int64  `json:"legacyResourceId,string"`
+								Title            string `json:"title"`
+								SKU              string `json:"sku"`
+								Barcode          string `json:"barcode"`
+								InventoryItem    struct {
+									InventoryLevels struct {
+										Edges []struct {
+											Node struct {
+												Location struct {
+													Name string `json:"name"`
+												} `json:"location"`
+												Quantities []struct {
+													Name     string `json:"name"`
+													Quantity int    `json:"quantity"`
+												} `json:"quantities"`
+											} `json:"node"`
+										} `json:"edges"`
+									} `json:"inventoryLevels"`
+								} `json:"inventoryItem"`
+							} `json:"node"`
+						} `json:"edges"`
+					} `json:"variants"`
+				} `json:"node"`
+			} `json:"edges"`
+		} `json:"products"`
+	} `json:"data"`
+}
+
+func FetchAllInventory(shop, token string, fn func(ProductInventory) error, options map[string]interface{}) error {
+	client := gqlclient.NewClient(shop, token, options)
+
+	vars := map[string]interface{}{"first": 10}
+
+	for {
+		data, err := client.Execute(productsInventoryQuery, vars)
+		if err != nil {
+			return fmt.Errorf("Cannot fetch products: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return fmt.Errorf("Cannot re-encode products response: %s", err)
+		}
+
+		var response productsInventoryResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return fmt.Errorf("Cannot parse products response: %s", err)
+		}
+
+		for _, edge := range response.Data.Products.Edges {
+			n := edge.Node
+			pi := ProductInventory{
+				ProductID:    n.LegacyResourceId,
+				ProductTitle: n.Title,
+			}
+
+			for _, vEdge := range n.Variants.Edges {
+				v := vEdge.Node
+				vi := VariantInventory{
+					VariantID:    v.LegacyResourceId,
+					VariantTitle: v.Title,
+					SKU:          v.SKU,
+					Barcode:      v.Barcode,
+				}
+
+				for _, levelEdge := range v.InventoryItem.InventoryLevels.Edges {
+					level := levelEdge.Node
+					il := InventoryLevel{Location: level.Location.Name}
+					for _, q := range level.Quantities {
+						switch q.Name {
+						case "available":
+							il.Available = q.Quantity
+						case "on_hand":
+							il.OnHand = q.Quantity
+						}
+					}
+					vi.InventoryLevels = append(vi.InventoryLevels, il)
+				}
+
+				pi.Variants = append(pi.Variants, vi)
+			}
+
+			if err := fn(pi); err != nil {
+				return err
+			}
+		}
+
+		if !response.Data.Products.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.Products.PageInfo.EndCursor
+	}
+
+	return nil
+}
+
+const variantsInventoryQuery = `
+query($first: Int!, $after: String, $query: String!) {
+  productVariants(first: $first, after: $after, query: $query) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        legacyResourceId
+        title
+        sku
+        barcode
+        product {
+          legacyResourceId
+          title
+        }
+        inventoryItem {
+          inventoryLevels(first: 20) {
+            edges {
+              node {
+                location {
+                  name
+                }
+                quantities(names: ["available", "on_hand"]) {
+                  name
+                  quantity
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`
+
+type variantsInventoryResponse struct {
+	Data struct {
+		ProductVariants struct {
+			PageInfo struct {
+				HasNextPage bool   `json:"hasNextPage"`
+				EndCursor   string `json:"endCursor"`
+			} `json:"pageInfo"`
+			Edges []struct {
+				Node struct {
+					LegacyResourceId int64  `json:"legacyResourceId,string"`
+					Title            string `json:"title"`
+					SKU              string `json:"sku"`
+					Barcode          string `json:"barcode"`
+					Product          struct {
+						LegacyResourceId int64  `json:"legacyResourceId,string"`
+						Title            string `json:"title"`
+					} `json:"product"`
+					InventoryItem struct {
+						InventoryLevels struct {
+							Edges []struct {
+								Node struct {
+									Location struct {
+										Name string `json:"name"`
+									} `json:"location"`
+									Quantities []struct {
+										Name     string `json:"name"`
+										Quantity int    `json:"quantity"`
+									} `json:"quantities"`
+								} `json:"node"`
+							} `json:"edges"`
+						} `json:"inventoryLevels"`
+					} `json:"inventoryItem"`
+				} `json:"node"`
+			} `json:"edges"`
+		} `json:"productVariants"`
+	} `json:"data"`
+}
+
+func FetchInventoryByIdentifiers(shop, token, identifyBy string, identifiers []string, fn func(ProductInventory) error, options map[string]interface{}) error {
+	client := gqlclient.NewClient(shop, token, options)
+
+	parts := make([]string, len(identifiers))
+	for i, id := range identifiers {
+		parts[i] = identifyBy + ":\"" + id + "\""
+	}
+
+	vars := map[string]interface{}{
+		"first": 50,
+		"query": strings.Join(parts, " OR "),
+	}
+
+	for {
+		data, err := client.Execute(variantsInventoryQuery, vars)
+		if err != nil {
+			return fmt.Errorf("Cannot fetch variants: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return fmt.Errorf("Cannot re-encode variants response: %s", err)
+		}
+
+		var response variantsInventoryResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return fmt.Errorf("Cannot parse variants response: %s", err)
+		}
+
+		for _, edge := range response.Data.ProductVariants.Edges {
+			v := edge.Node
+			vi := VariantInventory{
+				VariantID:    v.LegacyResourceId,
+				VariantTitle: v.Title,
+				SKU:          v.SKU,
+				Barcode:      v.Barcode,
+			}
+
+			for _, levelEdge := range v.InventoryItem.InventoryLevels.Edges {
+				level := levelEdge.Node
+				il := InventoryLevel{Location: level.Location.Name}
+				for _, q := range level.Quantities {
+					switch q.Name {
+					case "available":
+						il.Available = q.Quantity
+					case "on_hand":
+						il.OnHand = q.Quantity
+					}
+				}
+				vi.InventoryLevels = append(vi.InventoryLevels, il)
+			}
+
+			pi := ProductInventory{
+				ProductID:    v.Product.LegacyResourceId,
+				ProductTitle: v.Product.Title,
+				Variants:     []VariantInventory{vi},
+			}
+
+			if err := fn(pi); err != nil {
+				return err
+			}
+		}
+
+		if !response.Data.ProductVariants.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.ProductVariants.PageInfo.EndCursor
+	}
+
+	return nil
+}
+
 const locationsQuery = `
 {
   locations(first: 250, includeLegacy: false, includeInactive: false) {

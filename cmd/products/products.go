@@ -13,6 +13,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/products/export"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/products/exportformat"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/products/gql"
 )
@@ -297,24 +298,45 @@ func init() {
 			{
 				Name:    "export",
 				Aliases: []string{"e"},
-				Usage:   "Export product and variant IDs, and other identifiers, to a CSV or JSON file",
-				Flags: append(cmd.Flags,
-					&cli.StringFlag{
-						Name:    "status",
-						Aliases: []string{"s"},
+				Usage:   "Export product data",
+				Subcommands: []*cli.Command{
+					{
+						Name:    "ids",
+						Aliases: []string{"i"},
+						Usage:   "Export product and variant IDs, and other identifiers, to a CSV or JSON file",
+						Flags: append(cmd.Flags,
+							&cli.StringFlag{
+								Name:    "status",
+								Aliases: []string{"s"},
+							},
+							&cli.BoolFlag{
+								Name:    "json",
+								Aliases: []string{"j"},
+								Usage:   "Output in JSON format",
+							},
+							&cli.StringFlag{
+								Name:    "json-root",
+								Aliases: []string{"r"},
+								Usage:   fmt.Sprintf("Top-level property for JSON output, one of: %s", strings.Join(exportformat.JSONRootProperties, ", ")),
+							},
+						),
+						Action: export.IDs,
 					},
-					&cli.BoolFlag{
-						Name:    "json",
-						Aliases: []string{"j"},
-						Usage:   "Output in JSON format",
+					{
+						Name:    "inventory",
+						Aliases: []string{"inv"},
+						Usage:   "Export inventory quantities by variant and location to a CSV file",
+						Flags: append(cmd.Flags,
+							apiVersionFlag,
+							&cli.StringFlag{
+								Name:    "identify-by",
+								Aliases: []string{"i"},
+								Usage:   "Read identifiers from stdin and only export inventory for matching variants; one of: id, sku, barcode",
+							},
+						),
+						Action: export.Inventory,
 					},
-					&cli.StringFlag{
-						Name:    "json-root",
-						Aliases: []string{"r"},
-						Usage:   fmt.Sprintf("Top-level property for JSON output, one of: %s", strings.Join(exportformat.JSONRootProperties, ", ")),
-					},
-				),
-				Action: exportProducts,
+				},
 			},
 			{
 				Name:    "bulk",

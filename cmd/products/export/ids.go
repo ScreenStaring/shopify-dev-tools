@@ -1,4 +1,4 @@
-package products
+package export
 
 import (
 	"fmt"
@@ -21,15 +21,15 @@ func shopBaseName(shop string) string {
 	return strings.SplitN(shop, ".", 2)[0]
 }
 
-func exportProducts(c *cli.Context) error {
+func IDs(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
 	status := c.String("status")
 	baseName := shopBaseName(shop)
 
-	format := "CSV"
+	exportFormat := "CSV"
 	if c.Bool("json") {
-		format = "JSON"
+		exportFormat = "JSON"
 	}
 
 	options := map[string]interface{}{"version": c.String("api-version")}
@@ -39,7 +39,7 @@ func exportProducts(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "Exporting %d products to %s...\n", total, format)
+	fmt.Fprintf(os.Stderr, "Exporting %d products to %s...\n", total, exportFormat)
 
 	var d dumper
 
