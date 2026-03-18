@@ -175,7 +175,7 @@ Do things with products
     COMMANDS:
        ls, l      List some of a shop's products or the products given by the specified IDs
        import, i  Import products synchronously from a Shopify CSV file
-       export, e  Export product and variant IDs, and other identifiers, to a CSV or JSON file
+       export, e  Export product information: identifiers, inventory counts, etc...
        bulk, b    Import prodcuts from a Shopify CSV file using the Bulk API
        help, h    Shows a list of commands or help for one command
 
