@@ -205,10 +205,7 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 		if handle != "" || id != "" {
 			finalize()
 
-			status := "DRAFT"
-			if s := get(row, "status"); s != "" {
-				status = strings.ToUpper(s)
-			}
+			status := strings.ToUpper(get(row, "status"))
 
 			var tags []string
 			if t := get(row, "tags"); t != "" {
