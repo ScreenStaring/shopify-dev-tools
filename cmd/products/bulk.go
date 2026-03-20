@@ -42,6 +42,9 @@ func setProductIdentifiers(products []importProductInput, identifyBy string) {
 	numericID := regexp.MustCompile(`^\d+$`)
 	for i := range products {
 		p := &products[i]
+		if p.Identifier != nil {
+			continue
+		}
 		if identifyBy == "id" {
 			id := p.Input.ID
 			if id != "" {

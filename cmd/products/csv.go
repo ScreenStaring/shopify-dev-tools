@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -24,8 +25,9 @@ type variantOptionValue struct {
 }
 
 type inventoryItemInput struct {
-	Tracked          *bool `json:"tracked,omitempty"`
-	RequiresShipping *bool `json:"requiresShipping,omitempty"`
+	Tracked          *bool   `json:"tracked,omitempty"`
+	RequiresShipping *bool   `json:"requiresShipping,omitempty"`
+	Cost             string  `json:"cost,omitempty"`
 }
 
 type inventoryQuantityInput struct {
@@ -75,10 +77,16 @@ type importProductInput struct {
 	Identifier *productSetIdentifier `json:"identifier,omitempty"`
 }
 
+var optionColumnRE = regexp.MustCompile(`\b(option)\s+(\d)\b`)
+
+func normalizeColumnName(s string) string {
+	return optionColumnRE.ReplaceAllString(strings.ToLower(strings.TrimSpace(s)), "$1$2")
+}
+
 func buildColumnIndex(header []string) map[string]int {
 	idx := make(map[string]int)
 	for i, h := range header {
-		idx[strings.ToLower(strings.TrimSpace(h))] = i
+		idx[normalizeColumnName(h)] = i
 	}
 	return idx
 }
@@ -171,7 +179,15 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 			}
 		}
 
-		products = append(products, importProductInput{Input: *current})
+		pip := importProductInput{Input: *current}
+		if current.ID != "" {
+			id := current.ID
+			if matched, _ := regexp.MatchString(`^\d+$`, id); matched {
+				id = "gid://shopify/Product/" + id
+			}
+			pip.Identifier = &productSetIdentifier{ID: id}
+		}
+		products = append(products, pip)
 	}
 
 	for {
@@ -184,8 +200,9 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 		}
 
 		handle := get(row, "handle")
+		id := get(row, "product id")
 
-		if handle != "" {
+		if handle != "" || id != "" {
 			finalize()
 
 			status := "DRAFT"
@@ -224,7 +241,7 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 			}
 
 			current = &importProduct{
-				ID:              get(row, "id"),
+				ID:              id,
 				Handle:          handle,
 				Title:           get(row, "title"),
 				DescriptionHTML: get(row, "body (html)"),
@@ -273,9 +290,17 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 			}
 		}
 
+		unitCost := get(row, "unit cost")
+
 		var inventoryItem *inventoryItemInput
 		if v := get(row, "requires shipping"); v != "" {
 			inventoryItem = &inventoryItemInput{RequiresShipping: parseBoolPtr(v)}
+		}
+		if unitCost != "" {
+			if inventoryItem == nil {
+				inventoryItem = &inventoryItemInput{}
+			}
+			inventoryItem.Cost = unitCost
 		}
 
 		var inventoryQuantities []inventoryQuantityInput
@@ -318,7 +343,7 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 			inventoryItem.Tracked = &tracked
 		}
 
-		hasVariantData := len(variantOpts) > 0 || sku != "" || price != ""
+		hasVariantData := len(variantOpts) > 0 || sku != "" || price != "" || unitCost != ""
 		if hasVariantData {
 			v := importVariant{
 				OptionValues:        variantOpts,
