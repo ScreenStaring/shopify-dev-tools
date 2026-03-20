@@ -6,6 +6,7 @@ import (
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/admin"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/charges"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/events"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/gql"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/metafields"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/orders"
@@ -28,6 +29,7 @@ func main() {
 		Commands: []*cli.Command{
 			&admin.Cmd,
 			&charges.Cmd,
+			&events.Cmd,
 			&metafields.Cmd,
 			&orders.Cmd,
 			&products.Cmd,
