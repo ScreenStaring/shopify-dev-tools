@@ -64,10 +64,36 @@ func splitFields(raw []string) []string {
 	return fields
 }
 
+func parseMetafields(raw []string) ([]map[string]string, error) {
+	var result []map[string]string
+	for _, entry := range splitFields(raw) {
+		parts := strings.SplitN(entry, ".", 2)
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			return nil, fmt.Errorf("invalid metafield format %q, expected namespace.key", entry)
+		}
+		result = append(result, map[string]string{"namespace": parts[0], "key": parts[1]})
+	}
+	return result, nil
+}
+
 func createAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
 	options := map[string]interface{}{"version": c.String("api-version")}
+
+	metafields, err := parseMetafields(c.StringSlice("metafields"))
+	if err != nil {
+		return err
+	}
+
+	if len(metafields) > 0 {
+		options["metafields"] = metafields
+	}
+
+	namespaces := splitFields(c.StringSlice("namespaces"))
+	if len(namespaces) > 0 {
+		options["metafieldNamespaces"] = namespaces
+	}
 
 	id, err := createWebhook(shop, token, c.String("topic"), c.String("address"), format(c), splitFields(c.StringSlice("fields")), options)
 	if err != nil {
@@ -145,6 +171,16 @@ func updateAction(c *cli.Context) error {
 	if c.IsSet("fields") {
 		input["includeFields"] = splitFields(c.StringSlice("fields"))
 	}
+	if c.IsSet("namespaces") {
+		input["metafieldNamespaces"] = splitFields(c.StringSlice("namespaces"))
+	}
+	if c.IsSet("metafields") {
+		metafields, err := parseMetafields(c.StringSlice("metafields"))
+		if err != nil {
+			return err
+		}
+		input["metafields"] = metafields
+	}
 
 	if len(input) == 0 {
 		return fmt.Errorf("You must supply at least one option to update")
@@ -194,6 +230,16 @@ func init() {
 			Name: "fields",
 			Aliases: []string{"f"},
 		},
+		&cli.StringSliceFlag{
+			Name:    "namespaces",
+			Aliases: []string{"n"},
+			Usage:   "Metafield namespaces to include in the webhook",
+		},
+		&cli.StringSliceFlag{
+			Name:    "metafields",
+			Aliases: []string{"m"},
+			Usage:   "Metafields to include in the webhook in namespace.key format",
+		},
 		&cli.BoolFlag{
 			Name: "xml",
 			Value: false,
@@ -214,6 +260,16 @@ func init() {
 		&cli.StringSliceFlag{
 			Name: "fields",
 			Aliases: []string{"f"},
+		},
+		&cli.StringSliceFlag{
+			Name:    "namespaces",
+			Aliases: []string{"n"},
+			Usage:   "Metafield namespaces to include in the webhook",
+		},
+		&cli.StringSliceFlag{
+			Name:    "metafields",
+			Aliases: []string{"m"},
+			Usage:   "Metafields to include in the webhook in namespace.key format",
 		},
 		&cli.StringFlag{
 			Name: "topic",

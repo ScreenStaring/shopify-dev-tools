@@ -213,6 +213,12 @@ func createWebhook(shop, token, topic, address, format string, fields []string, 
 	if len(fields) > 0 {
 		input["includeFields"] = fields
 	}
+	if v, ok := options["metafieldNamespaces"]; ok {
+		input["metafieldNamespaces"] = v
+	}
+	if v, ok := options["metafields"]; ok {
+		input["metafields"] = v
+	}
 
 	data, err := client.Execute(webhookSubscriptionCreateMutation, map[string]interface{}{
 		"topic":               topicToEnum(topic),
