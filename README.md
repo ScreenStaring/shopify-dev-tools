@@ -103,6 +103,9 @@ Other environment variables:
 
 ## Commands
 
+Functionality can depend the GraphQL Admin API version. By default requests made by Shopify Development Tools do not specify an API version.
+If you need a specific version specify it with the `--api-version` option.
+
 ### Metafields
 
 Metafield utilities
