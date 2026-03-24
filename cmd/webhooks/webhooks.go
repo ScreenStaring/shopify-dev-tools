@@ -79,7 +79,7 @@ func parseMetafields(raw []string) ([]map[string]string, error) {
 func createAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{"version": c.String("api-version"), "verbose": c.Bool("verbose")}
 
 	metafields, err := parseMetafields(c.StringSlice("metafields"))
 	if err != nil {
@@ -107,7 +107,7 @@ func createAction(c *cli.Context) error {
 func deleteAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{"version": c.String("api-version"), "verbose": c.Bool("verbose")}
 
 	var webhooks []Webhook
 
@@ -158,7 +158,7 @@ func updateAction(c *cli.Context) error {
 
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{"version": c.String("api-version"), "verbose": c.Bool("verbose")}
 	gid := webhookGID(c.Args().Get(0))
 
 	input := map[string]interface{}{}
