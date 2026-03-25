@@ -1,3 +1,13 @@
+v0.0.11 2026-03-25
+--------------------
+- Add support for batch deleting metafields
+- Add namespaces and metafields arguments to webhooks commands
+- Add support for --verbose to webhook commands
+- Change `products export` to `products export ids`
+- Product import improvements
+- Product import: don't default status to DRAFT
+- GraphQL command: return an error if non-200 response
+
 v0.0.10 2026-03-16
 --------------------
 - Add `metafield definitions` command  to list  metafield definitions
