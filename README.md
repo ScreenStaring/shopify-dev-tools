@@ -230,18 +230,18 @@ Dump Shopify product and variant IDs —along with other identifiers— to a CSV
 
 ##### CSV
 
-```
+```sh
 # assuming env authentication
-sdt products export --shop YOUR_SHOP
+sdt products export ids --shop YOUR_SHOP
 ```
 
 This will output `YOUR_SHOP.csv`
 
 ##### JSON
 
-```
+```sh
 # assuming env authentication
-sdt products export --shop YOUR_SHOP -j
+sdt products export ids --shop YOUR_SHOP -j
 ```
 
 This will output `YOUR_SHOP.json` with the products as a JSON array.
