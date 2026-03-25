@@ -9,6 +9,8 @@ Windows, macOS/OS X, and GNU/Linux are supported.
 
 ## Usage
 
+The CLI interface uses the executable `sdt`:
+
     NAME:
        sdt - Shopify Development Tools
 
@@ -103,7 +105,7 @@ Other environment variables:
 
 ## Commands
 
-Functionality can depend the GraphQL Admin API version. By default requests made by Shopify Development Tools do not specify an API version.
+Functionality can depend the GraphQL Admin API version. By default requests do not specify an API version.
 If you need a specific version specify it with the `--api-version` option.
 
 ### Metafields
@@ -131,7 +133,7 @@ Metafield utilities
 
 #### Deleting Metafields in Bulk
 
-You can specify multiple metafields to delete on the command line:
+You can specify multiple metafields to delete on the command-line:
 
 ```
 sdt metafields delete [GID@namespace.key [GID@namespace.key ...]]
@@ -256,7 +258,7 @@ Valid properties for the `-r`/`--json-root` option are: `product_id`, `product_t
 
 #### Deleting Products in Bulk
 
-You can specify multiple product IDs to delete on the command line:
+You can specify multiple product IDs to delete on the command-line:
 
 ```
 sdt products delete [ID [ID ...]]
