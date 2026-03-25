@@ -274,7 +274,7 @@ func init() {
 				Aliases:   []string{"d"},
 				Usage:     "Delete products by ID",
 				ArgsUsage: "[ID [ID ...]]",
-				Description: "If IDs are not given they're read from stdin",
+				Description: "If IDs are not given they're read from stdin one per line",
 				Flags:     append(cmd.Flags, apiVersionFlag),
 				Action:    deleteProducts,
 			},

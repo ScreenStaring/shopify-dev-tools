@@ -240,6 +240,20 @@ sdt products export --shop YOUR_SHOP -j -r sku
 
 Valid properties for the `-r`/`--json-root` option are: `product_id`, `product_title`, `barcode`, `handle`, `variant_id`, `sku`.
 
+#### Deleting Products in Bulk
+
+You can specify multiple product IDs to delete on the command line:
+
+```
+sdt products delete [ID [ID ...]]
+```
+
+Or via stdin, with 1 ID per line:
+
+```
+sdt products delete < list-of-ids.txt
+```
+
 ### GraphQL
 
 Run a GraphQL query against the Admin API
