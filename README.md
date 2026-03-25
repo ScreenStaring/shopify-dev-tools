@@ -129,6 +129,20 @@ Metafield utilities
     OPTIONS:
        --help, -h  show help (default: false)
 
+#### Deleting Metafields in Bulk
+
+You can specify multiple metafields to delete on the command line:
+
+```
+sdt metafields delete [GID@namespace.key [GID@namespace.key ...]]
+```
+
+Or via stdin, with 1 ID per line:
+
+```
+sdt metafields delete < list-of-ids.txt
+```
+
 ### Charges
 
 Do things with charges

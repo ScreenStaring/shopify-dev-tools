@@ -1,9 +1,11 @@
 package metafields
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -281,26 +283,7 @@ func definitionsAction(c *cli.Context) error {
 	return nil
 }
 
-func deleteAction(c *cli.Context) error {
-	if c.NArg() == 0 {
-		return errors.New("One or more metafield GIDs required")
-	}
-
-	var inputs []metafieldInput
-	for _, arg := range c.Args().Slice() {
-		mf, err := parseMetafieldArg(arg)
-		if err != nil {
-			return err
-		}
-		inputs = append(inputs, mf)
-	}
-
-	shop := c.String("shop")
-	deleted, err := deleteMetafields(shop, cmd.LookupAccessToken(shop, c.String("access-token")), inputs)
-	if err != nil {
-		return err
-	}
-
+func printDeleteResults(deleted []DeletedMetafield) {
 	t := tabby.New()
 	for _, mf := range deleted {
 		t.AddLine("Gid", mf.OwnerID)
@@ -314,8 +297,52 @@ func deleteAction(c *cli.Context) error {
 		t.Print()
 		fmt.Printf("%s\n", strings.Repeat("-", 20))
 	}
+}
 
-	return nil
+func deleteAction(c *cli.Context) error {
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	if c.NArg() > 0 {
+		var inputs []metafieldInput
+		for _, arg := range c.Args().Slice() {
+			mf, err := parseMetafieldArg(arg)
+			if err != nil {
+				return err
+			}
+			inputs = append(inputs, mf)
+		}
+
+		deleted, err := deleteMetafields(shop, token, inputs)
+		if err != nil {
+			return err
+		}
+
+		printDeleteResults(deleted)
+		return nil
+	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		mf, err := parseMetafieldArg(line)
+		if err != nil {
+			return err
+		}
+
+		deleted, err := deleteMetafields(shop, token, []metafieldInput{mf})
+		if err != nil {
+			return err
+		}
+
+		printDeleteResults(deleted)
+	}
+
+	return scanner.Err()
 }
 
 func init() {
@@ -375,6 +402,7 @@ func init() {
 				Name:      "delete",
 				Aliases: []string{"d"},
 				ArgsUsage: "GID@namespace.key [GID@namespace.key ...]",
+				Description: "If IDs are not given they're read from stdin one per line",
 				Flags:     cmd.Flags,
 				Action:    deleteAction,
 				Usage:     "Delete one or more metafields",
