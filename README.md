@@ -251,7 +251,7 @@ If you're cross-referencing IDs it may be useful to set the root property for th
 This will output each object with the variant's SKU as the root:
 
 ```
-sdt products export --shop YOUR_SHOP -j -r sku
+sdt products export ids --shop YOUR_SHOP -j -r sku
 ```
 
 Valid properties for the `-r`/`--json-root` option are: `product_id`, `product_title`, `barcode`, `handle`, `variant_id`, `sku`.
