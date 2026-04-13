@@ -3,10 +3,51 @@ package orders
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/ScreenStaring/shopify-dev-tools/gql"
 )
+
+const fulfillmentsQuery = `
+query($id: ID!) {
+  order(id: $id) {
+    fulfillments {
+      id
+      name
+      displayStatus
+      updatedAt
+      service {
+        serviceName
+        type
+      }
+      location {
+        name
+      }
+      trackingInfo {
+        company
+        number
+        url
+      }
+      fulfillmentLineItems(first: 250) {
+        edges {
+          node {
+            lineItem {
+              id
+              product { legacyResourceId }
+              variant { legacyResourceId }
+              sku
+              name
+              quantity
+              fulfillmentStatus
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`
 
 const ordersQuery = `
 query($query: String!, $first: Int!) {
@@ -176,6 +217,139 @@ func listOrders(shop, token string, ids []int64, status string, limit int) ([]Or
 
 		result = append(result, order)
 	}
+
+	return result, nil
+}
+
+type TrackingInfo struct {
+	Company string
+	Number  string
+	URL     string
+}
+
+type Fulfillment struct {
+	ID            string
+	Name          string
+	DisplayStatus string
+	ServiceName   string
+	ServiceType   string
+	LocationName  string
+	TrackingInfo  []TrackingInfo
+	LineItems     []LineItem
+	UpdatedAt     string
+}
+
+type trackingInfoJSON struct {
+	Company string `json:"company"`
+	Number  string `json:"number"`
+	URL     string `json:"url"`
+}
+
+type fulfillmentJSON struct {
+	ID            string             `json:"id"`
+	Name          string             `json:"name"`
+	DisplayStatus string             `json:"displayStatus"`
+	UpdatedAt     string             `json:"updatedAt"`
+	Service       *struct {
+		ServiceName string `json:"serviceName"`
+		Type        string `json:"type"`
+	} `json:"service"`
+	Location *struct {
+		Name string `json:"name"`
+	} `json:"location"`
+	TrackingInfo []trackingInfoJSON `json:"trackingInfo"`
+	FulfillmentLineItems struct {
+		Edges []struct {
+			Node struct {
+				LineItem lineItemJSON `json:"lineItem"`
+			} `json:"node"`
+		} `json:"edges"`
+	} `json:"fulfillmentLineItems"`
+}
+
+type fulfillmentsResponse struct {
+	Data struct {
+		Order struct {
+			Fulfillments []fulfillmentJSON `json:"fulfillments"`
+		} `json:"order"`
+	} `json:"data"`
+}
+
+func listFulfillments(shop, token, orderID string) ([]Fulfillment, error) {
+	client := gql.NewClient(shop, token)
+
+	if !strings.HasPrefix(orderID, "gid://") {
+		orderID = "gid://shopify/Order/" + orderID
+	}
+
+	data, err := client.Execute(fulfillmentsQuery, map[string]interface{}{"id": orderID})
+	if err != nil {
+		return nil, fmt.Errorf("Cannot list fulfillments: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot re-encode fulfillments response: %s", err)
+	}
+
+	var response fulfillmentsResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return nil, fmt.Errorf("Cannot parse fulfillments response: %s", err)
+	}
+
+	var result []Fulfillment
+	for _, f := range response.Data.Order.Fulfillments {
+		ff := Fulfillment{
+			ID:            f.ID,
+			Name:          f.Name,
+			DisplayStatus: f.DisplayStatus,
+			UpdatedAt:     f.UpdatedAt,
+		}
+
+		if f.Service != nil {
+			ff.ServiceName = f.Service.ServiceName
+			ff.ServiceType = f.Service.Type
+		}
+
+		if f.Location != nil {
+			ff.LocationName = f.Location.Name
+		}
+
+		for _, ti := range f.TrackingInfo {
+			ff.TrackingInfo = append(ff.TrackingInfo, TrackingInfo{
+				Company: ti.Company,
+				Number:  ti.Number,
+				URL:     ti.URL,
+			})
+		}
+
+		for _, edge := range f.FulfillmentLineItems.Edges {
+			li := edge.Node.LineItem
+			var productID, variantID int64
+			if li.Product != nil {
+				productID = li.Product.LegacyResourceId
+			}
+			if li.Variant != nil {
+				variantID = li.Variant.LegacyResourceId
+			}
+			ff.LineItems = append(ff.LineItems, LineItem{
+				ID:                li.ID,
+				ProductID:         productID,
+				VariantID:         variantID,
+				SKU:               li.SKU,
+				Name:              li.Name,
+				Quantity:          li.Quantity,
+				FulfillmentStatus: li.FulfillmentStatus,
+			})
+		}
+
+		result = append(result, ff)
+	}
+
+	// Sort by UpdatedAt descending
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].UpdatedAt > result[j].UpdatedAt
+	})
 
 	return result, nil
 }

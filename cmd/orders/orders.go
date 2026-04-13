@@ -40,6 +40,24 @@ func userAgentAction(c *cli.Context) error {
 	return nil
 }
 
+func fulfillmentsAction(c *cli.Context) error {
+	if c.Args().Len() == 0 {
+		return fmt.Errorf("You must supply an order id")
+	}
+
+	orderID := c.Args().Get(0)
+
+	shop := c.String("shop")
+	fulfillments, err := listFulfillments(shop, cmd.LookupAccessToken(shop, c.String("access-token")), orderID)
+	if err != nil {
+		return err
+	}
+
+	printFulfillments(fulfillments)
+
+	return nil
+}
+
 func listAction(c *cli.Context) error {
 	var ids []int64
 
@@ -133,6 +151,37 @@ func printLineItems(lines []LineItem) {
 	x.Print()
 }
 
+func printFulfillments(fulfillments []Fulfillment) {
+	if len(fulfillments) == 0 {
+		fmt.Println("No fulfillments")
+		return
+	}
+
+	for _, f := range fulfillments {
+		t := tabby.New()
+		t.AddLine("ID", f.ID)
+		t.AddLine("Name", f.Name)
+		t.AddLine("Display Status", f.DisplayStatus)
+		t.AddLine("Service Name", f.ServiceName)
+		t.AddLine("Service Type", f.ServiceType)
+		t.AddLine("Location", f.LocationName)
+
+		for _, ti := range f.TrackingInfo {
+			t.AddLine("Tracking Company", ti.Company)
+			t.AddLine("Tracking Number", ti.Number)
+			t.AddLine("Tracking URL", ti.URL)
+		}
+
+		t.Print()
+
+		fmt.Println("Line Items")
+		printLineItems(f.LineItems)
+		fmt.Print("\n")
+
+		cmd.PrintSeparator()
+	}
+}
+
 func init() {
 	ordersFlags := []cli.Flag{
 		&cli.StringFlag{
@@ -154,6 +203,13 @@ func init() {
 		Usage:   "Information about orders",
 
 		Subcommands: []*cli.Command{
+			{
+				Name:    "fulfillments",
+				Aliases: []string{"f"},
+				Usage:   "List fulfillments for an order",
+				Flags:   cmd.Flags,
+				Action:  fulfillmentsAction,
+			},
 			{
 				Name: "useragent",
 				Aliases: []string{"ua"},
