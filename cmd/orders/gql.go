@@ -10,7 +10,7 @@ import (
 
 const ordersQuery = `
 query($query: String!, $first: Int!) {
-  orders(first: $first, query: $query) {
+  orders(first: $first, query: $query, sortKey: CREATED_AT, reverse: true) {
     edges {
       node {
         legacyResourceId
