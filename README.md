@@ -174,13 +174,42 @@ Information about orders
        sdt orders command [command options] [arguments...]
 
     COMMANDS:
-       fulfillments, f  List fulfillments for an order
-       useragent, ua  Info about the web browser used to place the order
-       ls             List the shop's orders or the orders given by the specified IDs
-       help, h        Shows a list of commands or help for one command
+       fulfillments, f Do things with an order's fulfillments
+       useragent, ua   Info about the web browser used to place the order
+       ls              List the shop's orders or the orders given by the specified IDs
+       help, h         Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
+
+#### Marking a Shipment as Delivered
+
+You can mark a shipment as delivered using the `orders fulfillments delivered` command.
+This requires the ID of the fulfillment to mark as delivered.
+
+1. Find the ID of the fulfillment
+
+```
+sdt orders fulfillments list --shop YOUR_SHOP ORDER_ID
+```
+
+Here `ORDER_ID` is the numeric order ID or the Shopify GID.
+
+This will list all fulfillments for the order, including its ID.
+
+2. Mark the fulfillment as shipped
+
+Once you have the fulfillment ID from step 1:
+
+```
+sdt orders fulfillments delivered --shop YOUR_SHOP FULFILLMENT_ID
+```
+
+The fulfillment is now marked as delivered. If you want to add a message and/or set the event's time:
+
+```
+sdt orders fulfillments delivered --shop YOUR_SHOP -d '2026-02-14T02:30' FULFILLMENT_ID 'Your message goes here'
+```
 
 ### Products
 
