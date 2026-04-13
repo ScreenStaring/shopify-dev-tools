@@ -16,6 +16,7 @@ query($id: ID!) {
       id
       name
       displayStatus
+      createdAt
       updatedAt
       service {
         serviceName
@@ -231,12 +232,13 @@ type Fulfillment struct {
 	ID            string
 	Name          string
 	DisplayStatus string
+	CreatedAt     string
+	UpdatedAt     string
 	ServiceName   string
 	ServiceType   string
 	LocationName  string
 	TrackingInfo  []TrackingInfo
 	LineItems     []LineItem
-	UpdatedAt     string
 }
 
 type trackingInfoJSON struct {
@@ -249,6 +251,7 @@ type fulfillmentJSON struct {
 	ID            string             `json:"id"`
 	Name          string             `json:"name"`
 	DisplayStatus string             `json:"displayStatus"`
+	CreatedAt     string             `json:"createdAt"`
 	UpdatedAt     string             `json:"updatedAt"`
 	Service       *struct {
 		ServiceName string `json:"serviceName"`
@@ -303,6 +306,7 @@ func listFulfillments(shop, token, orderID string) ([]Fulfillment, error) {
 			ID:            f.ID,
 			Name:          f.Name,
 			DisplayStatus: f.DisplayStatus,
+			CreatedAt:     f.CreatedAt,
 			UpdatedAt:     f.UpdatedAt,
 		}
 
@@ -352,4 +356,77 @@ func listFulfillments(shop, token, orderID string) ([]Fulfillment, error) {
 	})
 
 	return result, nil
+}
+
+const fulfillmentEventCreateMutation = `
+mutation($fulfillmentEvent: FulfillmentEventInput!) {
+  fulfillmentEventCreate(fulfillmentEvent: $fulfillmentEvent) {
+    fulfillmentEvent {
+      id
+      status
+      happenedAt
+      message
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+`
+
+func createFulfillmentDeliveredEvent(shop, token, fulfillmentID, happenedAt, message string) (string, error) {
+	client := gql.NewClient(shop, token)
+
+	if !strings.HasPrefix(fulfillmentID, "gid://") {
+		fulfillmentID = "gid://shopify/Fulfillment/" + fulfillmentID
+	}
+
+	event := map[string]interface{}{
+		"fulfillmentId": fulfillmentID,
+		"status":        "DELIVERED",
+		"happenedAt":    happenedAt,
+	}
+
+	if len(message) > 0 {
+		event["message"] = message
+	}
+
+	data, err := client.Execute(fulfillmentEventCreateMutation, map[string]interface{}{"fulfillmentEvent": event})
+	if err != nil {
+		return "", fmt.Errorf("Cannot create fulfillment event: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("Cannot re-encode fulfillment event response: %s", err)
+	}
+
+	var response struct {
+		Data struct {
+			FulfillmentEventCreate struct {
+				FulfillmentEvent *struct {
+					ID string `json:"id"`
+				} `json:"fulfillmentEvent"`
+				UserErrors []struct {
+					Field   []string `json:"field"`
+					Message string   `json:"message"`
+				} `json:"userErrors"`
+			} `json:"fulfillmentEventCreate"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(b, &response); err != nil {
+		return "", fmt.Errorf("Cannot parse fulfillment event response: %s", err)
+	}
+
+	if errs := response.Data.FulfillmentEventCreate.UserErrors; len(errs) > 0 {
+		var messages []string
+		for _, e := range errs {
+			messages = append(messages, e.Message)
+		}
+		return "", fmt.Errorf("Cannot create fulfillment event: %s", strings.Join(messages, ", "))
+	}
+
+	return response.Data.FulfillmentEventCreate.FulfillmentEvent.ID, nil
 }

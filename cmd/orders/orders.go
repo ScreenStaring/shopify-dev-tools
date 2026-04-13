@@ -2,6 +2,8 @@ package orders
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/urfave/cli/v2"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
@@ -54,6 +56,31 @@ func fulfillmentsAction(c *cli.Context) error {
 	}
 
 	printFulfillments(fulfillments)
+
+	return nil
+}
+
+func deliveredAction(c *cli.Context) error {
+	if c.Args().Len() == 0 {
+		return fmt.Errorf("You must supply a fulfillment id")
+	}
+
+	fulfillmentID := c.Args().Get(0)
+
+	happenedAt := time.Now().UTC().Format(time.RFC3339)
+	if len(c.String("date")) > 0 {
+		happenedAt = c.String("date")
+	}
+
+	message := c.Args().Get(1)
+
+	shop := c.String("shop")
+	id, err := createFulfillmentDeliveredEvent(shop, cmd.LookupAccessToken(shop, c.String("access-token")), fulfillmentID, happenedAt, message)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Fulfillment event %s created\n", id)
 
 	return nil
 }
@@ -165,6 +192,8 @@ func printFulfillments(fulfillments []Fulfillment) {
 		t.AddLine("Service Name", f.ServiceName)
 		t.AddLine("Service Type", f.ServiceType)
 		t.AddLine("Location", f.LocationName)
+		t.AddLine("Created At", f.CreatedAt)
+		t.AddLine("Updated At", f.UpdatedAt)
 
 		for _, ti := range f.TrackingInfo {
 			t.AddLine("Tracking Company", ti.Company)
@@ -175,11 +204,30 @@ func printFulfillments(fulfillments []Fulfillment) {
 		t.Print()
 
 		fmt.Println("Line Items")
-		printLineItems(f.LineItems)
+		printFulfillmentLineItems(f.LineItems)
 		fmt.Print("\n")
 
 		cmd.PrintSeparator()
 	}
+}
+
+func printFulfillmentLineItems(lines []LineItem) {
+	t := tabby.New()
+	t.AddHeader("ID", "Product ID", "Variant ID", "SKU", "Title", "Quantity", "Status")
+
+	for _, line := range lines {
+		t.AddLine(
+			strings.TrimPrefix(line.ID, "gid://shopify/LineItem/"),
+			line.ProductID,
+			line.VariantID,
+			line.SKU,
+			truncate(line.Name),
+			line.Quantity,
+			line.FulfillmentStatus,
+		)
+	}
+
+	t.Print()
 }
 
 func init() {
@@ -206,9 +254,27 @@ func init() {
 			{
 				Name:    "fulfillments",
 				Aliases: []string{"f"},
-				Usage:   "List fulfillments for an order",
-				Flags:   cmd.Flags,
-				Action:  fulfillmentsAction,
+				Usage:   "Fulfillment commands for an order",
+				Subcommands: []*cli.Command{
+					{
+						Name:    "ls",
+						Aliases: []string{"l"},
+						Usage:   "List fulfillments for an order",
+						Flags:   cmd.Flags,
+						Action:  fulfillmentsAction,
+					},
+					{
+						Name:    "delivered",
+						Aliases: []string{"d"},
+						Usage:   "Create a delivered fulfillment event",
+						Flags: append(cmd.Flags, &cli.StringFlag{
+							Name:    "date",
+							Aliases: []string{"d"},
+							Usage:   "Date/time the delivery happened (RFC3339 format), defaults to now",
+						}),
+						Action: deliveredAction,
+					},
+				},
 			},
 			{
 				Name: "useragent",
