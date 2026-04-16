@@ -187,7 +187,7 @@ Information about orders
 You can mark a shipment as delivered using the `orders fulfillments delivered` command.
 This requires the ID of the fulfillment to mark as delivered.
 
-1. Find the ID of the fulfillment
+##### 1. Find the ID of the fulfillment
 
 ```
 sdt orders fulfillments list --shop YOUR_SHOP ORDER_ID
@@ -197,7 +197,7 @@ Here `ORDER_ID` is the numeric order ID or the Shopify GID.
 
 This will list all fulfillments for the order, including its ID.
 
-2. Mark the fulfillment as shipped
+##### 2. Mark the fulfillment as shipped
 
 Once you have the fulfillment ID from step 1:
 
