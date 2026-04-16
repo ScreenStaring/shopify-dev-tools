@@ -90,8 +90,8 @@ func queryAction(c *cli.Context) error {
 func init() {
 	flags := []cli.Flag{
 		&cli.StringFlag{
-			Name:    "api-version",
-			Aliases: []string{"a"},
+			Name:    "version",
+			Aliases: []string{"a", "api-version"},
 			Usage:   "API version to use; default is a versionless call",
 		},
 		&cli.StringSliceFlag{
