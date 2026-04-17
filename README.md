@@ -23,6 +23,7 @@ The CLI interface uses the executable `sdt`:
     COMMANDS:
        admin, a                     Open admin pages
        charges, c, ch               Do things with charges
+       customers, cust              Do things with customers
        metafield, m, meta           Metafield utilities
        orders, o                    Information about orders
        products, p                  Do things with products
@@ -159,6 +160,23 @@ Do things with charges
        ls, l      List the shop's charges or the charges given by the specified IDs
        create, c  Create a one-time charge (application charge)
        help, h    Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
+
+### Charges
+
+Do things with customers
+
+    NAME:
+       sdt customers - Do things with customers
+
+    USAGE:
+       sdt customers command [command options] [arguments...]
+
+    COMMANDS:
+       segments, seg  Customer segment commands
+       help, h        Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
