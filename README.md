@@ -164,7 +164,7 @@ Do things with charges
     OPTIONS:
        --help, -h  show help (default: false)
 
-### Charges
+### Customers
 
 Do things with customers
 
