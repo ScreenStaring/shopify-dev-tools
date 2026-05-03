@@ -4,13 +4,56 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/urfave/cli/v2"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/customers/gql"
 	"github.com/cheynewallace/tabby"
+	"github.com/urfave/cli/v2"
 )
 
 var Cmd cli.Command
+
+func listAction(c *cli.Context) error {
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	if c.Args().Len() > 0 {
+		customer, err := gql.GetCustomer(shop, token, c.Args().Get(0))
+		if err != nil {
+			return err
+		}
+
+		printCustomers([]gql.Customer{*customer})
+		return nil
+	}
+
+	customers, err := gql.ListCustomers(shop, token, c.Int("limit"))
+	if err != nil {
+		return err
+	}
+
+	if len(customers) == 0 {
+		fmt.Println("No customers")
+		return nil
+	}
+
+	printCustomers(customers)
+	return nil
+}
+
+func printCustomers(customers []gql.Customer) {
+	t := tabby.New()
+	for _, c := range customers {
+		t.AddLine("ID", strings.TrimPrefix(c.ID, "gid://shopify/Customer/"))
+		t.AddLine("Name", strings.TrimSpace(c.FirstName+" "+c.LastName))
+		t.AddLine("Email", c.Email)
+		t.AddLine("Phone", c.Phone)
+		t.AddLine("Orders", c.NumberOfOrders)
+		t.AddLine("Created", c.CreatedAt)
+		t.Print()
+
+		cmd.PrintSeparator()
+	}
+}
 
 func segmentsListAction(c *cli.Context) error {
 	shop := c.String("shop")
@@ -74,6 +117,15 @@ func printSegments(segments []gql.Segment) {
 }
 
 func init() {
+	listFlags := []cli.Flag{
+		&cli.IntFlag{
+			Name:    "limit",
+			Aliases: []string{"l"},
+			Usage:   "Maximum number of customers to return, must be <= 250",
+			Value:   10,
+		},
+	}
+
 	segmentsFlags := []cli.Flag{
 		&cli.IntFlag{
 			Name:    "limit",
@@ -89,6 +141,14 @@ func init() {
 		Usage:   "Do things with customers",
 
 		Subcommands: []*cli.Command{
+			{
+				Name:      "list",
+				Aliases:   []string{"ls"},
+				ArgsUsage: "[ID]",
+				Usage:     "List the shop's customers or a customer given by ID",
+				Flags:     append(cmd.Flags, listFlags...),
+				Action:    listAction,
+			},
 			{
 				Name:    "segments",
 				Aliases: []string{"seg"},
