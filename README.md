@@ -175,6 +175,7 @@ Do things with customers
        sdt customers command [command options] [arguments...]
 
     COMMANDS:
+       ls, l          List the shop's customers or a customer given by ID
        segments, seg  Customer segment commands
        help, h        Shows a list of commands or help for one command
 
