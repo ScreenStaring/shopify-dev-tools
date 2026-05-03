@@ -142,8 +142,8 @@ func init() {
 
 		Subcommands: []*cli.Command{
 			{
-				Name:      "list",
-				Aliases:   []string{"ls"},
+				Name:      "ls",
+				Aliases:   []string{"l"},
 				ArgsUsage: "[ID]",
 				Usage:     "List the shop's customers or a customer given by ID",
 				Flags:     append(cmd.Flags, listFlags...),
@@ -156,6 +156,7 @@ func init() {
 				Subcommands: []*cli.Command{
 					{
 						Name:      "ls",
+						Aliases:   []string{"l"},
 						ArgsUsage: "[ID]",
 						Usage:     "List the shop's segments or a segment given by ID",
 						Flags:     append(cmd.Flags, segmentsFlags...),
