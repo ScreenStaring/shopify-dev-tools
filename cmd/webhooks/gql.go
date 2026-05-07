@@ -56,6 +56,21 @@ mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSu
 }
 `
 
+const eventBridgeWebhookSubscriptionCreateMutation = `
+mutation eventBridgeWebhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: EventBridgeWebhookSubscriptionInput!) {
+  eventBridgeWebhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
+    webhookSubscription {
+      id
+      legacyResourceId
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+`
+
 const webhookSubscriptionDeleteMutation = `
 mutation webhookSubscriptionDelete($id: ID!) {
   webhookSubscriptionDelete(id: $id) {
@@ -206,10 +221,22 @@ func listWebhooks(shop, token string, topics []string, options map[string]interf
 func createWebhook(shop, token, topic, address, format string, fields []string, options map[string]interface{}) (string, error) {
 	client := gql.NewClient(shop, token, options)
 
-	input := map[string]interface{}{
-		"callbackUrl": address,
-		"format":      format,
+	var mutation, resultPath string
+	var input map[string]interface{}
+
+	if strings.HasPrefix(address, "arn:") {
+		mutation = eventBridgeWebhookSubscriptionCreateMutation
+		resultPath = "data.eventBridgeWebhookSubscriptionCreate"
+		input = map[string]interface{}{"arn": address}
+	} else {
+		mutation = webhookSubscriptionCreateMutation
+		resultPath = "data.webhookSubscriptionCreate"
+		input = map[string]interface{}{
+			"callbackUrl": address,
+			"format":      format,
+		}
 	}
+
 	if len(fields) > 0 {
 		input["includeFields"] = fields
 	}
@@ -220,7 +247,7 @@ func createWebhook(shop, token, topic, address, format string, fields []string, 
 		input["metafields"] = v
 	}
 
-	data, err := client.Execute(webhookSubscriptionCreateMutation, map[string]interface{}{
+	data, err := client.Execute(mutation, map[string]interface{}{
 		"topic":               topicToEnum(topic),
 		"webhookSubscription": input,
 	})
@@ -228,13 +255,13 @@ func createWebhook(shop, token, topic, address, format string, fields []string, 
 		return "", fmt.Errorf("Cannot create webhook: %s", err)
 	}
 
-	userErrors, _ := data.ValuesForPath("data.webhookSubscriptionCreate.userErrors")
+	userErrors, _ := data.ValuesForPath(resultPath + ".userErrors")
 	if len(userErrors) > 0 {
 		ueMap := userErrors[0].(map[string]interface{})
 		return "", fmt.Errorf("Cannot create webhook: %s", ueMap["message"])
 	}
 
-	id, err := data.ValueForPath("data.webhookSubscriptionCreate.webhookSubscription.legacyResourceId")
+	id, err := data.ValueForPath(resultPath + ".webhookSubscription.legacyResourceId")
 	if err != nil {
 		return "", fmt.Errorf("Cannot read created webhook ID: %s", err)
 	}
