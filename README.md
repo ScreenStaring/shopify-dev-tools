@@ -438,6 +438,11 @@ Webhooks utilities
     OPTIONS:
        --help, -h  show help (default: false)
 
+#### Avoiding Duplicate Webhooks
+
+Shopify allows one to create multiple webhooks with the same topic and endpoint. You can avoid this by using the `webhook create`'s `-1` option. This will result in an error if the
+webhook you're creating exists for the given topic and endpoint.
+
 ## See Also
 
 - [`ShopifyAPI::GraphQL::Request`](https://github.com/ScreenStaring/shopify_api-graphql-request) - Ruby gem to Simplify GraphQL queries and mutations for Shopify Admin API. Built-in pagination, retry, error handling, and more!

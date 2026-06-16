@@ -95,7 +95,22 @@ func createAction(c *cli.Context) error {
 		options["metafieldNamespaces"] = namespaces
 	}
 
-	id, err := createWebhook(shop, token, c.String("topic"), c.String("address"), format(c), splitFields(c.StringSlice("fields")), options)
+	topic := c.String("topic")
+	address := c.String("address")
+
+	if c.Bool("one") {
+		existing, err := listWebhooks(shop, token, []string{topic}, options)
+		if err != nil {
+			return err
+		}
+		for _, w := range existing {
+			if w.Endpoint == address {
+				return fmt.Errorf("Webhook already exists for topic %s at %s", topic, address)
+			}
+		}
+	}
+
+	id, err := createWebhook(shop, token, topic, address, format(c), splitFields(c.StringSlice("fields")), options)
 	if err != nil {
 		return err
 	}
@@ -239,6 +254,11 @@ func init() {
 			Name:    "metafields",
 			Aliases: []string{"m"},
 			Usage:   "Metafields to include in the webhook in namespace.key format",
+		},
+		&cli.BoolFlag{
+			Name:    "one",
+			Aliases: []string{"1"},
+			Usage:   "Error if a webhook already exists for this topic and address",
 		},
 		&cli.BoolFlag{
 			Name: "xml",
