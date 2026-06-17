@@ -9,8 +9,8 @@ import (
 )
 
 const webhookSubscriptionsQuery = `
-query($first: Int!, $topics: [WebhookSubscriptionTopic!]) {
-  webhookSubscriptions(first: $first, topics: $topics) {
+query($first: Int!, $topics: [WebhookSubscriptionTopic!], $uri: String) {
+  webhookSubscriptions(first: $first, topics: $topics, uri: $uri) {
     edges {
       node {
         id
@@ -181,6 +181,9 @@ func listWebhooks(shop, token string, topics []string, options map[string]interf
 			enumTopics[i] = topicToEnum(t)
 		}
 		variables["topics"] = enumTopics
+	}
+	if address, ok := options["address"].(string); ok && address != "" {
+		variables["uri"] = address
 	}
 
 	data, err := client.Execute(webhookSubscriptionsQuery, variables)

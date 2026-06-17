@@ -215,7 +215,16 @@ func listAction(c *cli.Context) error {
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
 	options := map[string]interface{}{"version": c.String("api-version")}
 
-	hooks, err := listWebhooks(shop, token, nil, options)
+	if c.IsSet("address") {
+		options["address"] = c.String("address")
+	}
+
+	var topics []string
+	if c.IsSet("topic") {
+		topics = []string{c.String("topic")}
+	}
+
+	hooks, err := listWebhooks(shop, token, topics, options)
 	if err != nil {
 		return err
 	}
@@ -307,9 +316,20 @@ func init() {
 	}
 
 	listFlags := []cli.Flag{
+		&cli.StringFlag{
+			Name:    "address",
+			Aliases: []string{"a"},
+			Usage:   "Only show webhooks with the given address",
+		},
 		&cli.BoolFlag{
-			Name: "jsonl",
+			Name:    "jsonl",
 			Aliases: []string{"j"},
+			Usage:   "Output the webhooks in JSONL format",
+		},
+		&cli.StringFlag{
+			Name:    "topic",
+			Aliases: []string{"t"},
+			Usage:   "Only show webhooks with the given topic",
 		},
 		apiVersionFlag,
 	}
