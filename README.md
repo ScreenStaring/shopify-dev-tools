@@ -454,4 +454,4 @@ Released under the MIT License: http://www.opensource.org/licenses/MIT
 
 ---
 
-Made by [ScreenStaring](http://screenstaring.com)
+Made by [ScreenStaring](https://screenstaring.com)

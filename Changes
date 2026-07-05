@@ -1,3 +1,15 @@
+v0.0.12 2026-06-17
+--------------------
+- Add command to list orders fulfillments
+- Add commands to list and show customers
+- Add commands to list and delete customer segments
+- Add support for setting fullfillments to delivered
+- Add graphql command alias --version for --api-version
+- Add support for creating webhooks with ARN endpoints
+- Add --one/-1 option to prevent duplicate webhook creation
+- Add filtering options to webhook list command
+- Fix orders ls default sort order (reverse chronological)
+
 v0.0.11 2026-03-25
 --------------------
 - Add support for batch deleting metafields
