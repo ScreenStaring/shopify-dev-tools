@@ -18,11 +18,12 @@ The CLI interface uses the executable `sdt`:
        sdt command [command options] [arguments...]
 
     VERSION:
-       0.0.10
+       0.0.12
 
     COMMANDS:
        admin, a                     Open admin pages
        charges, c, ch               Do things with charges
+       collections, col             Do things with collections
        customers, cust              Do things with customers
        metafield, m, meta           Metafield utilities
        orders, o                    Information about orders
@@ -163,6 +164,24 @@ Do things with charges
 
     OPTIONS:
        --help, -h  show help (default: false)
+
+### Collections
+
+Do things with collections
+
+    NAME:
+       sdt collections - Do things with collections
+
+    USAGE:
+       sdt collections command [command options] [arguments...]
+
+    COMMANDS:
+       ls, l    List the shop's collections or a collection given by ID
+       help, h  Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
+
 
 ### Customers
 
