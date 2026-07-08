@@ -58,7 +58,7 @@ time you need it can become annoying. To simplify this process you can [specify 
 If you have access to the store via the Shopify Admin you can authenticate by
 [generating private app API credentials](https://shopify.dev/tutorials/generate-api-credentials). Once obtained they can be specified as follows:
 ```
-sdt COMMAND --shop shopname --api-key thekey --api-password thepassword
+sdt COMMAND --api-key thekey --api-password thepassword
 ```
 
 ### Access Token Command
