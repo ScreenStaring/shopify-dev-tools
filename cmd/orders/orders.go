@@ -87,11 +87,23 @@ func deliveredAction(c *cli.Context) error {
 
 func listAction(c *cli.Context) error {
 	var ids []int64
+	var skus []string
 
 	for i := 0; i < c.NArg(); i++ {
+		arg := c.Args().Get(i)
+
+		if strings.HasPrefix(arg, "sku:") {
+			sku := strings.TrimPrefix(arg, "sku:")
+			if len(sku) == 0 {
+				return fmt.Errorf("SKU value missing after 'sku:'")
+			}
+			skus = append(skus, sku)
+			continue
+		}
+
 		id, err := cmd.ParseIntAt(c, i)
 		if err != nil {
-			return fmt.Errorf("Order id '%s' invalid: must be an int", c.Args().Get(i))
+			return fmt.Errorf("Argument '%s' invalid: must be an order id or 'sku:VALUE'", arg)
 		}
 		ids = append(ids, id)
 	}
@@ -102,7 +114,7 @@ func listAction(c *cli.Context) error {
 	}
 
 	shop := c.String("shop")
-	orders, err := listOrders(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, status, c.Int("limit"))
+	orders, err := listOrders(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, skus, status, c.Int("limit"))
 	if err != nil {
 		return err
 	}
@@ -285,7 +297,7 @@ func init() {
 			},
 			{
 				Name: "ls",
-				Usage:   "List the shop's orders or the orders given by the specified IDs",
+				Usage:   "List the shop's orders or the orders matching the given IDs and/or 'sku:VALUE' arguments",
 				Flags: append(cmd.Flags, ordersFlags...),
 				Action: listAction,
 			},

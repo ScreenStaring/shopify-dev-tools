@@ -147,21 +147,26 @@ type ordersResponse struct {
 	} `json:"data"`
 }
 
-func buildQuery(ids []int64, status string) (string, int) {
-	if len(ids) > 0 {
-		parts := make([]string, len(ids))
-		for i, id := range ids {
-			parts[i] = fmt.Sprintf("id:%d", id)
-		}
-		return strings.Join(parts, " OR "), len(ids)
+func buildQuery(ids []int64, skus []string, status string) (string, int) {
+	var parts []string
+
+	for _, id := range ids {
+		parts = append(parts, fmt.Sprintf("id:%d", id))
+	}
+	for _, sku := range skus {
+		parts = append(parts, fmt.Sprintf("sku:%s", sku))
+	}
+
+	if len(parts) > 0 {
+		return strings.Join(parts, " OR "), len(parts)
 	}
 	return "status:" + status, 0
 }
 
-func listOrders(shop, token string, ids []int64, status string, limit int) ([]Order, error) {
+func listOrders(shop, token string, ids []int64, skus []string, status string, limit int) ([]Order, error) {
 	client := gql.NewClient(shop, token)
 
-	query, first := buildQuery(ids, status)
+	query, first := buildQuery(ids, skus, status)
 	if first == 0 {
 		first = limit
 	}
