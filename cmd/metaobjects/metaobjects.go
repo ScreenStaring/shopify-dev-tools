@@ -167,7 +167,7 @@ func init() {
 	Cmd = cli.Command{
 		Name:    "metaobjects",
 		Aliases: []string{"mo"},
-		Usage:   "Do things with metaobjects",
+		Usage:   "Metaobject utilities",
 
 		Subcommands: []*cli.Command{
 			{

@@ -15,21 +15,22 @@ The CLI interface uses the executable `sdt`:
        sdt - Shopify Development Tools
 
     USAGE:
-       sdt command [command options] [arguments...]
+       sdt [global options] command [command options] [arguments...]
 
     VERSION:
-       0.0.12
+       0.0.13
 
     COMMANDS:
        admin, a                     Open admin pages
        charges, c, ch               Do things with charges
        collections, col             Do things with collections
-       customers, cust              Do things with customers
        metafield, m, meta           Metafield utilities
+       metaobjects, mo              Metaobject utilities
        orders, o                    Information about orders
        products, p                  Do things with products
        graphql, gql                 Run a GraphQL query against the Admin API
        shop, s                      Information about the given shop
+       customers, cust              Do things with customers
        scripttags                   ScriptTag utilities
        themes, theme, t             Theme utilities
        webhook, webhooks, hooks, w  Webhook utilities
@@ -109,6 +110,47 @@ Other environment variables:
 
 Functionality can depend the GraphQL Admin API version. By default requests do not specify an API version.
 If you need a specific version specify it with the `--api-version` option.
+
+### Metaobjects
+
+    NAME:
+       sdt metaobjects - Metaobject utilities
+
+    USAGE:
+       sdt metaobjects command [command options] [arguments...]
+
+    COMMANDS:
+       ls, l      List metaobjects of the given type
+       export, x  Export metaobjects of the given type to CSV or JSONL
+       def, d     Metaobject definition utilities
+       help, h    Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
+
+
+#### Exporting Metaobject Values
+
+Metaobject values can be exported to CSV or JSONL. By default they're exported to CSV. Use the `-j`/`--jsonl` option to export to JSON:
+
+```
+sdt metaobjects export TYPE
+```
+
+Where `TYPE` is the metaobject type you want to export values for.
+
+The resulting export will be output to a file in the current directory as `SHOP-TYPE.csv` or `.json`:
+
+Values can be filtered via the `-q`/`--query` option. For example, given the `users` type with a field of `country`, you can export
+users with a country value of `"Mexico"`via:
+
+```
+sdt -q 'fields.country:Mexico' users
+```
+
+Note that the filed must be configured as searchable in Shopify.
+
+For more info see [Shopify's documentation](https://shopify.dev/docs/apps/build/metafields/query-using-metafields) on querying metafields.
 
 ### Metafields
 
