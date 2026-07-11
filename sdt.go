@@ -9,6 +9,7 @@ import (
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/collections"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/gql"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/metafields"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/metaobjects"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/orders"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/products"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/customers"
@@ -32,6 +33,7 @@ func main() {
 			&charges.Cmd,
 			&collections.Cmd,
 			&metafields.Cmd,
+			&metaobjects.Cmd,
 			&orders.Cmd,
 			&products.Cmd,
 			&gql.Cmd,
