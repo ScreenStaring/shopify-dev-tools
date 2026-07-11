@@ -179,7 +179,7 @@ func init() {
 			{
 				Name:    "settings",
 				Aliases: []string{"s"},
-				Usage:   "Open the general settings page",
+				Usage:   "Open the general settings page or settings sections",
 				Flags:   cmd.Flags,
 				Action:  settingsAction,
 				Subcommands: []*cli.Command{

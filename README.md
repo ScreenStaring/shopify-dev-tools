@@ -455,11 +455,11 @@ Open admin pages
        product, products, prod, p  Open the given product ID for editing; if no ID given open the products page
        theme, t                    Open the currently published theme or given theme ID for editing
        themes                      Open themes section of the admin (not for editing)
+       settings, s                 Open the general settings page or settings sections
        help, h                     Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
-
 
 ### Themes
 
