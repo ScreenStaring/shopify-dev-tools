@@ -148,7 +148,7 @@ users with a country value of `"Mexico"`via:
 sdt -q 'fields.country:Mexico' users
 ```
 
-Note that the filed must be configured as searchable in Shopify.
+Note that the field must be configured as searchable in Shopify.
 
 For more info see [Shopify's documentation](https://shopify.dev/docs/apps/build/metafields/query-using-metafields) on querying metafields.
 
