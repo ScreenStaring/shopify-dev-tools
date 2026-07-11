@@ -27,7 +27,7 @@ func findPublishedTheme(c *cli.Context) (int64, error) {
 	}
 
 	var id int64
-	for _, theme := range(themes) {
+	for _, theme := range themes {
 		if theme.Role == "main" {
 			id = theme.ID
 			break
@@ -56,7 +56,6 @@ func orderAction(c *cli.Context) error {
 	return nil
 }
 
-
 func productAction(c *cli.Context) error {
 	var qs map[string]string
 
@@ -75,7 +74,6 @@ func productAction(c *cli.Context) error {
 	browser.OpenURL(admin.Product(id, qs))
 	return nil
 }
-
 
 func themeAction(c *cli.Context) error {
 	var id int64
@@ -113,38 +111,100 @@ func themesAction(c *cli.Context) error {
 	return nil
 }
 
+func settingsAction(c *cli.Context) error {
+	var qs map[string]string
+
+	admin := NewAdminURL(c.String("shop"))
+	browser.OpenURL(admin.SettingsGeneral(qs))
+	return nil
+}
+
+func settingsAppAction(c *cli.Context) error {
+	var qs map[string]string
+
+	admin := NewAdminURL(c.String("shop"))
+	browser.OpenURL(admin.SettingsApps(qs))
+	return nil
+}
+
+func settingsNotificationAction(c *cli.Context) error {
+	var qs map[string]string
+
+	admin := NewAdminURL(c.String("shop"))
+	browser.OpenURL(admin.SettingsNotifications(qs))
+	return nil
+}
+
+func settingsUsersAction(c *cli.Context) error {
+	var qs map[string]string
+
+	admin := NewAdminURL(c.String("shop"))
+	browser.OpenURL(admin.SettingsUsers(qs))
+	return nil
+}
+
 func init() {
 	Cmd = cli.Command{
-		Name:  "admin",
+		Name:    "admin",
 		Aliases: []string{"a"},
 		Usage:   "Open admin pages",
 		Subcommands: []*cli.Command{
 			{
-				Name: "order",
+				Name:    "order",
 				Aliases: []string{"orders", "o"},
 				Usage:   "Open the given order ID for editing; if no ID given open the orders page",
-				Flags: cmd.Flags,
-				Action: orderAction,
+				Flags:   cmd.Flags,
+				Action:  orderAction,
 			},
 			{
-				Name: "product",
+				Name:    "product",
 				Aliases: []string{"products", "prod", "p"},
 				Usage:   "Open the given product ID for editing; if no ID given open the products page",
-				Flags: cmd.Flags,
-				Action: productAction,
+				Flags:   cmd.Flags,
+				Action:  productAction,
 			},
 			{
-				Name: "theme",
+				Name:    "theme",
 				Usage:   "Open the currently published theme or given theme ID for editing",
 				Aliases: []string{"t"},
-				Flags: cmd.Flags,
-				Action: themeAction,
+				Flags:   cmd.Flags,
+				Action:  themeAction,
 			},
 			{
-				Name: "themes",
+				Name:   "themes",
 				Usage:  "Open themes section of the admin (not for editing)",
-				Flags: cmd.Flags,
+				Flags:  cmd.Flags,
 				Action: themesAction,
+			},
+			{
+				Name:    "settings",
+				Aliases: []string{"s"},
+				Usage:   "Open the general settings page",
+				Flags:   cmd.Flags,
+				Action:  settingsAction,
+				Subcommands: []*cli.Command{
+					{
+						Name:    "app",
+						Aliases: []string{"apps"},
+						Usage:   "Open the apps settings page",
+						Flags:   cmd.Flags,
+						Action:  settingsAppAction,
+					},
+					{
+						Name:    "notification",
+						Aliases: []string{"notifications", "notices"},
+						Usage:   "Open the notifications settings page",
+						Flags:   cmd.Flags,
+						Action:  settingsNotificationAction,
+					},
+					{
+						Name:    "users",
+						Aliases: []string{"u"},
+						Usage:   "Open the users settings page",
+						Flags:   cmd.Flags,
+						Action:  settingsUsersAction,
+					},
+				},
 			},
 		},
 	}

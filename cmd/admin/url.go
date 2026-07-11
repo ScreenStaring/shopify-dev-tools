@@ -27,22 +27,26 @@ const orders = "/orders"
 const order = orders + "/%d"
 const themes = "/themes"
 const theme = themes + "/%d"
+const settingsGeneral = "/settings/general"
+const settingsApps = "/settings/apps"
+const settingsNotifications = "/settings/notifications"
+const settingsUsers = "/settings/organization-account"
 
 func NewAdminURL(shop string) *Admin {
 	return &Admin{fmt.Sprintf(endpoint, shop)}
 }
 
 func (a *Admin) buildURL(path string, q map[string]string) string {
-	s := a.endpoint+path
+	s := a.endpoint + path
 
 	if len(q) > 0 {
 		qs := url.Values{}
 
-		for k, v := range(q) {
+		for k, v := range q {
 			qs.Set(k, v)
 		}
 
-		s += "?"+qs.Encode()
+		s += "?" + qs.Encode()
 	}
 
 	return s
@@ -70,4 +74,20 @@ func (a *Admin) Theme(id int64, q map[string]string) string {
 
 func (a *Admin) Themes(q map[string]string) string {
 	return a.buildURL(themes, q)
+}
+
+func (a *Admin) SettingsGeneral(q map[string]string) string {
+	return a.buildURL(settingsGeneral, q)
+}
+
+func (a *Admin) SettingsApps(q map[string]string) string {
+	return a.buildURL(settingsApps, q)
+}
+
+func (a *Admin) SettingsNotifications(q map[string]string) string {
+	return a.buildURL(settingsNotifications, q)
+}
+
+func (a *Admin) SettingsUsers(q map[string]string) string {
+	return a.buildURL(settingsUsers, q)
 }
