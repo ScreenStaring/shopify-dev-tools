@@ -47,15 +47,17 @@ func fulfillmentsAction(c *cli.Context) error {
 		return fmt.Errorf("You must supply an order id")
 	}
 
-	orderID := c.Args().Get(0)
-
 	shop := c.String("shop")
-	fulfillments, err := listFulfillments(shop, cmd.LookupAccessToken(shop, c.String("access-token")), orderID)
-	if err != nil {
-		return err
-	}
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
 
-	printFulfillments(fulfillments)
+	for _, orderID := range c.Args().Slice() {
+		fulfillments, err := listFulfillments(shop, token, orderID)
+		if err != nil {
+			return err
+		}
+
+		printFulfillments(fulfillments)
+	}
 
 	return nil
 }
