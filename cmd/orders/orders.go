@@ -264,7 +264,7 @@ func init() {
 		},
 		&cli.StringFlag{
 			Name:  "sort",
-			Usage: "GQL sort enum value, lowercase accepted"
+			Usage: "GQL sort enum value, lowercase accepted",
 		},
 		&cli.StringFlag{
 			Name:    "version",

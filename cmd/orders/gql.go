@@ -177,7 +177,7 @@ func ResolveOrderSortKey(value string) (string, error) {
 	return "", fmt.Errorf("Invalid --sort value '%s'", value)
 }
 
-func buildQuery(ids []int64, skus []string, status string) (string, int) {
+func buildQuery(ids []int64, skus []string, status string) string {
 	var parts []string
 
 	for _, id := range ids {
@@ -188,20 +188,17 @@ func buildQuery(ids []int64, skus []string, status string) (string, int) {
 	}
 
 	if len(parts) > 0 {
-		return strings.Join(parts, " OR "), len(parts)
+		return strings.Join(parts, " OR ")
 	}
-	return "status:" + status, 0
+	return "status:" + status
 }
 
 func listOrders(shop, token string, ids []int64, skus []string, status string, limit int, sortKey, apiVersion string) ([]Order, error) {
 	client := gql.NewClient(shop, token, map[string]interface{}{"version": apiVersion})
 
-	query, first := buildQuery(ids, skus, status)
-	if first == 0 {
-		first = limit
-	}
+	query := buildQuery(ids, skus, status)
 
-	data, err := client.Execute(ordersQuery, map[string]interface{}{"query": query, "first": first, "sortKey": sortKey})
+	data, err := client.Execute(ordersQuery, map[string]interface{}{"query": query, "first": limit, "sortKey": sortKey})
 	if err != nil {
 		return nil, fmt.Errorf("Cannot list orders: %s", err)
 	}
