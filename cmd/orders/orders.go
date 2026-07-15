@@ -115,8 +115,13 @@ func listAction(c *cli.Context) error {
 		status = c.String("status")
 	}
 
+	sortKey, err := ResolveOrderSortKey(c.String("sort"))
+	if err != nil {
+		return err
+	}
+
 	shop := c.String("shop")
-	orders, err := listOrders(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, skus, status, c.Int("limit"))
+	orders, err := listOrders(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, skus, status, c.Int("limit"), sortKey, c.String("api-version"))
 	if err != nil {
 		return err
 	}
@@ -256,6 +261,15 @@ func init() {
 			Aliases: []string{"l"},
 			Usage:   "Maximum number of orders to return, must be <= 250",
 			Value:   10,
+		},
+		&cli.StringFlag{
+			Name:  "sort",
+			Usage: "GQL sort enum value, lowercase accepted"
+		},
+		&cli.StringFlag{
+			Name:    "version",
+			Aliases: []string{"api-version"},
+			Usage:   "API version to use; default is a versionless call",
 		},
 	}
 

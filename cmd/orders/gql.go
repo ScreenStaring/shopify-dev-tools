@@ -51,8 +51,8 @@ query($id: ID!) {
 `
 
 const ordersQuery = `
-query($query: String!, $first: Int!) {
-  orders(first: $first, query: $query, sortKey: CREATED_AT, reverse: true) {
+query($query: String!, $first: Int!, $sortKey: OrderSortKeys!) {
+  orders(first: $first, query: $query, sortKey: $sortKey, reverse: true) {
     edges {
       node {
         legacyResourceId
@@ -147,6 +147,36 @@ type ordersResponse struct {
 	} `json:"data"`
 }
 
+var orderSortKeys = map[string]string{
+	"created":              "CREATED_AT",
+	"created_at":           "CREATED_AT",
+	"total_price":          "TOTAL_PRICE",
+	"processed":            "PROCESSED_AT",
+	"processed_at":         "PROCESSED_AT",
+	"order_number":         "ORDER_NUMBER",
+	"id":                   "ID",
+	"current_total_price":  "CURRENT_TOTAL_PRICE",
+	"total_items_quantity": "TOTAL_ITEMS_QUANTITY",
+}
+
+func ResolveOrderSortKey(value string) (string, error) {
+	if len(value) == 0 {
+		return "CREATED_AT", nil
+	}
+
+	if key, ok := orderSortKeys[strings.ToLower(value)]; ok {
+		return key, nil
+	}
+
+	for _, key := range orderSortKeys {
+		if value == key {
+			return key, nil
+		}
+	}
+
+	return "", fmt.Errorf("Invalid --sort value '%s'", value)
+}
+
 func buildQuery(ids []int64, skus []string, status string) (string, int) {
 	var parts []string
 
@@ -163,15 +193,15 @@ func buildQuery(ids []int64, skus []string, status string) (string, int) {
 	return "status:" + status, 0
 }
 
-func listOrders(shop, token string, ids []int64, skus []string, status string, limit int) ([]Order, error) {
-	client := gql.NewClient(shop, token)
+func listOrders(shop, token string, ids []int64, skus []string, status string, limit int, sortKey, apiVersion string) ([]Order, error) {
+	client := gql.NewClient(shop, token, map[string]interface{}{"version": apiVersion})
 
 	query, first := buildQuery(ids, skus, status)
 	if first == 0 {
 		first = limit
 	}
 
-	data, err := client.Execute(ordersQuery, map[string]interface{}{"query": query, "first": first})
+	data, err := client.Execute(ordersQuery, map[string]interface{}{"query": query, "first": first, "sortKey": sortKey})
 	if err != nil {
 		return nil, fmt.Errorf("Cannot list orders: %s", err)
 	}
