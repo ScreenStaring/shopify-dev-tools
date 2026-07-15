@@ -297,7 +297,7 @@ func init() {
 			},
 			{
 				Name:    "export",
-				Aliases: []string{"e"},
+				Aliases: []string{"e", "x"},
 				Usage:   "Export product data",
 				Subcommands: []*cli.Command{
 					{
