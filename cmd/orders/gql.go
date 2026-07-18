@@ -50,6 +50,34 @@ query($id: ID!) {
 }
 `
 
+const attributesQuery = `
+query($id: ID!) {
+  order(id: $id) {
+    customAttributes {
+      key
+      value
+    }
+  }
+}
+`
+
+const orderUpdateMutation = `
+mutation($input: OrderInput!) {
+  orderUpdate(input: $input) {
+    order {
+      customAttributes {
+        key
+        value
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+`
+
 const ordersQuery = `
 query($query: String!, $first: Int!, $sortKey: OrderSortKeys!) {
   orders(first: $first, query: $query, sortKey: $sortKey, reverse: true) {
@@ -252,6 +280,142 @@ func listOrders(shop, token string, ids []int64, skus []string, status string, l
 	}
 
 	return result, nil
+}
+
+type Attribute struct {
+	Key   string
+	Value string
+}
+
+type attributesResponse struct {
+	Data struct {
+		Order struct {
+			CustomAttributes []Attribute `json:"customAttributes"`
+		} `json:"order"`
+	} `json:"data"`
+}
+
+func listOrderAttributes(shop, token, orderID string) ([]Attribute, error) {
+	client := gql.NewClient(shop, token)
+
+	if !strings.HasPrefix(orderID, "gid://") {
+		orderID = "gid://shopify/Order/" + orderID
+	}
+
+	data, err := client.Execute(attributesQuery, map[string]interface{}{"id": orderID})
+	if err != nil {
+		return nil, fmt.Errorf("Cannot list order attributes: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot re-encode order attributes response: %s", err)
+	}
+
+	var response attributesResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return nil, fmt.Errorf("Cannot parse order attributes response: %s", err)
+	}
+
+	return response.Data.Order.CustomAttributes, nil
+}
+
+func updateOrderAttributes(shop, token, orderID string, attributes []Attribute) ([]Attribute, error) {
+	client := gql.NewClient(shop, token)
+
+	if !strings.HasPrefix(orderID, "gid://") {
+		orderID = "gid://shopify/Order/" + orderID
+	}
+
+	custom := make([]map[string]interface{}, 0, len(attributes))
+	for _, a := range attributes {
+		custom = append(custom, map[string]interface{}{"key": a.Key, "value": a.Value})
+	}
+
+	input := map[string]interface{}{
+		"id":               orderID,
+		"customAttributes": custom,
+	}
+
+	data, err := client.Execute(orderUpdateMutation, map[string]interface{}{"input": input})
+	if err != nil {
+		return nil, fmt.Errorf("Cannot update order attributes: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot re-encode order update response: %s", err)
+	}
+
+	var response struct {
+		Data struct {
+			OrderUpdate struct {
+				Order *struct {
+					CustomAttributes []Attribute `json:"customAttributes"`
+				} `json:"order"`
+				UserErrors []struct {
+					Field   []string `json:"field"`
+					Message string   `json:"message"`
+				} `json:"userErrors"`
+			} `json:"orderUpdate"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(b, &response); err != nil {
+		return nil, fmt.Errorf("Cannot parse order update response: %s", err)
+	}
+
+	if errs := response.Data.OrderUpdate.UserErrors; len(errs) > 0 {
+		var messages []string
+		for _, e := range errs {
+			messages = append(messages, e.Message)
+		}
+		return nil, fmt.Errorf("Cannot update order attributes: %s", strings.Join(messages, ", "))
+	}
+
+	return response.Data.OrderUpdate.Order.CustomAttributes, nil
+}
+
+func setOrderAttribute(shop, token, orderID, key, value string) ([]Attribute, error) {
+	attributes, err := listOrderAttributes(shop, token, orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	found := false
+	for i, a := range attributes {
+		if a.Key == key {
+			attributes[i].Value = value
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		attributes = append(attributes, Attribute{Key: key, Value: value})
+	}
+
+	return updateOrderAttributes(shop, token, orderID, attributes)
+}
+
+func deleteOrderAttribute(shop, token, orderID, key string) ([]Attribute, error) {
+	attributes, err := listOrderAttributes(shop, token, orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	kept := attributes[:0]
+	for _, a := range attributes {
+		if a.Key != key {
+			kept = append(kept, a)
+		}
+	}
+
+	if len(kept) == len(attributes) {
+		return nil, fmt.Errorf("Order does not have an attribute with key '%s'", key)
+	}
+
+	return updateOrderAttributes(shop, token, orderID, kept)
 }
 
 type TrackingInfo struct {

@@ -87,6 +87,72 @@ func deliveredAction(c *cli.Context) error {
 	return nil
 }
 
+func attributesAction(c *cli.Context) error {
+	if c.Args().Len() == 0 {
+		return fmt.Errorf("You must supply an order id")
+	}
+
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	showID := c.Args().Len() > 1
+
+	for _, orderID := range c.Args().Slice() {
+		attributes, err := listOrderAttributes(shop, token, orderID)
+		if err != nil {
+			return err
+		}
+
+		id := ""
+		if showID {
+			id = orderID
+		}
+
+		printAttributes(id, attributes)
+	}
+
+	return nil
+}
+
+func setAttributeAction(c *cli.Context) error {
+	if c.Args().Len() < 3 {
+		return fmt.Errorf("You must supply an order id, attribute key, and value")
+	}
+
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	key := c.Args().Get(1)
+	value := c.Args().Get(2)
+
+	if _, err := setOrderAttribute(shop, token, c.Args().Get(0), key, value); err != nil {
+		return err
+	}
+
+	fmt.Printf("%s attribute set to %s\n", key, value)
+
+	return nil
+}
+
+func deleteAttributeAction(c *cli.Context) error {
+	if c.Args().Len() < 2 {
+		return fmt.Errorf("You must supply an order id and attribute key")
+	}
+
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	key := c.Args().Get(1)
+
+	if _, err := deleteOrderAttribute(shop, token, c.Args().Get(0), key); err != nil {
+		return err
+	}
+
+	fmt.Printf("%s attribute deleted\n", key)
+
+	return nil
+}
+
 func listAction(c *cli.Context) error {
 	var ids []int64
 	var skus []string
@@ -197,6 +263,32 @@ func printLineItems(lines []LineItem) {
 	x.Print()
 }
 
+func printAttributes(orderID string, attributes []Attribute) {
+	if len(orderID) > 0 {
+		t := tabby.New()
+		t.AddLine("Id", orderID)
+		t.Print()
+		fmt.Println("Attributes")
+	}
+
+	printAttributeTable(attributes)
+
+	if len(orderID) > 0 {
+		cmd.PrintSeparator()
+	}
+}
+
+func printAttributeTable(attributes []Attribute) {
+	t := tabby.New()
+	t.AddHeader("Key", "Value")
+
+	for _, a := range attributes {
+		t.AddLine(a.Key, strings.ReplaceAll(a.Value, "\n", "\\n"))
+	}
+
+	t.Print()
+}
+
 func printFulfillments(fulfillments []Fulfillment) {
 	if len(fulfillments) == 0 {
 		fmt.Println("No fulfillments")
@@ -301,6 +393,34 @@ func init() {
 							Usage:   "Date/time the delivery happened (RFC3339 format), defaults to now",
 						}),
 						Action: deliveredAction,
+					},
+				},
+			},
+			{
+				Name:    "attributes",
+				Aliases: []string{"attr"},
+				Usage:   "Do things with an order's attributes",
+				Subcommands: []*cli.Command{
+					{
+						Name:    "ls",
+						Aliases: []string{"l"},
+						Usage:   "List an order's attributes",
+						Flags:   cmd.Flags,
+						Action:  attributesAction,
+					},
+					{
+						Name:   "set",
+						Aliases: []string{"s"},
+						Usage:  "Set an order attribute: ID KEY VALUE",
+						Flags:  cmd.Flags,
+						Action: setAttributeAction,
+					},
+					{
+						Name:    "delete",
+						Aliases: []string{"del", "rm", "d"},
+						Usage:   "Delete an order attribute: ID KEY",
+						Flags:   cmd.Flags,
+						Action:  deleteAttributeAction,
 					},
 				},
 			},
