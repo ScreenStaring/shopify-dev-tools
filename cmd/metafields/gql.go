@@ -44,6 +44,17 @@ type MetafieldDefinition struct {
 	OwnerType   string
 }
 
+type AppMetafield struct {
+	ID          string
+	Namespace   string
+	Key         string
+	Description string
+	Value       string
+	Type        string
+	CreatedAt   string
+	UpdatedAt   string
+}
+
 type metafieldDefinitionsResponse struct {
 	Data struct {
 		MetafieldDefinitions struct {
@@ -119,6 +130,111 @@ func listMetafieldDefinitions(shop, token, ownerType, namespace string, options 
 	}
 
 	return definitions, nil
+}
+
+const appInstallationMetafieldsQuery = `
+query($first: Int!, $after: String, $namespace: String) {
+  currentAppInstallation {
+    id
+    metafields(first: $first, after: $after, namespace: $namespace) {
+      edges {
+        node {
+          id
+          namespace
+          key
+          description
+          value
+          type
+          createdAt
+          updatedAt
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`
+
+type appInstallationMetafieldsResponse struct {
+	Data struct {
+		CurrentAppInstallation struct {
+			ID         string `json:"id"`
+			Metafields struct {
+				Edges []struct {
+					Node struct {
+						ID          string `json:"id"`
+						Namespace   string `json:"namespace"`
+						Key         string `json:"key"`
+						Description string `json:"description"`
+						Value       string `json:"value"`
+						Type        string `json:"type"`
+						CreatedAt   string `json:"createdAt"`
+						UpdatedAt   string `json:"updatedAt"`
+					} `json:"node"`
+				} `json:"edges"`
+				PageInfo struct {
+					HasNextPage bool   `json:"hasNextPage"`
+					EndCursor   string `json:"endCursor"`
+				} `json:"pageInfo"`
+			} `json:"metafields"`
+		} `json:"currentAppInstallation"`
+	} `json:"data"`
+}
+
+func listAppInstallationMetafields(shop, token, namespace string, options map[string]interface{}) ([]AppMetafield, error) {
+	client := gql.NewClient(shop, token, options)
+
+	vars := map[string]interface{}{
+		"first": 250,
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	var metafields []AppMetafield
+
+	for {
+		data, err := client.Execute(appInstallationMetafieldsQuery, vars)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for app installation: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for app installation: %s", err)
+		}
+
+		var response appInstallationMetafieldsResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for app installation: %s", err)
+		}
+
+		for _, edge := range response.Data.CurrentAppInstallation.Metafields.Edges {
+			n := edge.Node
+			metafields = append(metafields, AppMetafield{
+				ID:          n.ID,
+				Namespace:   n.Namespace,
+				Key:         n.Key,
+				Description: n.Description,
+				Value:       n.Value,
+				Type:        n.Type,
+				CreatedAt:   n.CreatedAt,
+				UpdatedAt:   n.UpdatedAt,
+			})
+		}
+
+		if !response.Data.CurrentAppInstallation.Metafields.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.CurrentAppInstallation.Metafields.PageInfo.EndCursor
+	}
+
+	return metafields, nil
 }
 
 const metafieldsDeleteMutation = `

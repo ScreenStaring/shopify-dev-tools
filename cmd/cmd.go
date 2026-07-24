@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	shopify "github.com/bold-commerce/go-shopify/v3"
+	"github.com/cheynewallace/tabby"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 )
@@ -40,6 +41,43 @@ func ParseIntAt(c *cli.Context, pos int) (int64, error) {
 
 func PrintSeparator() {
 	fmt.Printf("%s\n", strings.Repeat("-", 20))
+}
+
+// MetafieldPrintable exists because callers source metafields from two
+// incompatible types with no common shape: shopify.Metafield (REST, int64
+// ID + AdminGraphqlAPIID) and gql-only results like AppMetafield (string gid,
+// no numeric id). This is the shape both convert into so print logic lives once.
+// Fields are interface{} so callers can pass through native types (e.g. int64
+// ID, *time.Time timestamps) as-is; a nil ID omits the "Id" line entirely.
+type MetafieldPrintable struct {
+	ID          interface{}
+	Gid         interface{}
+	Namespace   interface{}
+	Key         interface{}
+	Description interface{}
+	Value       interface{}
+	Type        interface{}
+	CreatedAt   interface{}
+	UpdatedAt   interface{}
+}
+
+func PrintMetafields(items []MetafieldPrintable) {
+	t := tabby.New()
+	for _, mf := range items {
+		if mf.ID != nil {
+			t.AddLine("Id", mf.ID)
+		}
+		t.AddLine("Gid", mf.Gid)
+		t.AddLine("Namespace", mf.Namespace)
+		t.AddLine("Key", mf.Key)
+		t.AddLine("Description", mf.Description)
+		t.AddLine("Value", mf.Value)
+		t.AddLine("Type", mf.Type)
+		t.AddLine("Created", mf.CreatedAt)
+		t.AddLine("Updated", mf.UpdatedAt)
+		t.Print()
+		PrintSeparator()
+	}
 }
 
 func LookupAccessToken(shop, token string) string {

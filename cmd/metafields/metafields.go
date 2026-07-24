@@ -79,22 +79,24 @@ func printJSONL(metafields []shopify.Metafield) {
 func printFormatted(metafields []shopify.Metafield, options metafieldOptions) {
 	sortMetafields(metafields, options)
 
-	t := tabby.New()
-	for _, metafield := range metafields {
-		t.AddLine("Id", metafield.ID)
-		t.AddLine("Gid", metafield.AdminGraphqlAPIID)
-		t.AddLine("Namespace", metafield.Namespace)
-		t.AddLine("Key", metafield.Key)
-		t.AddLine("Description", metafield.Description)
-		// format JSON strings
-		// also check for string types that look like json: /\A\{"[^"]+":/ or /\A[/ and /\]\Z/
-		t.AddLine("Value", metafield.Value)
-		t.AddLine("Type", metafield.Type)
-		t.AddLine("Created", metafield.CreatedAt)
-		t.AddLine("Updated", metafield.UpdatedAt)
-		t.Print()
-		fmt.Printf("%s\n", strings.Repeat("-", 20))
+	items := make([]cmd.MetafieldPrintable, len(metafields))
+	for i, metafield := range metafields {
+		items[i] = cmd.MetafieldPrintable{
+			ID:          metafield.ID,
+			Gid:         metafield.AdminGraphqlAPIID,
+			Namespace:   metafield.Namespace,
+			Key:         metafield.Key,
+			Description: metafield.Description,
+			// format JSON strings
+			// also check for string types that look like json: /\A\{"[^"]+":/ or /\A[/ and /\]\Z/
+			Value:     metafield.Value,
+			Type:      metafield.Type,
+			CreatedAt: metafield.CreatedAt,
+			UpdatedAt: metafield.UpdatedAt,
+		}
 	}
+
+	cmd.PrintMetafields(items)
 }
 
 // Cannot sort storefront metafields from GQL
@@ -130,6 +132,7 @@ func customerAction(c *cli.Context) error {
 	}
 
 	options := contextToOptions(c)
+	// TODO: remove use of REST API here (Customer.ListMetafields) in favor of GraphQL, per appAction
 	metafields, err := cmd.NewShopifyClient(c).Customer.ListMetafields(id, options)
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for customer: %s", err)
@@ -151,6 +154,7 @@ func productAction(c *cli.Context) error {
 	}
 
 	options := contextToOptions(c)
+	// TODO: remove use of REST API here (Product.ListMetafields) in favor of GraphQL, per appAction
 	metafields, err := cmd.NewShopifyClient(c).Product.ListMetafields(id, options)
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for product %d: %s", id, err)
@@ -162,12 +166,42 @@ func productAction(c *cli.Context) error {
 
 func shopAction(c *cli.Context) error {
 	options := contextToOptions(c)
+	// TODO: remove use of REST API here (Metafield.List) in favor of GraphQL, per appAction
 	metafields, err := cmd.NewShopifyClient(c).Metafield.List(options)
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for shop: %s", err)
 	}
 
 	printFormatted(metafields, options)
+
+	return nil
+}
+
+func appAction(c *cli.Context) error {
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
+
+	metafields, err := listAppInstallationMetafields(shop, token, c.String("namespace"), options)
+	if err != nil {
+		return err
+	}
+
+	items := make([]cmd.MetafieldPrintable, len(metafields))
+	for i, mf := range metafields {
+		items[i] = cmd.MetafieldPrintable{
+			Gid:         mf.ID,
+			Namespace:   mf.Namespace,
+			Key:         mf.Key,
+			Description: mf.Description,
+			Value:       mf.Value,
+			Type:        mf.Type,
+			CreatedAt:   mf.CreatedAt,
+			UpdatedAt:   mf.UpdatedAt,
+		}
+	}
+
+	cmd.PrintMetafields(items)
 
 	return nil
 }
@@ -183,6 +217,7 @@ func variantAction(c *cli.Context) error {
 	}
 
 	options := contextToOptions(c)
+	// TODO: remove use of REST API here (Variant.ListMetafields) in favor of GraphQL, per appAction
 	metafields, err := cmd.NewShopifyClient(c).Variant.ListMetafields(id, options)
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for variant %d: %s", id, err)
@@ -393,19 +428,29 @@ func init() {
 							Aliases: []string{"n"},
 							Usage:   "Filter by namespace",
 						}),
-						Action:    definitionsAction,
-						Usage:     "List metafield definitions for the given resource",
+						Action: definitionsAction,
+						Usage:  "List metafield definitions for the given resource",
 					},
 				},
 			},
 			{
-				Name:      "delete",
-				Aliases: []string{"d"},
-				ArgsUsage: "GID@namespace.key [GID@namespace.key ...]",
+				Name:        "delete",
+				Aliases:     []string{"d"},
+				ArgsUsage:   "GID@namespace.key [GID@namespace.key ...]",
 				Description: "If IDs are not given they're read from stdin one per line",
-				Flags:     cmd.Flags,
-				Action:    deleteAction,
-				Usage:     "Delete one or more metafields",
+				Flags:       cmd.Flags,
+				Action:      deleteAction,
+				Usage:       "Delete one or more metafields",
+			},
+			{
+				Name: "app",
+				Flags: append(cmd.Flags, apiVersionFlag, &cli.StringFlag{
+					Name:    "namespace",
+					Aliases: []string{"n"},
+					Usage:   "Filter by namespace",
+				}),
+				Action: appAction,
+				Usage:  "List metafields for the app installation associated with the credentials",
 			},
 			{
 				Name:    "customer",
