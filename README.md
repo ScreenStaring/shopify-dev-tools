@@ -165,6 +165,7 @@ Metafield utilities
     COMMANDS:
        definitions, def            Metafield definition utilities
        delete, d                   Delete one or more metafields
+       app                         List metafields for the app installation associated with the credentials
        customer, c                 List metafields for the given customer
        product, products, prod, p  List metafields for the given product
        shop, s                     List metafields for the given shop
