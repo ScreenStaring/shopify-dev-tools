@@ -9,8 +9,9 @@ import (
 	"strings"
 
 	_ "github.com/cheynewallace/tabby"
-
 	"github.com/clbanning/mxj"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 type Client struct {
@@ -48,7 +49,25 @@ func NewClient(shop, token string, options ...map[string]interface{}) *Client {
 	}
 }
 
+func containsMutation(query string) bool {
+	doc, err := parser.ParseQuery(&ast.Source{Input: query})
+	if err != nil {
+		return false
+	}
+	for _, op := range doc.Operations {
+		if op.Operation == ast.Mutation {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Client) Execute(q string, variables ...map[string]interface{}) (mxj.Map, error) {
+	readonly := os.Getenv("SDT_READONLY")
+	if (readonly == "1" || readonly == "true") && containsMutation(q) {
+		return nil, fmt.Errorf("Mutation not allowed in read-only mode (STD_READONLY environment variable is set)")
+	}
+
 	merged := map[string]interface{}{}
 	for _, v := range variables {
 		for k, val := range v {
