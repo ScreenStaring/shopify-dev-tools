@@ -65,7 +65,7 @@ func containsMutation(query string) bool {
 func (c *Client) Execute(q string, variables ...map[string]interface{}) (mxj.Map, error) {
 	readonly := os.Getenv("SDT_READONLY")
 	if (readonly == "1" || readonly == "true") && containsMutation(q) {
-		return nil, fmt.Errorf("Mutation not allowed in read-only mode (STD_READONLY environment variable is set)")
+		return nil, fmt.Errorf("Mutation not allowed in read-only mode (SDT_READONLY environment variable is set)")
 	}
 
 	merged := map[string]interface{}{}
