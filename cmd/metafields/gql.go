@@ -44,15 +44,17 @@ type MetafieldDefinition struct {
 	OwnerType   string
 }
 
-type AppMetafield struct {
-	ID          string
-	Namespace   string
-	Key         string
-	Description string
-	Value       string
-	Type        string
-	CreatedAt   string
-	UpdatedAt   string
+// Metafield is the package's native metafield shape as returned by the
+// Admin GraphQL API (gid string, string timestamps).
+type Metafield struct {
+	ID          string `json:"id"`
+	Namespace   string `json:"namespace"`
+	Key         string `json:"key"`
+	Description string `json:"description"`
+	Value       string `json:"value"`
+	Type        string `json:"type"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
 }
 
 type metafieldDefinitionsResponse struct {
@@ -79,9 +81,7 @@ type metafieldDefinitionsResponse struct {
 	} `json:"data"`
 }
 
-func listMetafieldDefinitions(shop, token, ownerType, namespace string, options map[string]interface{}) ([]MetafieldDefinition, error) {
-	client := gql.NewClient(shop, token, options)
-
+func listMetafieldDefinitions(client *gql.Client, ownerType, namespace string) ([]MetafieldDefinition, error) {
 	vars := map[string]interface{}{
 		"ownerType": ownerType,
 		"first":     250,
@@ -184,9 +184,7 @@ type appInstallationMetafieldsResponse struct {
 	} `json:"data"`
 }
 
-func listAppInstallationMetafields(shop, token, namespace string, options map[string]interface{}) ([]AppMetafield, error) {
-	client := gql.NewClient(shop, token, options)
-
+func listAppInstallationMetafields(client *gql.Client, namespace string) ([]Metafield, error) {
 	vars := map[string]interface{}{
 		"first": 250,
 	}
@@ -195,7 +193,7 @@ func listAppInstallationMetafields(shop, token, namespace string, options map[st
 		vars["namespace"] = namespace
 	}
 
-	var metafields []AppMetafield
+	var metafields []Metafield
 
 	for {
 		data, err := client.Execute(appInstallationMetafieldsQuery, vars)
@@ -215,7 +213,7 @@ func listAppInstallationMetafields(shop, token, namespace string, options map[st
 
 		for _, edge := range response.Data.CurrentAppInstallation.Metafields.Edges {
 			n := edge.Node
-			metafields = append(metafields, AppMetafield{
+			metafields = append(metafields, Metafield{
 				ID:          n.ID,
 				Namespace:   n.Namespace,
 				Key:         n.Key,
@@ -232,6 +230,497 @@ func listAppInstallationMetafields(shop, token, namespace string, options map[st
 		}
 
 		vars["after"] = response.Data.CurrentAppInstallation.Metafields.PageInfo.EndCursor
+	}
+
+	return metafields, nil
+}
+
+const customerMetafieldsQuery = `
+query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [String!], $reverse: Boolean) {
+  customer(id: $ownerId) {
+    id
+    metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
+      edges {
+        node {
+          id
+          namespace
+          key
+          description
+          value
+          type
+          createdAt
+          updatedAt
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`
+
+type customerMetafieldsResponse struct {
+	Data struct {
+		Customer struct {
+			ID         string `json:"id"`
+			Metafields struct {
+				Edges []struct {
+					Node struct {
+						ID          string `json:"id"`
+						Namespace   string `json:"namespace"`
+						Key         string `json:"key"`
+						Description string `json:"description"`
+						Value       string `json:"value"`
+						Type        string `json:"type"`
+						CreatedAt   string `json:"createdAt"`
+						UpdatedAt   string `json:"updatedAt"`
+					} `json:"node"`
+				} `json:"edges"`
+				PageInfo struct {
+					HasNextPage bool   `json:"hasNextPage"`
+					EndCursor   string `json:"endCursor"`
+				} `json:"pageInfo"`
+			} `json:"metafields"`
+		} `json:"customer"`
+	} `json:"data"`
+}
+
+func listCustomerMetafields(client *gql.Client, customerID int64, namespace, key string, reverse bool) ([]Metafield, error) {
+	vars := map[string]interface{}{
+		"ownerId": fmt.Sprintf("gid://shopify/Customer/%d", customerID),
+		"first":   250,
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	if reverse {
+		vars["reverse"] = true
+	}
+
+	// The GraphQL keys argument requires the namespace.key format, so a bare
+	// key filter (no namespace) is applied client-side below.
+	filterByKey := false
+	if key != "" {
+		if namespace != "" {
+			vars["keys"] = []string{namespace + "." + key}
+		} else {
+			filterByKey = true
+		}
+	}
+
+	var metafields []Metafield
+
+	for {
+		data, err := client.Execute(customerMetafieldsQuery, vars)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for customer: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for customer: %s", err)
+		}
+
+		var response customerMetafieldsResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for customer: %s", err)
+		}
+
+		for _, edge := range response.Data.Customer.Metafields.Edges {
+			n := edge.Node
+			if filterByKey && n.Key != key {
+				continue
+			}
+
+			metafields = append(metafields, Metafield{
+				ID:          n.ID,
+				Namespace:   n.Namespace,
+				Key:         n.Key,
+				Description: n.Description,
+				Value:       n.Value,
+				Type:        n.Type,
+				CreatedAt:   n.CreatedAt,
+				UpdatedAt:   n.UpdatedAt,
+			})
+		}
+
+		if !response.Data.Customer.Metafields.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.Customer.Metafields.PageInfo.EndCursor
+	}
+
+	return metafields, nil
+}
+
+const productMetafieldsQuery = `
+query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [String!], $reverse: Boolean) {
+  product(id: $ownerId) {
+    id
+    metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
+      edges {
+        node {
+          id
+          namespace
+          key
+          description
+          value
+          type
+          createdAt
+          updatedAt
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`
+
+type productMetafieldsResponse struct {
+	Data struct {
+		Product struct {
+			ID         string `json:"id"`
+			Metafields struct {
+				Edges []struct {
+					Node struct {
+						ID          string `json:"id"`
+						Namespace   string `json:"namespace"`
+						Key         string `json:"key"`
+						Description string `json:"description"`
+						Value       string `json:"value"`
+						Type        string `json:"type"`
+						CreatedAt   string `json:"createdAt"`
+						UpdatedAt   string `json:"updatedAt"`
+					} `json:"node"`
+				} `json:"edges"`
+				PageInfo struct {
+					HasNextPage bool   `json:"hasNextPage"`
+					EndCursor   string `json:"endCursor"`
+				} `json:"pageInfo"`
+			} `json:"metafields"`
+		} `json:"product"`
+	} `json:"data"`
+}
+
+func listProductMetafields(client *gql.Client, productID int64, namespace, key string, reverse bool) ([]Metafield, error) {
+	vars := map[string]interface{}{
+		"ownerId": fmt.Sprintf("gid://shopify/Product/%d", productID),
+		"first":   250,
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	if reverse {
+		vars["reverse"] = true
+	}
+
+	// The GraphQL keys argument requires the namespace.key format, so a bare
+	// key filter (no namespace) is applied client-side below.
+	filterByKey := false
+	if key != "" {
+		if namespace != "" {
+			vars["keys"] = []string{namespace + "." + key}
+		} else {
+			filterByKey = true
+		}
+	}
+
+	var metafields []Metafield
+
+	for {
+		data, err := client.Execute(productMetafieldsQuery, vars)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for product: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for product: %s", err)
+		}
+
+		var response productMetafieldsResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for product: %s", err)
+		}
+
+		for _, edge := range response.Data.Product.Metafields.Edges {
+			n := edge.Node
+			if filterByKey && n.Key != key {
+				continue
+			}
+
+			metafields = append(metafields, Metafield{
+				ID:          n.ID,
+				Namespace:   n.Namespace,
+				Key:         n.Key,
+				Description: n.Description,
+				Value:       n.Value,
+				Type:        n.Type,
+				CreatedAt:   n.CreatedAt,
+				UpdatedAt:   n.UpdatedAt,
+			})
+		}
+
+		if !response.Data.Product.Metafields.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.Product.Metafields.PageInfo.EndCursor
+	}
+
+	return metafields, nil
+}
+
+const variantMetafieldsQuery = `
+query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [String!], $reverse: Boolean) {
+  productVariant(id: $ownerId) {
+    id
+    metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
+      edges {
+        node {
+          id
+          namespace
+          key
+          description
+          value
+          type
+          createdAt
+          updatedAt
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`
+
+type variantMetafieldsResponse struct {
+	Data struct {
+		ProductVariant struct {
+			ID         string `json:"id"`
+			Metafields struct {
+				Edges []struct {
+					Node struct {
+						ID          string `json:"id"`
+						Namespace   string `json:"namespace"`
+						Key         string `json:"key"`
+						Description string `json:"description"`
+						Value       string `json:"value"`
+						Type        string `json:"type"`
+						CreatedAt   string `json:"createdAt"`
+						UpdatedAt   string `json:"updatedAt"`
+					} `json:"node"`
+				} `json:"edges"`
+				PageInfo struct {
+					HasNextPage bool   `json:"hasNextPage"`
+					EndCursor   string `json:"endCursor"`
+				} `json:"pageInfo"`
+			} `json:"metafields"`
+		} `json:"productVariant"`
+	} `json:"data"`
+}
+
+func listVariantMetafields(client *gql.Client, variantID int64, namespace, key string, reverse bool) ([]Metafield, error) {
+	vars := map[string]interface{}{
+		"ownerId": fmt.Sprintf("gid://shopify/ProductVariant/%d", variantID),
+		"first":   250,
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	if reverse {
+		vars["reverse"] = true
+	}
+
+	// The GraphQL keys argument requires the namespace.key format, so a bare
+	// key filter (no namespace) is applied client-side below.
+	filterByKey := false
+	if key != "" {
+		if namespace != "" {
+			vars["keys"] = []string{namespace + "." + key}
+		} else {
+			filterByKey = true
+		}
+	}
+
+	var metafields []Metafield
+
+	for {
+		data, err := client.Execute(variantMetafieldsQuery, vars)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
+		}
+
+		var response variantMetafieldsResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
+		}
+
+		for _, edge := range response.Data.ProductVariant.Metafields.Edges {
+			n := edge.Node
+			if filterByKey && n.Key != key {
+				continue
+			}
+
+			metafields = append(metafields, Metafield{
+				ID:          n.ID,
+				Namespace:   n.Namespace,
+				Key:         n.Key,
+				Description: n.Description,
+				Value:       n.Value,
+				Type:        n.Type,
+				CreatedAt:   n.CreatedAt,
+				UpdatedAt:   n.UpdatedAt,
+			})
+		}
+
+		if !response.Data.ProductVariant.Metafields.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.ProductVariant.Metafields.PageInfo.EndCursor
+	}
+
+	return metafields, nil
+}
+
+const shopMetafieldsQuery = `
+query($first: Int!, $after: String, $namespace: String, $keys: [String!], $reverse: Boolean) {
+  shop {
+    id
+    metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
+      edges {
+        node {
+          id
+          namespace
+          key
+          description
+          value
+          type
+          createdAt
+          updatedAt
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`
+
+type shopMetafieldsResponse struct {
+	Data struct {
+		Shop struct {
+			ID         string `json:"id"`
+			Metafields struct {
+				Edges []struct {
+					Node struct {
+						ID          string `json:"id"`
+						Namespace   string `json:"namespace"`
+						Key         string `json:"key"`
+						Description string `json:"description"`
+						Value       string `json:"value"`
+						Type        string `json:"type"`
+						CreatedAt   string `json:"createdAt"`
+						UpdatedAt   string `json:"updatedAt"`
+					} `json:"node"`
+				} `json:"edges"`
+				PageInfo struct {
+					HasNextPage bool   `json:"hasNextPage"`
+					EndCursor   string `json:"endCursor"`
+				} `json:"pageInfo"`
+			} `json:"metafields"`
+		} `json:"shop"`
+	} `json:"data"`
+}
+
+func listShopMetafields(client *gql.Client, namespace, key string, reverse bool) ([]Metafield, error) {
+	vars := map[string]interface{}{
+		"first": 250,
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	if reverse {
+		vars["reverse"] = true
+	}
+
+	// The GraphQL keys argument requires the namespace.key format, so a bare
+	// key filter (no namespace) is applied client-side below.
+	filterByKey := false
+	if key != "" {
+		if namespace != "" {
+			vars["keys"] = []string{namespace + "." + key}
+		} else {
+			filterByKey = true
+		}
+	}
+
+	var metafields []Metafield
+
+	for {
+		data, err := client.Execute(shopMetafieldsQuery, vars)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for shop: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for shop: %s", err)
+		}
+
+		var response shopMetafieldsResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for shop: %s", err)
+		}
+
+		for _, edge := range response.Data.Shop.Metafields.Edges {
+			n := edge.Node
+			if filterByKey && n.Key != key {
+				continue
+			}
+
+			metafields = append(metafields, Metafield{
+				ID:          n.ID,
+				Namespace:   n.Namespace,
+				Key:         n.Key,
+				Description: n.Description,
+				Value:       n.Value,
+				Type:        n.Type,
+				CreatedAt:   n.CreatedAt,
+				UpdatedAt:   n.UpdatedAt,
+			})
+		}
+
+		if !response.Data.Shop.Metafields.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.Shop.Metafields.PageInfo.EndCursor
 	}
 
 	return metafields, nil

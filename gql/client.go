@@ -89,7 +89,7 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 
 	req, err := http.NewRequest("POST", c.endpoint, strings.NewReader(string(body)))
 	if err != nil {
-		return result, fmt.Errorf("Failed to make GraphQL request: %s", c.endpoint, err)
+		return result, fmt.Errorf("Failed to make GraphQL request to %s: %s", c.endpoint, err)
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -110,7 +110,7 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return result, fmt.Errorf("GraphQL request failed: %s", c.endpoint, err)
+		return result, fmt.Errorf("GraphQL request to %s failed: %s", c.endpoint, err)
 	}
 
 	defer resp.Body.Close()

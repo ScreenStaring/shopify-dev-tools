@@ -45,7 +45,7 @@ func PrintSeparator() {
 
 // MetafieldPrintable exists because callers source metafields from two
 // incompatible types with no common shape: shopify.Metafield (REST, int64
-// ID + AdminGraphqlAPIID) and gql-only results like AppMetafield (string gid,
+// ID + AdminGraphqlAPIID) and gql-only results like Metafield (string gid,
 // no numeric id). This is the shape both convert into so print logic lives once.
 // Fields are interface{} so callers can pass through native types (e.g. int64
 // ID, *time.Time timestamps) as-is; a nil ID omits the "Id" line entirely.

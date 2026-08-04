@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"strings"
 
-	shopify "github.com/bold-commerce/go-shopify/v3"
 	"github.com/cheynewallace/tabby"
 	"github.com/urfave/cli/v2"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
+	"github.com/ScreenStaring/shopify-dev-tools/gql"
 	"github.com/ScreenStaring/shopify-dev-tools/gql/storefront"
 )
 
@@ -21,50 +21,33 @@ type metafieldOptions struct {
 	Namespace string `url:"namespace"`
 	Key       string `url:"key"`
 	JSONL     bool
-	OrderBy   []string
 }
 
 var Cmd cli.Command
-
-var sortByFieldFuncs = map[string]lessFunc{
-	"namespace":      byNamespaceAsc,
-	"namespace:asc":  byNamespaceAsc,
-	"namespace:desc": byNamespaceDesc,
-	"key":            byKeyAsc,
-	"key:asc":        byKeyAsc,
-	"key:desc":       byKeyDesc,
-	"create":         byCreatedAtAsc,
-	"create:asc":     byCreatedAtAsc,
-	"create:desc":    byCreatedAtDesc,
-	"created":        byCreatedAtAsc,
-	"created:asc":    byCreatedAtAsc,
-	"created:desc":   byCreatedAtDesc,
-	"update":         byUpdatedAtAsc,
-	"update:asc":     byUpdatedAtAsc,
-	"update:desc":    byUpdatedAtDesc,
-	"updated":        byUpdatedAtAsc,
-	"updated:asc":    byUpdatedAtAsc,
-	"updated:desc":   byUpdatedAtDesc,
-}
 
 func contextToOptions(c *cli.Context) metafieldOptions {
 	return metafieldOptions{
 		Key:       c.String("key"),
 		Namespace: c.String("namespace"),
-		OrderBy:   c.StringSlice("order"),
 		JSONL:     c.Bool("jsonl"),
 	}
 }
 
-func printMetafields(metafields []shopify.Metafield, options metafieldOptions) {
+func newGqlClient(c *cli.Context) *gql.Client {
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	return gql.NewClient(shop, token, map[string]interface{}{"version": c.String("api-version")})
+}
+
+func printMetafields(metafields []Metafield, options metafieldOptions) {
 	if options.JSONL {
 		printJSONL(metafields)
 	} else {
-		printFormatted(metafields, options)
+		printFormatted(metafields)
 	}
 }
 
-func printJSONL(metafields []shopify.Metafield) {
+func printJSONL(metafields []Metafield) {
 	for _, metafield := range metafields {
 		line, err := json.Marshal(metafield)
 		if err != nil {
@@ -73,52 +56,24 @@ func printJSONL(metafields []shopify.Metafield) {
 
 		fmt.Println(string(line))
 	}
-
 }
 
-func printFormatted(metafields []shopify.Metafield, options metafieldOptions) {
-	sortMetafields(metafields, options)
-
+func printFormatted(metafields []Metafield) {
 	items := make([]cmd.MetafieldPrintable, len(metafields))
-	for i, metafield := range metafields {
+	for i, mf := range metafields {
 		items[i] = cmd.MetafieldPrintable{
-			ID:          metafield.ID,
-			Gid:         metafield.AdminGraphqlAPIID,
-			Namespace:   metafield.Namespace,
-			Key:         metafield.Key,
-			Description: metafield.Description,
-			// format JSON strings
-			// also check for string types that look like json: /\A\{"[^"]+":/ or /\A[/ and /\]\Z/
-			Value:     metafield.Value,
-			Type:      metafield.Type,
-			CreatedAt: metafield.CreatedAt,
-			UpdatedAt: metafield.UpdatedAt,
+			Gid:         mf.ID,
+			Namespace:   mf.Namespace,
+			Key:         mf.Key,
+			Description: mf.Description,
+			Value:       mf.Value,
+			Type:        mf.Type,
+			CreatedAt:   mf.CreatedAt,
+			UpdatedAt:   mf.UpdatedAt,
 		}
 	}
 
 	cmd.PrintMetafields(items)
-}
-
-// Cannot sort storefront metafields from GQL
-func sortMetafields(metafields []shopify.Metafield, options metafieldOptions) {
-	var funcs []lessFunc
-
-	if len(options.OrderBy) != 0 {
-		for _, field := range options.OrderBy {
-			funcs = append(funcs, sortByFieldFuncs[field])
-		}
-	} else {
-		if options.Namespace != "" {
-			funcs = []lessFunc{byKeyAsc}
-		} else if options.Key != "" {
-			funcs = []lessFunc{byNamespaceAsc}
-		} else {
-			funcs = []lessFunc{byNamespaceAsc, byKeyAsc}
-		}
-	}
-
-	sorter := metafieldsSorter{less: funcs}
-	sorter.Sort(metafields)
 }
 
 func customerAction(c *cli.Context) error {
@@ -132,8 +87,8 @@ func customerAction(c *cli.Context) error {
 	}
 
 	options := contextToOptions(c)
-	// TODO: remove use of REST API here (Customer.ListMetafields) in favor of GraphQL, per appAction
-	metafields, err := cmd.NewShopifyClient(c).Customer.ListMetafields(id, options)
+	client := newGqlClient(c)
+	metafields, err := listCustomerMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for customer: %s", err)
 	}
@@ -154,8 +109,8 @@ func productAction(c *cli.Context) error {
 	}
 
 	options := contextToOptions(c)
-	// TODO: remove use of REST API here (Product.ListMetafields) in favor of GraphQL, per appAction
-	metafields, err := cmd.NewShopifyClient(c).Product.ListMetafields(id, options)
+	client := newGqlClient(c)
+	metafields, err := listProductMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for product %d: %s", id, err)
 	}
@@ -166,23 +121,21 @@ func productAction(c *cli.Context) error {
 
 func shopAction(c *cli.Context) error {
 	options := contextToOptions(c)
-	// TODO: remove use of REST API here (Metafield.List) in favor of GraphQL, per appAction
-	metafields, err := cmd.NewShopifyClient(c).Metafield.List(options)
+	client := newGqlClient(c)
+	metafields, err := listShopMetafields(client, options.Namespace, options.Key, c.Bool("reverse"))
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for shop: %s", err)
 	}
 
-	printFormatted(metafields, options)
+	printMetafields(metafields, options)
 
 	return nil
 }
 
 func appAction(c *cli.Context) error {
-	shop := c.String("shop")
-	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	client := newGqlClient(c)
 
-	metafields, err := listAppInstallationMetafields(shop, token, c.String("namespace"), options)
+	metafields, err := listAppInstallationMetafields(client, c.String("namespace"))
 	if err != nil {
 		return err
 	}
@@ -217,8 +170,8 @@ func variantAction(c *cli.Context) error {
 	}
 
 	options := contextToOptions(c)
-	// TODO: remove use of REST API here (Variant.ListMetafields) in favor of GraphQL, per appAction
-	metafields, err := cmd.NewShopifyClient(c).Variant.ListMetafields(id, options)
+	client := newGqlClient(c)
+	metafields, err := listVariantMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for variant %d: %s", id, err)
 	}
@@ -293,11 +246,9 @@ func definitionsAction(c *cli.Context) error {
 	}
 
 	ownerType := strings.ToUpper(c.Args().Get(0))
-	shop := c.String("shop")
-	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	client := newGqlClient(c)
 
-	definitions, err := listMetafieldDefinitions(shop, token, ownerType, c.String("namespace"), options)
+	definitions, err := listMetafieldDefinitions(client, ownerType, c.String("namespace"))
 	if err != nil {
 		return err
 	}
@@ -381,7 +332,7 @@ func deleteAction(c *cli.Context) error {
 }
 
 func init() {
-	metafieldFlags := []cli.Flag{
+	storefrontFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name:    "key",
 			Aliases: []string{"k"},
@@ -408,6 +359,29 @@ func init() {
 		Name:    "api-version",
 		Aliases: []string{"a"},
 		Usage:   "API version to use; default is a versionless call",
+	}
+
+	metafieldFlags := []cli.Flag{
+		&cli.StringFlag{
+			Name:    "key",
+			Aliases: []string{"k"},
+			Usage:   "Find metafields with the given key",
+		},
+		&cli.StringFlag{
+			Name:    "namespace",
+			Aliases: []string{"n"},
+			Usage:   "Find metafields with the given namespace",
+		},
+		&cli.BoolFlag{
+			Name:    "jsonl",
+			Aliases: []string{"j"},
+			Usage:   "Output the metafields in JSONL format",
+		},
+		&cli.BoolFlag{
+			Name:    "reverse",
+			Aliases: []string{"r"},
+			Usage:   "Reverse the order of the results",
+		},
 	}
 
 	Cmd = cli.Command{
@@ -454,21 +428,21 @@ func init() {
 			},
 			{
 				Name:    "customer",
-				Flags:   append(cmd.Flags, metafieldFlags...),
+				Flags:   append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
 				Aliases: []string{"c"},
 				Action:  customerAction,
 				Usage:   "List metafields for the given customer",
 			},
 			{
 				Name:    "product",
-				Flags:   append(cmd.Flags, metafieldFlags...),
+				Flags:   append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
 				Aliases: []string{"products", "prod", "p"},
 				Action:  productAction,
 				Usage:   "List metafields for the given product",
 			},
 			{
 				Name:    "shop",
-				Flags:   append(cmd.Flags, metafieldFlags...),
+				Flags:   append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
 				Aliases: []string{"s"},
 				Action:  shopAction,
 				Usage:   "List metafields for the given shop",
@@ -480,7 +454,7 @@ func init() {
 				Subcommands: []*cli.Command{
 					{
 						Name:   "ls",
-						Flags:  append(cmd.Flags, metafieldFlags...),
+						Flags:  append(cmd.Flags, storefrontFlags...),
 						Usage:  "List accessible metafields",
 						Action: storefrontListAction,
 					},
@@ -497,7 +471,7 @@ func init() {
 			{
 				Name:    "variant",
 				Aliases: []string{"var", "v"},
-				Flags:   append(cmd.Flags, metafieldFlags...),
+				Flags:   append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
 				Action:  variantAction,
 				Usage:   "List metafields for the given variant",
 			},
