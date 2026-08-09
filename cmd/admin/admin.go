@@ -13,22 +13,15 @@ import (
 
 var Cmd cli.Command
 
-type themeOptions struct {
-	Fields []string `url:"fields[]"`
-}
-
 func findPublishedTheme(c *cli.Context) (int64, error) {
-	shopify := cmd.NewShopifyClient(c)
-	options := themeOptions{[]string{"id", "role"}}
-
-	themes, err := shopify.Theme.List(options)
+	themes, err := listThemes(cmd.NewGraphQLClient(c))
 	if err != nil {
 		return 0, err
 	}
 
 	var id int64
 	for _, theme := range themes {
-		if theme.Role == "main" {
+		if theme.Role == "MAIN" {
 			id = theme.ID
 			break
 		}
