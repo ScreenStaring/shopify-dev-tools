@@ -9,9 +9,9 @@ import (
 
 	"github.com/cheynewallace/tabby"
 	"github.com/urfave/cli/v2"
-	shopify "github.com/bold-commerce/go-shopify/v3"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
+	"github.com/ScreenStaring/shopify-dev-tools/gql"
 )
 
 var Cmd cli.Command
@@ -36,7 +36,7 @@ func destinationPath(source, destination string) string {
 	return destination
 }
 
-func uploadFile(client *shopify.Client, themeID int64, source, destination string) error {
+func uploadFile(client *gql.Client, themeID int64, source, destination string) error {
 	destination = destinationPath(source, destination)
 
 	fmt.Printf("Uploading '%s' to '%s'\n", source, destination)
@@ -46,34 +46,32 @@ func uploadFile(client *shopify.Client, themeID int64, source, destination strin
 		return fmt.Errorf("Failed to read file '%s': %s", source, err)
 	}
 
-	asset := shopify.Asset{Key: destination, ThemeID: themeID}
-
 	contentType := http.DetectContentType(value)
+	bodyType := "TEXT"
+	bodyValue := string(value)
 	if strings.HasPrefix(contentType, "image") || strings.HasPrefix(contentType, "video") || contentType == "application/octet-stream" {
-		asset.Attachment = base64.StdEncoding.EncodeToString(value)
-	} else {
-		asset.Value = string(value)
+		bodyType = "BASE64"
+		bodyValue = base64.StdEncoding.EncodeToString(value)
 	}
 
-	_, err = client.Asset.Update(themeID, asset)
-	if err != nil {
+	if err := upsertThemeFiles(client, themeID, destination, bodyType, bodyValue); err != nil {
 		return fmt.Errorf("Cannot upload asset '%s': %s", source, err)
 	}
 
 	return nil
 }
 
-func uploadDirectory(client *shopify.Client, themeID int64, source, destination string) error {
+func uploadDirectory(client *gql.Client, themeID int64, source, destination string) error {
 	directory, err := os.Open(source)
 	if err != nil {
-		return fmt.Errorf("Failed to open directory '%s': %s", directory, err)
+		return fmt.Errorf("Failed to open directory '%s': %s", source, err)
 	}
 
 	defer directory.Close()
 
 	files, err := directory.Readdir(0)
 	if err != nil {
-		return fmt.Errorf("Failed to read directory '%s': %s", directory, err)
+		return fmt.Errorf("Failed to read directory '%s': %s", source, err)
 	}
 
 	for _, file := range(files) {
@@ -91,9 +89,7 @@ func uploadDirectory(client *shopify.Client, themeID int64, source, destination 
 }
 
 func listAction(c *cli.Context) error {
-	client := cmd.NewShopifyClient(c)
-
-	themes, err := client.Theme.List(nil)
+	themes, err := listThemes(cmd.NewGraphQLClient(c))
 	if err != nil {
 		return fmt.Errorf("Cannot list themes: %s", err)
 	}
@@ -125,7 +121,7 @@ func copyAction(c *cli.Context) error {
 		return fmt.Errorf("Theme id '%s' invalid: must be an int", c.Args().Get(0))
 	}
 
-	client := cmd.NewShopifyClient(c)
+	client := cmd.NewGraphQLClient(c)
 
 	args := c.Args().Slice()
 	sources := args[1:len(args) - 1]
