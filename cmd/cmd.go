@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	shopify "github.com/bold-commerce/go-shopify/v3"
 	"github.com/cheynewallace/tabby"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
@@ -18,24 +17,6 @@ import (
 
 var Flags []cli.Flag
 var accessTokenCommand = regexp.MustCompile(`\A\s*<\s*(.+)\z`)
-
-func NewShopifyClient(c *cli.Context) *shopify.Client {
-	var logging shopify.Option
-
-	app := shopify.App{
-		ApiKey:   c.String("api-key"),
-		Password: c.String("api-password"),
-	}
-
-	shop := c.String("shop")
-
-	if c.Bool("verbose") {
-		logging = shopify.WithLogger(&shopify.LeveledLogger{Level: shopify.LevelDebug})
-		return shopify.NewClient(app, shop, LookupAccessToken(shop, c.String("access-token")), logging)
-	}
-
-	return shopify.NewClient(app, shop, LookupAccessToken(shop, c.String("access-token")))
-}
 
 func NewGraphQLClient(c *cli.Context) *gql.Client {
 	shop := c.String("shop")
@@ -51,10 +32,9 @@ func PrintSeparator() {
 	fmt.Printf("%s\n", strings.Repeat("-", 20))
 }
 
-// MetafieldPrintable exists because callers source metafields from two
-// incompatible types with no common shape: shopify.Metafield (REST, int64
-// ID + AdminGraphqlAPIID) and gql-only results like Metafield (string gid,
-// no numeric id). This is the shape both convert into so print logic lives once.
+// MetafieldPrintable exists because callers source metafields from
+// different gql-only result types that share no common shape. This is the
+// shape each converts into so print logic lives once.
 // Fields are interface{} so callers can pass through native types (e.g. int64
 // ID, *time.Time timestamps) as-is; a nil ID omits the "Id" line entirely.
 type MetafieldPrintable struct {

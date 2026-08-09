@@ -5,7 +5,6 @@ go 1.22
 toolchain go1.23.1
 
 require (
-	github.com/bold-commerce/go-shopify/v3 v3.14.0
 	github.com/cheynewallace/tabby v1.1.1
 	github.com/clbanning/mxj v1.8.4
 	github.com/pkg/browser v0.0.0-20201207095918-0426ae3fba23
@@ -17,7 +16,6 @@ require (
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
-	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/kr/text v0.1.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	gopkg.in/yaml.v2 v2.2.3 // indirect
