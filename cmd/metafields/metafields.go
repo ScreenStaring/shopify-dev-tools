@@ -13,7 +13,6 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
-	"github.com/ScreenStaring/shopify-dev-tools/gql"
 	"github.com/ScreenStaring/shopify-dev-tools/gql/storefront"
 )
 
@@ -31,12 +30,6 @@ func contextToOptions(c *cli.Context) metafieldOptions {
 		Namespace: c.String("namespace"),
 		JSONL:     c.Bool("jsonl"),
 	}
-}
-
-func newGqlClient(c *cli.Context) *gql.Client {
-	shop := c.String("shop")
-	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	return gql.NewClient(shop, token, map[string]interface{}{"version": c.String("api-version")})
 }
 
 func printMetafields(metafields []Metafield, options metafieldOptions) {
@@ -87,7 +80,7 @@ func customerAction(c *cli.Context) error {
 	}
 
 	options := contextToOptions(c)
-	client := newGqlClient(c)
+	client := cmd.NewGraphQLClient(c)
 	metafields, err := listCustomerMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for customer: %s", err)
@@ -109,7 +102,7 @@ func productAction(c *cli.Context) error {
 	}
 
 	options := contextToOptions(c)
-	client := newGqlClient(c)
+	client := cmd.NewGraphQLClient(c)
 	metafields, err := listProductMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for product %d: %s", id, err)
@@ -121,7 +114,7 @@ func productAction(c *cli.Context) error {
 
 func shopAction(c *cli.Context) error {
 	options := contextToOptions(c)
-	client := newGqlClient(c)
+	client := cmd.NewGraphQLClient(c)
 	metafields, err := listShopMetafields(client, options.Namespace, options.Key, c.Bool("reverse"))
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for shop: %s", err)
@@ -133,7 +126,7 @@ func shopAction(c *cli.Context) error {
 }
 
 func appAction(c *cli.Context) error {
-	client := newGqlClient(c)
+	client := cmd.NewGraphQLClient(c)
 
 	metafields, err := listAppInstallationMetafields(client, c.String("namespace"))
 	if err != nil {
@@ -170,7 +163,7 @@ func variantAction(c *cli.Context) error {
 	}
 
 	options := contextToOptions(c)
-	client := newGqlClient(c)
+	client := cmd.NewGraphQLClient(c)
 	metafields, err := listVariantMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
 	if err != nil {
 		return fmt.Errorf("Cannot list metafields for variant %d: %s", id, err)
@@ -246,7 +239,7 @@ func definitionsAction(c *cli.Context) error {
 	}
 
 	ownerType := strings.ToUpper(c.Args().Get(0))
-	client := newGqlClient(c)
+	client := cmd.NewGraphQLClient(c)
 
 	definitions, err := listMetafieldDefinitions(client, ownerType, c.String("namespace"))
 	if err != nil {

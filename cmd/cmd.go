@@ -12,6 +12,8 @@ import (
 	"github.com/cheynewallace/tabby"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
+
+	"github.com/ScreenStaring/shopify-dev-tools/gql"
 )
 
 var Flags []cli.Flag
@@ -33,6 +35,12 @@ func NewShopifyClient(c *cli.Context) *shopify.Client {
 	}
 
 	return shopify.NewClient(app, shop, LookupAccessToken(shop, c.String("access-token")))
+}
+
+func NewGraphQLClient(c *cli.Context) *gql.Client {
+	shop := c.String("shop")
+	token := LookupAccessToken(shop, c.String("access-token"))
+	return gql.NewClient(shop, token, map[string]interface{}{"version": c.String("api-version")})
 }
 
 func ParseIntAt(c *cli.Context, pos int) (int64, error) {
