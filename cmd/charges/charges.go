@@ -2,14 +2,12 @@ package charges
 
 import (
 	"encoding/json"
-
 	"fmt"
 	"strconv"
 	"strings"
 
-	"github.com/shopspring/decimal"
-	shopify "github.com/bold-commerce/go-shopify/v3"
 	"github.com/cheynewallace/tabby"
+	"github.com/shopspring/decimal"
 	"github.com/urfave/cli/v2"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
@@ -21,9 +19,9 @@ func printRecordSeperator() {
 	fmt.Printf("%s\n", strings.Repeat("-", 20))
 }
 
-func printJSONL(charges []shopify.RecurringApplicationCharge) {
+func printJSONL(charges []RecurringCharge) {
 	for _, charge := range charges {
-		printChargeJSONL(charge);
+		printChargeJSONL(charge)
 	}
 }
 
@@ -36,7 +34,7 @@ func printChargeJSONL(charge interface{}) {
 	fmt.Println(string(line))
 }
 
-func printFormattedRecurringCharges(charges []shopify.RecurringApplicationCharge) {
+func printFormattedRecurringCharges(charges []RecurringCharge) {
 	t := tabby.New()
 
 	for _, charge := range charges {
@@ -44,45 +42,47 @@ func printFormattedRecurringCharges(charges []shopify.RecurringApplicationCharge
 		t.AddLine("Name", charge.Name)
 		t.AddLine("Price", charge.Price)
 		t.AddLine("Status", charge.Status)
-		t.AddLine("Activated On", charge.ActivatedOn)
-		t.AddLine("Confirmation URL", charge.ConfirmationURL)
-		t.AddLine("Return URL", charge.DecoratedReturnURL)
-		t.AddLine("Test", *charge.Test)
+		t.AddLine("Return URL", charge.ReturnURL)
+		t.AddLine("Test", charge.Test)
 		t.AddLine("Created At", charge.CreatedAt)
-		t.AddLine("Updated At", charge.UpdatedAt)
 		t.Print()
 
 		printRecordSeperator()
 	}
 }
 
-func printFormattedApplicationCharges(charges []shopify.ApplicationCharge) {
+func printFormattedApplicationCharges(charges []OneTimeCharge) {
 	for _, charge := range charges {
 		printFormattedApplicationCharge(&charge)
 		printRecordSeperator()
 	}
 }
 
-func printFormattedApplicationCharge(charge *shopify.ApplicationCharge) {
+func printFormattedApplicationCharge(charge *OneTimeCharge) {
 	t := tabby.New()
 
 	t.AddLine("Id", charge.ID)
 	t.AddLine("Name", charge.Name)
 	t.AddLine("Price", charge.Price)
 	t.AddLine("Status", charge.Status)
-	t.AddLine("Confirmation URL", charge.ConfirmationURL)
-	t.AddLine("Return URL", charge.DecoratedReturnURL)
-	t.AddLine("Test", *charge.Test)
+
+	// The GraphQL API only exposes the confirmation and return URLs on
+	// the create mutation response, not on existing purchases
+	if len(charge.ConfirmationURL) > 0 {
+		t.AddLine("Confirmation URL", charge.ConfirmationURL)
+	}
+
+	if len(charge.ReturnURL) > 0 {
+		t.AddLine("Return URL", charge.ReturnURL)
+	}
+
+	t.AddLine("Test", charge.Test)
 	t.AddLine("Created At", charge.CreatedAt)
-	t.AddLine("Updated At", charge.UpdatedAt)
 	t.Print()
 }
 
-
 func createCharge(c *cli.Context) error {
-	var charge shopify.ApplicationCharge
-
-	if(c.Args().Len() < 2) {
+	if c.Args().Len() < 2 {
 		return fmt.Errorf("You must supply charge name and price")
 	}
 
@@ -91,48 +91,35 @@ func createCharge(c *cli.Context) error {
 		return fmt.Errorf("Cannot create charge: invalid price %s", err)
 	}
 
-	charge.Price = &price
-	charge.Name = c.Args().Get(0)
-
-	test := c.Bool("test")
-	charge.Test = &test
-
-	returnURL := c.String("return-to")
-	if len(returnURL) > 0 {
-		charge.ReturnURL = returnURL
-	}
-
-	result, err := cmd.NewShopifyClient(c).ApplicationCharge.Create(charge)
+	charge, err := createOneTimeCharge(cmd.NewGraphQLClient(c), c.Args().Get(0), price.String(), c.Bool("test"), c.String("return-to"))
 	if err != nil {
 		return fmt.Errorf("Cannot create charge: %s", err)
 	}
 
-	if(c.Bool("jsonl")) {
-		printChargeJSONL(result)
+	if c.Bool("jsonl") {
+		printChargeJSONL(charge)
 	} else {
-		printFormattedApplicationCharge(result)
+		printFormattedApplicationCharge(charge)
 	}
 
 	return nil
 }
 
 func listOneTimeCharges(c *cli.Context, ids []int64) error {
-	var err error
-	var charges []shopify.ApplicationCharge
+	var charges []OneTimeCharge
 
-	client := cmd.NewShopifyClient(c)
+	client := cmd.NewGraphQLClient(c)
 
-	if(len(ids) > 0) {
-		for _, id := range ids {
-			charge, err := client.ApplicationCharge.Get(id, nil)
-			if err != nil {
-				return fmt.Errorf("Cannot get one-time charge %d: %s", id, err)
-			}
-
-			charges = append(charges, *charge)
+	if len(ids) > 0 {
+		byID, err := getOneTimeChargesByID(client, ids)
+		if err != nil {
+			return err
 		}
+
+		charges = byID
 	} else {
-		charges, err = client.ApplicationCharge.List(nil)
+		var err error
+		charges, err = listOneTimeChargesGQL(client)
 		if err != nil {
 			return fmt.Errorf("Cannot list one-time charges: %s", err)
 		}
@@ -140,7 +127,7 @@ func listOneTimeCharges(c *cli.Context, ids []int64) error {
 
 	if c.Bool("jsonl") {
 		for _, charge := range charges {
-			printChargeJSONL(charge);
+			printChargeJSONL(charge)
 		}
 	} else {
 		printFormattedApplicationCharges(charges)
@@ -150,23 +137,20 @@ func listOneTimeCharges(c *cli.Context, ids []int64) error {
 }
 
 func listRecurringCharges(c *cli.Context, ids []int64) error {
-	var err error
-	var charges []shopify.RecurringApplicationCharge
+	var charges []RecurringCharge
 
-	client := cmd.NewShopifyClient(c)
+	client := cmd.NewGraphQLClient(c)
 
-	if(len(ids) > 0) {
-		for _, id := range ids {
-			charge, err := client.RecurringApplicationCharge.Get(id, nil)
-			if err != nil {
-				return fmt.Errorf("Cannot get recurring charge %d: %s", id, err)
-			}
-
-			charges = append(charges, *charge)
+	if len(ids) > 0 {
+		byID, err := getRecurringChargesByID(client, ids)
+		if err != nil {
+			return err
 		}
 
+		charges = byID
 	} else {
-		charges, err = client.RecurringApplicationCharge.List(nil)
+		var err error
+		charges, err = listRecurringChargesGQL(client)
 		if err != nil {
 			return fmt.Errorf("Cannot list recurring charges: %s", err)
 		}
@@ -174,12 +158,11 @@ func listRecurringCharges(c *cli.Context, ids []int64) error {
 
 	if c.Bool("jsonl") {
 		for _, charge := range charges {
-			printChargeJSONL(charge);
+			printChargeJSONL(charge)
 		}
 	} else {
 		printFormattedRecurringCharges(charges)
 	}
-
 
 	return nil
 }
@@ -191,21 +174,18 @@ func listCharges(c *cli.Context) error {
 		for i := 0; i < c.NArg(); i++ {
 			id, err := strconv.ParseInt(c.Args().Get(i), 10, 64)
 			if err != nil {
-				return fmt.Errorf("Charge id '%s' invalid: must be an int", c.Args().Get(0))
+				return fmt.Errorf("Charge id '%s' invalid: must be an int", c.Args().Get(i))
 			}
 
 			ids = append(ids, id)
 		}
-
 	}
 
-	if (c.Bool("one-time")) {
+	if c.Bool("one-time") {
 		return listOneTimeCharges(c, ids)
-	} else {
-		return listRecurringCharges(c, ids)
 	}
 
-	return nil
+	return listRecurringCharges(c, ids)
 }
 
 func init() {
