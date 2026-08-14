@@ -405,6 +405,13 @@ Run a GraphQL query against the Admin API
        --extras, -x                Include extension information in the response (default: false)
        --help, -h                  show help (default: false)
 
+
+The `-v`/`--variable` argument is used to provide GraphQL variables. To specify an array value use `[i1, i2, ... iN]` syntax. For example:
+
+```
+-v ids='["gid://shopify/Product/123", "gid://shopify/Product/456"]'
+```
+
 ### ScriptTags
 
 ScriptTag utilities
