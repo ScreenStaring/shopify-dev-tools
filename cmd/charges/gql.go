@@ -40,6 +40,53 @@ mutation($name: String!, $price: MoneyInput!, $returnUrl: URL!, $test: Boolean) 
 }
 `
 
+const recurringChargeCreateMutation = `
+mutation($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $test: Boolean) {
+  appSubscriptionCreate(name: $name, lineItems: $lineItems, returnUrl: $returnUrl, test: $test) {
+    appSubscription {
+      id
+      name
+      status
+      test
+      returnUrl
+      createdAt
+      lineItems {
+        plan {
+          pricingDetails {
+            ... on AppRecurringPricing {
+              price {
+                amount
+                currencyCode
+              }
+            }
+          }
+        }
+      }
+    }
+    confirmationUrl
+    userErrors {
+      field
+      message
+    }
+  }
+}
+`
+
+const appSubscriptionCancelMutation = `
+mutation($id: ID!, $prorate: Boolean!) {
+  appSubscriptionCancel(id: $id, prorate: $prorate) {
+    appSubscription {
+      id
+      status
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+`
+
 const oneTimeChargesQuery = `
 query($first: Int!, $after: String) {
   currentAppInstallation {
@@ -157,15 +204,17 @@ type OneTimeCharge struct {
 
 // RecurringCharge is the package's native recurring charge
 // (RecurringApplicationCharge) shape as returned by the Admin GraphQL
-// API.
+// API. ConfirmationURL is only populated by the create mutation; the
+// GraphQL API does not expose it on existing subscriptions.
 type RecurringCharge struct {
-	ID        int64  `json:"id"`
-	Name      string `json:"name"`
-	Status    string `json:"status"`
-	Price     string `json:"price"`
-	Test      bool   `json:"test"`
-	ReturnURL string `json:"returnUrl"`
-	CreatedAt string `json:"createdAt"`
+	ID              int64  `json:"id"`
+	Name            string `json:"name"`
+	Status          string `json:"status"`
+	Price           string `json:"price"`
+	Test            bool   `json:"test"`
+	ReturnURL       string `json:"returnUrl"`
+	ConfirmationURL string `json:"confirmationUrl,omitempty"`
+	CreatedAt       string `json:"createdAt"`
 }
 
 type priceJSON struct {
@@ -191,6 +240,34 @@ type oneTimeChargeCreateResponse struct {
 				Message string   `json:"message"`
 			} `json:"userErrors"`
 		} `json:"appPurchaseOneTimeCreate"`
+	} `json:"data"`
+}
+
+type recurringChargeCreateResponse struct {
+	Data struct {
+		AppSubscriptionCreate struct {
+			AppSubscription *recurringChargeNodeJSON `json:"appSubscription"`
+			ConfirmationURL string                   `json:"confirmationUrl"`
+			UserErrors      []struct {
+				Field   []string `json:"field"`
+				Message string   `json:"message"`
+			} `json:"userErrors"`
+		} `json:"appSubscriptionCreate"`
+	} `json:"data"`
+}
+
+type appSubscriptionCancelResponse struct {
+	Data struct {
+		AppSubscriptionCancel struct {
+			AppSubscription *struct {
+				ID     string `json:"id"`
+				Status string `json:"status"`
+			} `json:"appSubscription"`
+			UserErrors []struct {
+				Field   []string `json:"field"`
+				Message string   `json:"message"`
+			} `json:"userErrors"`
+		} `json:"appSubscriptionCancel"`
 	} `json:"data"`
 }
 
@@ -317,6 +394,117 @@ func createOneTimeCharge(client *gql.Client, name, price string, test bool, retu
 	return oneTimeChargeFromNode(n, response.Data.AppPurchaseOneTimeCreate.ConfirmationURL, returnURL), nil
 }
 
+// recurringIntervalFor returns the GraphQL AppPricingInterval value for
+// the given CLI interval value. The Admin API only supports 30-day and
+// annual billing, so 365d maps to ANNUAL.
+func recurringIntervalFor(interval string) (string, error) {
+	switch interval {
+	case "30d":
+		return "EVERY_30_DAYS", nil
+	case "1y", "365d":
+		return "ANNUAL", nil
+	}
+
+	return "", fmt.Errorf("invalid interval %q: must be one of 30d, 1y, 365d", interval)
+}
+
+func createRecurringCharge(client *gql.Client, name, price string, test bool, returnURL, interval string) (*RecurringCharge, error) {
+	gqlInterval, err := recurringIntervalFor(interval)
+	if err != nil {
+		return nil, err
+	}
+
+	currencyCode, err := shopCurrencyCode(client)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := client.Execute(recurringChargeCreateMutation, map[string]interface{}{
+		"name": name,
+		"lineItems": []interface{}{
+			map[string]interface{}{
+				"plan": map[string]interface{}{
+					"appRecurringPricingDetails": map[string]interface{}{
+						"price":    map[string]interface{}{"amount": price, "currencyCode": currencyCode},
+						"interval": gqlInterval,
+					},
+				},
+			},
+		},
+		"returnUrl": returnURL,
+		"test":      test,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Cannot create recurring charge: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot re-encode recurring charge response: %s", err)
+	}
+
+	var response recurringChargeCreateResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return nil, fmt.Errorf("Cannot parse recurring charge response: %s", err)
+	}
+
+	if errs := response.Data.AppSubscriptionCreate.UserErrors; len(errs) > 0 {
+		var messages []string
+		for _, e := range errs {
+			messages = append(messages, e.Message)
+		}
+		return nil, fmt.Errorf("Cannot create recurring charge: %s", strings.Join(messages, ", "))
+	}
+
+	n := response.Data.AppSubscriptionCreate.AppSubscription
+	if n == nil {
+		return nil, fmt.Errorf("Cannot create recurring charge: no charge in response")
+	}
+
+	charge := recurringChargeFromNode(*n)
+	charge.ConfirmationURL = response.Data.AppSubscriptionCreate.ConfirmationURL
+	return &charge, nil
+}
+
+// CancelRecurringCharge cancels the recurring charge with the given
+// AppSubscription GID. prorate controls whether prorated credits are
+// issued for the unused portion of the subscription. Returns the
+// cancelled charge's id and status.
+func CancelRecurringCharge(client *gql.Client, gid string, prorate bool) (int64, string, error) {
+	data, err := client.Execute(appSubscriptionCancelMutation, map[string]interface{}{
+		"id":      gid,
+		"prorate": prorate,
+	})
+	if err != nil {
+		return 0, "", fmt.Errorf("Cannot cancel recurring charge: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return 0, "", fmt.Errorf("Cannot re-encode cancel charge response: %s", err)
+	}
+
+	var response appSubscriptionCancelResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return 0, "", fmt.Errorf("Cannot parse cancel charge response: %s", err)
+	}
+
+	if errs := response.Data.AppSubscriptionCancel.UserErrors; len(errs) > 0 {
+		var messages []string
+		for _, e := range errs {
+			messages = append(messages, e.Message)
+		}
+		return 0, "", fmt.Errorf("Cannot cancel recurring charge: %s", strings.Join(messages, ", "))
+	}
+
+	n := response.Data.AppSubscriptionCancel.AppSubscription
+	if n == nil {
+		return 0, "", fmt.Errorf("Cannot cancel recurring charge: no charge in response")
+	}
+
+	return chargeIDFromGID(n.ID), n.Status, nil
+}
+
 func oneTimeChargeFromNode(n *oneTimeChargeNodeJSON, confirmationURL, returnURL string) *OneTimeCharge {
 	charge := &OneTimeCharge{
 		ID:              chargeIDFromGID(n.ID),
@@ -431,14 +619,10 @@ func listRecurringChargesGQL(client *gql.Client) ([]RecurringCharge, error) {
 	return charges, nil
 }
 
-// fetchChargesByID returns the charges for the given ids, which must all
-// be of the given GraphQL type (AppPurchaseOneTime or AppSubscription).
-func fetchChargesByID(client *gql.Client, ids []int64, gidPrefix string) ([]chargeNodeJSON, error) {
-	gids := make([]string, 0, len(ids))
-	for _, id := range ids {
-		gids = append(gids, fmt.Sprintf("gid://shopify/%s/%d", gidPrefix, id))
-	}
-
+// fetchChargesByID returns the charges for the given GIDs, which must
+// all be of the given GraphQL type (AppPurchaseOneTime or
+// AppSubscription).
+func fetchChargesByID(client *gql.Client, gids []string) ([]chargeNodeJSON, error) {
 	data, err := client.Execute(chargesQuery, map[string]interface{}{"ids": gids})
 	if err != nil {
 		return nil, err
@@ -462,7 +646,7 @@ func fetchChargesByID(client *gql.Client, ids []int64, gidPrefix string) ([]char
 	var nodes []chargeNodeJSON
 	for i, node := range response.Data.Nodes {
 		if node == nil {
-			return nil, fmt.Errorf("no charge found with id %d", ids[i])
+			return nil, fmt.Errorf("no charge found with id %s", gids[i])
 		}
 
 		nodes = append(nodes, *node)
@@ -471,8 +655,8 @@ func fetchChargesByID(client *gql.Client, ids []int64, gidPrefix string) ([]char
 	return nodes, nil
 }
 
-func getOneTimeChargesByID(client *gql.Client, ids []int64) ([]OneTimeCharge, error) {
-	nodes, err := fetchChargesByID(client, ids, "AppPurchaseOneTime")
+func getOneTimeChargesByID(client *gql.Client, gids []string) ([]OneTimeCharge, error) {
+	nodes, err := fetchChargesByID(client, gids)
 	if err != nil {
 		return nil, err
 	}
@@ -480,7 +664,7 @@ func getOneTimeChargesByID(client *gql.Client, ids []int64) ([]OneTimeCharge, er
 	var charges []OneTimeCharge
 	for i, node := range nodes {
 		if node.Typename != "AppPurchaseOneTime" {
-			return nil, fmt.Errorf("Cannot get one-time charge %d: no charge found with that id", ids[i])
+			return nil, fmt.Errorf("no charge found with id %s", gids[i])
 		}
 
 		n := &oneTimeChargeNodeJSON{
@@ -497,8 +681,8 @@ func getOneTimeChargesByID(client *gql.Client, ids []int64) ([]OneTimeCharge, er
 	return charges, nil
 }
 
-func getRecurringChargesByID(client *gql.Client, ids []int64) ([]RecurringCharge, error) {
-	nodes, err := fetchChargesByID(client, ids, "AppSubscription")
+func getRecurringChargesByID(client *gql.Client, gids []string) ([]RecurringCharge, error) {
+	nodes, err := fetchChargesByID(client, gids)
 	if err != nil {
 		return nil, err
 	}
@@ -506,7 +690,7 @@ func getRecurringChargesByID(client *gql.Client, ids []int64) ([]RecurringCharge
 	var charges []RecurringCharge
 	for i, node := range nodes {
 		if node.Typename != "AppSubscription" {
-			return nil, fmt.Errorf("Cannot get recurring charge %d: no charge found with that id", ids[i])
+			return nil, fmt.Errorf("no charge found with id %s", gids[i])
 		}
 
 		n := recurringChargeNodeJSON{

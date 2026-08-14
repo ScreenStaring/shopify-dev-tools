@@ -3,7 +3,8 @@ package charges
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/cheynewallace/tabby"
@@ -34,19 +35,30 @@ func printChargeJSONL(charge interface{}) {
 	fmt.Println(string(line))
 }
 
-func printFormattedRecurringCharges(charges []RecurringCharge) {
+func printFormattedRecurringCharge(charge *RecurringCharge) {
 	t := tabby.New()
 
-	for _, charge := range charges {
-		t.AddLine("Id", charge.ID)
-		t.AddLine("Name", charge.Name)
-		t.AddLine("Price", charge.Price)
-		t.AddLine("Status", charge.Status)
-		t.AddLine("Return URL", charge.ReturnURL)
-		t.AddLine("Test", charge.Test)
-		t.AddLine("Created At", charge.CreatedAt)
-		t.Print()
+	t.AddLine("Id", charge.ID)
+	t.AddLine("Type", "Recurring")
+	t.AddLine("Name", charge.Name)
+	t.AddLine("Price", charge.Price)
+	t.AddLine("Status", charge.Status)
+	t.AddLine("Return URL", charge.ReturnURL)
 
+	// The GraphQL API only exposes the confirmation URL on the create
+	// mutation response, not on existing subscriptions
+	if len(charge.ConfirmationURL) > 0 {
+		t.AddLine("Confirmation URL", charge.ConfirmationURL)
+	}
+
+	t.AddLine("Test", charge.Test)
+	t.AddLine("Created At", charge.CreatedAt)
+	t.Print()
+}
+
+func printFormattedRecurringCharges(charges []RecurringCharge) {
+	for _, charge := range charges {
+		printFormattedRecurringCharge(&charge)
 		printRecordSeperator()
 	}
 }
@@ -62,6 +74,7 @@ func printFormattedApplicationCharge(charge *OneTimeCharge) {
 	t := tabby.New()
 
 	t.AddLine("Id", charge.ID)
+	t.AddLine("Type", "One-Time")
 	t.AddLine("Name", charge.Name)
 	t.AddLine("Price", charge.Price)
 	t.AddLine("Status", charge.Status)
@@ -82,8 +95,8 @@ func printFormattedApplicationCharge(charge *OneTimeCharge) {
 }
 
 func createCharge(c *cli.Context) error {
-	if c.Args().Len() < 2 {
-		return fmt.Errorf("You must supply charge name and price")
+	if c.Args().Len() < 3 {
+		return fmt.Errorf("You must supply charge name, price, and return URL")
 	}
 
 	price, err := decimal.NewFromString(c.Args().Get(1))
@@ -91,7 +104,26 @@ func createCharge(c *cli.Context) error {
 		return fmt.Errorf("Cannot create charge: invalid price %s", err)
 	}
 
-	charge, err := createOneTimeCharge(cmd.NewGraphQLClient(c), c.Args().Get(0), price.String(), c.Bool("test"), c.String("return-to"))
+	returnURL := c.Args().Get(2)
+
+	client := cmd.NewGraphQLClient(c)
+
+	if c.IsSet("interval") {
+		charge, err := createRecurringCharge(client, c.Args().Get(0), price.String(), c.Bool("test"), returnURL, c.String("interval"))
+		if err != nil {
+			return fmt.Errorf("Cannot create charge: %s", err)
+		}
+
+		if c.Bool("jsonl") {
+			printChargeJSONL(charge)
+		} else {
+			printFormattedRecurringCharge(charge)
+		}
+
+		return nil
+	}
+
+	charge, err := createOneTimeCharge(client, c.Args().Get(0), price.String(), c.Bool("test"), returnURL)
 	if err != nil {
 		return fmt.Errorf("Cannot create charge: %s", err)
 	}
@@ -105,13 +137,60 @@ func createCharge(c *cli.Context) error {
 	return nil
 }
 
-func listOneTimeCharges(c *cli.Context, ids []int64) error {
+// toAppSubscriptionGID returns the id as an AppSubscription GID,
+// prepending the gid://shopify/AppSubscription/ prefix when given a
+// bare id.
+func toAppSubscriptionGID(id string) string {
+	if strings.HasPrefix(id, "gid://") {
+		return id
+	}
+
+	return "gid://shopify/AppSubscription/" + id
+}
+
+func cancelCharge(c *cli.Context) error {
+	ids := c.Args().Slice()
+
+	if len(ids) == 0 {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("Cannot read from stdin: %s", err)
+		}
+
+		for _, line := range strings.Split(strings.TrimRight(string(data), "\n"), "\n") {
+			if line != "" {
+				ids = append(ids, line)
+			}
+		}
+	}
+
+	if len(ids) == 0 {
+		return fmt.Errorf("You must supply at least one charge id")
+	}
+
+	client := cmd.NewGraphQLClient(c)
+	prorate := c.Bool("prorate")
+
+	for _, id := range ids {
+		chargeID, status, err := CancelRecurringCharge(client, toAppSubscriptionGID(id), prorate)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error cancelling charge %s: %s\n", id, err)
+			continue
+		}
+
+		fmt.Printf("Cancelled charge %d, status %s\n", chargeID, status)
+	}
+
+	return nil
+}
+
+func listOneTimeCharges(c *cli.Context, gids []string) error {
 	var charges []OneTimeCharge
 
 	client := cmd.NewGraphQLClient(c)
 
-	if len(ids) > 0 {
-		byID, err := getOneTimeChargesByID(client, ids)
+	if len(gids) > 0 {
+		byID, err := getOneTimeChargesByID(client, gids)
 		if err != nil {
 			return err
 		}
@@ -136,13 +215,13 @@ func listOneTimeCharges(c *cli.Context, ids []int64) error {
 	return nil
 }
 
-func listRecurringCharges(c *cli.Context, ids []int64) error {
+func listRecurringCharges(c *cli.Context, gids []string) error {
 	var charges []RecurringCharge
 
 	client := cmd.NewGraphQLClient(c)
 
-	if len(ids) > 0 {
-		byID, err := getRecurringChargesByID(client, ids)
+	if len(gids) > 0 {
+		byID, err := getRecurringChargesByID(client, gids)
 		if err != nil {
 			return err
 		}
@@ -167,25 +246,77 @@ func listRecurringCharges(c *cli.Context, ids []int64) error {
 	return nil
 }
 
-func listCharges(c *cli.Context) error {
-	var ids []int64
+// classifyChargeIDs returns the one-time and recurring charge GIDs for
+// the given ids. GIDs determine their own type; bare ids are treated as
+// one-time charges unless recurring is set.
+func classifyChargeIDs(ids []string, recurring bool) ([]string, []string, error) {
+	var oneTimeGIDs, recurringGIDs []string
 
-	if c.NArg() > 0 {
-		for i := 0; i < c.NArg(); i++ {
-			id, err := strconv.ParseInt(c.Args().Get(i), 10, 64)
-			if err != nil {
-				return fmt.Errorf("Charge id '%s' invalid: must be an int", c.Args().Get(i))
-			}
-
-			ids = append(ids, id)
+	for _, id := range ids {
+		switch {
+		case strings.HasPrefix(id, "gid://shopify/AppPurchaseOneTime/"):
+			oneTimeGIDs = append(oneTimeGIDs, id)
+		case strings.HasPrefix(id, "gid://shopify/AppSubscription/"):
+			recurringGIDs = append(recurringGIDs, id)
+		case strings.HasPrefix(id, "gid://"):
+			return nil, nil, fmt.Errorf("Charge id '%s' invalid: unknown charge type", id)
+		case recurring:
+			recurringGIDs = append(recurringGIDs, toAppSubscriptionGID(id))
+		default:
+			oneTimeGIDs = append(oneTimeGIDs, toAppPurchaseOneTimeGID(id))
 		}
 	}
 
-	if c.Bool("one-time") {
-		return listOneTimeCharges(c, ids)
+	return oneTimeGIDs, recurringGIDs, nil
+}
+
+// toAppPurchaseOneTimeGID returns the id as an AppPurchaseOneTime GID,
+// prepending the gid://shopify/AppPurchaseOneTime/ prefix when given a
+// bare id.
+func toAppPurchaseOneTimeGID(id string) string {
+	if strings.HasPrefix(id, "gid://") {
+		return id
 	}
 
-	return listRecurringCharges(c, ids)
+	return "gid://shopify/AppPurchaseOneTime/" + id
+}
+
+func listCharges(c *cli.Context) error {
+	if c.Bool("one-time") && c.Bool("recurring") {
+		return fmt.Errorf("--one-time and --recurring cannot be used together")
+	}
+
+	var ids []string
+	for i := 0; i < c.NArg(); i++ {
+		ids = append(ids, c.Args().Get(i))
+	}
+
+	oneTimeGIDs, recurringGIDs, err := classifyChargeIDs(ids, c.Bool("recurring"))
+	if err != nil {
+		return err
+	}
+
+	if len(oneTimeGIDs) == 0 && len(recurringGIDs) == 0 {
+		if c.Bool("recurring") {
+			return listRecurringCharges(c, nil)
+		}
+
+		return listOneTimeCharges(c, nil)
+	}
+
+	if len(oneTimeGIDs) > 0 {
+		if err := listOneTimeCharges(c, oneTimeGIDs); err != nil {
+			return err
+		}
+	}
+
+	if len(recurringGIDs) > 0 {
+		if err := listRecurringCharges(c, recurringGIDs); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func init() {
@@ -198,15 +329,21 @@ func init() {
 		&cli.BoolFlag{
 			Name:    "one-time",
 			Aliases: []string{"1"},
-			Usage:   "List one-time charges (default is recurring)",
+			Usage:   "List one-time charges (the default)",
+		},
+		&cli.BoolFlag{
+			Name:    "recurring",
+			Aliases: []string{"r"},
+			Usage:   "List recurring charges",
 		},
 	}
 
 	createFlags := []cli.Flag{
 		&cli.StringFlag{
-			Name:    "return-to",
-			Aliases: []string{"r"},
-			Usage:   "URL to redirect user to after charge is accepted",
+			Name:    "interval",
+			Aliases: []string{"i"},
+			Value:   "30d",
+			Usage:   "Billing interval for a recurring charge (passing this creates a recurring charge): 30d, 1y, or 365d (default: 30d)",
 		},
 		&cli.BoolFlag{
 			Name:    "test",
@@ -229,7 +366,7 @@ func init() {
 			{
 				Name:      "ls",
 				Aliases:   []string{"l"},
-				Usage:     "List the shop's charges or the charges given by the specified IDs",
+				Usage:     "List the shop's charges or the charges given by the specified IDs (bare ids are one time charges unless -r given)",
 				ArgsUsage: "[ID [ID ...]]",
 				Flags:     append(cmd.Flags, listFlags...),
 				Action:    listCharges,
@@ -237,10 +374,23 @@ func init() {
 			{
 				Name:      "create",
 				Aliases:   []string{"c"},
-				Usage:     "Create a one-time charge (Application Charge)",
-				ArgsUsage: "NAME PRICE",
+				Usage:     "Create a charge (one-time by default; use -i to create a recurring charge)",
+				ArgsUsage: "NAME PRICE RETURN-URL",
 				Flags:     append(cmd.Flags, createFlags...),
 				Action:    createCharge,
+			},
+			{
+				Name:        "cancel",
+				Usage:       "Cancel recurring charges (app subscriptions) by ID",
+				ArgsUsage:   "[ID [ID ...]]",
+				Description: "If IDs are not given they're read from stdin one per line. One-time charges cannot be cancelled.",
+				Flags: append(cmd.Flags,
+					&cli.BoolFlag{
+						Name:  "prorate",
+						Usage: "Issue prorated credits for the unused portion of the subscription",
+					},
+				),
+				Action: cancelCharge,
 			},
 		},
 	}
