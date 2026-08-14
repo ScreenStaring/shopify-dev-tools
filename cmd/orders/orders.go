@@ -130,8 +130,8 @@ func listAction(c *cli.Context) error {
 	for i := 0; i < c.NArg(); i++ {
 		arg := c.Args().Get(i)
 
-		if strings.HasPrefix(arg, "sku:") {
-			sku := strings.TrimPrefix(arg, "sku:")
+		if strings.HasPrefix(strings.ToLower(arg), "sku:") {
+			sku := arg[4:]
 			if len(sku) == 0 {
 				return fmt.Errorf("SKU value missing after 'sku:'")
 			}
