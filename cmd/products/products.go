@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/cheynewallace/tabby"
@@ -189,14 +188,25 @@ func deleteProducts(c *cli.Context) error {
 
 func listProducts(c *cli.Context) error {
 	var ids []int64
+	var skus []string
 	var fields []string
 
 	for i := 0; i < c.NArg(); i++ {
-		id, err := strconv.ParseInt(c.Args().Get(i), 10, 64)
-		if err != nil {
-			return fmt.Errorf("Product id '%s' invalid: must be an int", c.Args().Get(0))
+		arg := c.Args().Get(i)
+
+		if strings.HasPrefix(strings.ToLower(arg), "sku:") {
+			sku := arg[4:]
+			if len(sku) == 0 {
+				return fmt.Errorf("SKU value missing after 'sku:'")
+			}
+			skus = append(skus, sku)
+			continue
 		}
 
+		id, err := cmd.ParseIntAt(c, i)
+		if err != nil {
+			return fmt.Errorf("Argument '%s' invalid: must be a product id or 'sku:VALUE'", arg)
+		}
 		ids = append(ids, id)
 	}
 
@@ -206,7 +216,7 @@ func listProducts(c *cli.Context) error {
 
 	shop := c.String("shop")
 	options := map[string]interface{}{"version": c.String("api-version")}
-	products, err := gql.FetchProducts(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, c.String("status"), int(c.Int64("limit")), options)
+	products, err := gql.FetchProducts(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, skus, c.String("status"), int(c.Int64("limit")), options)
 	if err != nil {
 		return err
 	}
@@ -269,19 +279,19 @@ func init() {
 			{
 				Name:      "ls",
 				Aliases:   []string{"l"},
-				Usage:     "List some of a shop's products or the products given by the specified IDs",
-				ArgsUsage: "[ID [ID ...]]",
+				Usage:     "List some of a shop's products or the products matching the given IDs and/or 'sku:VALUE' arguments",
+				ArgsUsage: "[ID|sku:VALUE [ID|sku:VALUE ...]]",
 				Flags:     append(cmd.Flags, productFlags...),
 				Action:    listProducts,
 			},
 			{
-				Name:      "delete",
-				Aliases:   []string{"d"},
-				Usage:     "Delete products by ID",
-				ArgsUsage: "[ID [ID ...]]",
+				Name:        "delete",
+				Aliases:     []string{"d"},
+				Usage:       "Delete products by ID",
+				ArgsUsage:   "[ID [ID ...]]",
 				Description: "If IDs are not given they're read from stdin one per line",
-				Flags:     append(cmd.Flags, apiVersionFlag),
-				Action:    deleteProducts,
+				Flags:       append(cmd.Flags, apiVersionFlag),
+				Action:      deleteProducts,
 			},
 			{
 				Name:      "import",
@@ -346,7 +356,7 @@ func init() {
 			{
 				Name:    "bulk",
 				Aliases: []string{"b"},
-				Usage:     "Import products from a Shopify CSV file using the Bulk API",
+				Usage:   "Import products from a Shopify CSV file using the Bulk API",
 				Subcommands: []*cli.Command{
 					{
 						Name:      "import",

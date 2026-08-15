@@ -295,11 +295,14 @@ type productsResponse struct {
 	} `json:"data"`
 }
 
-func buildQuery(ids []int64, status string) (string, int) {
-	if len(ids) > 0 {
-		parts := make([]string, len(ids))
-		for i, id := range ids {
-			parts[i] = fmt.Sprintf("id:%d", id)
+func buildQuery(ids []int64, skus []string, status string) (string, int) {
+	if len(ids) > 0 || len(skus) > 0 {
+		parts := make([]string, 0, len(ids)+len(skus))
+		for _, id := range ids {
+			parts = append(parts, fmt.Sprintf("id:%d", id))
+		}
+		for _, sku := range skus {
+			parts = append(parts, fmt.Sprintf("sku:%s", sku))
 		}
 		return strings.Join(parts, " OR "), len(ids)
 	}
@@ -686,10 +689,10 @@ func FetchLocations(shop, token string, options map[string]interface{}) (map[str
 	return locations, nil
 }
 
-func FetchProducts(shop, token string, ids []int64, status string, limit int, options map[string]interface{}) ([]Product, error) {
+func FetchProducts(shop, token string, ids []int64, skus []string, status string, limit int, options map[string]interface{}) ([]Product, error) {
 	client := gqlclient.NewClient(shop, token, options)
 
-	query, first := buildQuery(ids, status)
+	query, first := buildQuery(ids, skus, status)
 	if first == 0 {
 		first = limit
 	}
