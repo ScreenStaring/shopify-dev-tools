@@ -50,6 +50,47 @@ query($id: ID!) {
 }
 `
 
+const fulfillmentOrdersQuery = `
+query($id: ID!) {
+  order(id: $id) {
+    fulfillmentOrders(first: 250) {
+      edges {
+        node {
+          id
+          status
+          requestStatus
+          createdAt
+          updatedAt
+          assignedLocation {
+            location { name }
+          }
+          destination {
+            city
+            countryCode
+          }
+          lineItems(first: 250) {
+            edges {
+              node {
+                id
+                remainingQuantity
+                lineItem {
+                  id
+                  product { legacyResourceId }
+                  variant { legacyResourceId }
+                  sku
+                  name
+                  quantity
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`
+
 const attributesQuery = `
 query($id: ID!) {
   order(id: $id) {
@@ -444,11 +485,11 @@ type trackingInfoJSON struct {
 }
 
 type fulfillmentJSON struct {
-	ID            string             `json:"id"`
-	Name          string             `json:"name"`
-	DisplayStatus string             `json:"displayStatus"`
-	CreatedAt     string             `json:"createdAt"`
-	UpdatedAt     string             `json:"updatedAt"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	DisplayStatus string `json:"displayStatus"`
+	CreatedAt     string `json:"createdAt"`
+	UpdatedAt     string `json:"updatedAt"`
 	Service       *struct {
 		ServiceName string `json:"serviceName"`
 		Type        string `json:"type"`
@@ -456,7 +497,7 @@ type fulfillmentJSON struct {
 	Location *struct {
 		Name string `json:"name"`
 	} `json:"location"`
-	TrackingInfo []trackingInfoJSON `json:"trackingInfo"`
+	TrackingInfo         []trackingInfoJSON `json:"trackingInfo"`
 	FulfillmentLineItems struct {
 		Edges []struct {
 			Node struct {
@@ -550,6 +591,139 @@ func listFulfillments(shop, token, orderID string) ([]Fulfillment, error) {
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].UpdatedAt > result[j].UpdatedAt
 	})
+
+	return result, nil
+}
+
+type FulfillmentOrder struct {
+	ID               string
+	Status           string
+	RequestStatus    string
+	CreatedAt        string
+	UpdatedAt        string
+	AssignedLocation string
+	Destination      string
+	LineItems        []FulfillmentOrderLineItem
+}
+
+type FulfillmentOrderLineItem struct {
+	ID                string
+	RemainingQuantity int
+	LineItem          LineItem
+}
+
+type fulfillmentOrderJSON struct {
+	ID               string `json:"id"`
+	Status           string `json:"status"`
+	RequestStatus    string `json:"requestStatus"`
+	CreatedAt        string `json:"createdAt"`
+	UpdatedAt        string `json:"updatedAt"`
+	AssignedLocation *struct {
+		Location *struct {
+			Name string `json:"name"`
+		} `json:"location"`
+	} `json:"assignedLocation"`
+	Destination *struct {
+		City        string `json:"city"`
+		CountryCode string `json:"countryCode"`
+	} `json:"destination"`
+	LineItems struct {
+		Edges []struct {
+			Node struct {
+				ID                string       `json:"id"`
+				RemainingQuantity int          `json:"remainingQuantity"`
+				LineItem          lineItemJSON `json:"lineItem"`
+			} `json:"node"`
+		} `json:"edges"`
+	} `json:"lineItems"`
+}
+
+type fulfillmentOrdersResponse struct {
+	Data struct {
+		Order struct {
+			FulfillmentOrders struct {
+				Edges []struct {
+					Node fulfillmentOrderJSON `json:"node"`
+				} `json:"edges"`
+			} `json:"fulfillmentOrders"`
+		} `json:"order"`
+	} `json:"data"`
+}
+
+func listFulfillmentOrders(shop, token, orderID string) ([]FulfillmentOrder, error) {
+	client := gql.NewClient(shop, token)
+
+	if !strings.HasPrefix(orderID, "gid://") {
+		orderID = "gid://shopify/Order/" + orderID
+	}
+
+	data, err := client.Execute(fulfillmentOrdersQuery, map[string]interface{}{"id": orderID})
+	if err != nil {
+		return nil, fmt.Errorf("Cannot list fulfillment orders: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot re-encode fulfillment orders response: %s", err)
+	}
+
+	var response fulfillmentOrdersResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return nil, fmt.Errorf("Cannot parse fulfillment orders response: %s", err)
+	}
+
+	var result []FulfillmentOrder
+	for _, edge := range response.Data.Order.FulfillmentOrders.Edges {
+		n := edge.Node
+		fo := FulfillmentOrder{
+			ID:            n.ID,
+			Status:        n.Status,
+			RequestStatus: n.RequestStatus,
+			CreatedAt:     n.CreatedAt,
+			UpdatedAt:     n.UpdatedAt,
+		}
+
+		if n.AssignedLocation != nil && n.AssignedLocation.Location != nil {
+			fo.AssignedLocation = n.AssignedLocation.Location.Name
+		}
+
+		if n.Destination != nil {
+			if len(n.Destination.City) > 0 {
+				fo.Destination = n.Destination.City
+			}
+			if len(n.Destination.CountryCode) > 0 {
+				if len(fo.Destination) > 0 {
+					fo.Destination += ", "
+				}
+				fo.Destination += n.Destination.CountryCode
+			}
+		}
+
+		for _, liEdge := range n.LineItems.Edges {
+			li := liEdge.Node.LineItem
+			var productID, variantID int64
+			if li.Product != nil {
+				productID = li.Product.LegacyResourceId
+			}
+			if li.Variant != nil {
+				variantID = li.Variant.LegacyResourceId
+			}
+			fo.LineItems = append(fo.LineItems, FulfillmentOrderLineItem{
+				ID:                liEdge.Node.ID,
+				RemainingQuantity: liEdge.Node.RemainingQuantity,
+				LineItem: LineItem{
+					ID:        li.ID,
+					ProductID: productID,
+					VariantID: variantID,
+					SKU:       li.SKU,
+					Name:      li.Name,
+					Quantity:  li.Quantity,
+				},
+			})
+		}
+
+		result = append(result, fo)
+	}
 
 	return result, nil
 }

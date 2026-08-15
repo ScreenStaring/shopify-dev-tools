@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/urfave/cli/v2"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
 	"github.com/cheynewallace/tabby"
+	"github.com/urfave/cli/v2"
 )
 
 var Cmd cli.Command
@@ -27,6 +27,26 @@ func fulfillmentsAction(c *cli.Context) error {
 		}
 
 		printFulfillments(fulfillments)
+	}
+
+	return nil
+}
+
+func fulfillmentOrdersAction(c *cli.Context) error {
+	if c.Args().Len() == 0 {
+		return fmt.Errorf("You must supply an order id")
+	}
+
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+
+	for _, orderID := range c.Args().Slice() {
+		fulfillmentOrders, err := listFulfillmentOrders(shop, token, orderID)
+		if err != nil {
+			return err
+		}
+
+		printFulfillmentOrders(fulfillmentOrders)
 	}
 
 	return nil
@@ -179,7 +199,6 @@ func printOrders(orders []Order) {
 		t.AddLine("Financial Status", order.DisplayFinancialStatus)
 		t.AddLine("Fulfillment Status", order.DisplayFulfillmentStatus)
 
-
 		note := order.Note
 		if len(order.Note) > 0 {
 			note = fmt.Sprintf("%q", order.Note)
@@ -192,7 +211,7 @@ func printOrders(orders []Order) {
 		printLineItems(order.LineItems)
 		fmt.Print("\n")
 
-		cmd.PrintSeparator();
+		cmd.PrintSeparator()
 
 	}
 
@@ -292,6 +311,50 @@ func printFulfillments(fulfillments []Fulfillment) {
 	}
 }
 
+func printFulfillmentOrders(fulfillmentOrders []FulfillmentOrder) {
+	if len(fulfillmentOrders) == 0 {
+		fmt.Println("No fulfillment orders")
+		return
+	}
+
+	for _, fo := range fulfillmentOrders {
+		t := tabby.New()
+		t.AddLine("ID", fo.ID)
+		t.AddLine("Status", fo.Status)
+		t.AddLine("Request Status", fo.RequestStatus)
+		t.AddLine("Assigned Location", fo.AssignedLocation)
+		t.AddLine("Destination", fo.Destination)
+		t.AddLine("Created At", fo.CreatedAt)
+		t.AddLine("Updated At", fo.UpdatedAt)
+		t.Print()
+
+		fmt.Println("Line Items")
+		printFulfillmentOrderLineItems(fo.LineItems)
+		fmt.Print("\n")
+
+		cmd.PrintSeparator()
+	}
+}
+
+func printFulfillmentOrderLineItems(lines []FulfillmentOrderLineItem) {
+	t := tabby.New()
+	t.AddHeader("ID", "Product ID", "Variant ID", "SKU", "Title", "Quantity", "Remaining")
+
+	for _, line := range lines {
+		t.AddLine(
+			strings.TrimPrefix(line.ID, "gid://shopify/FulfillmentOrderLineItem/"),
+			line.LineItem.ProductID,
+			line.LineItem.VariantID,
+			line.LineItem.SKU,
+			truncate(line.LineItem.Name),
+			line.LineItem.Quantity,
+			line.RemainingQuantity,
+		)
+	}
+
+	t.Print()
+}
+
 func printFulfillmentLineItems(lines []LineItem) {
 	t := tabby.New()
 	t.AddHeader("ID", "Product ID", "Variant ID", "SKU", "Title", "Quantity", "Status")
@@ -336,22 +399,38 @@ func init() {
 	}
 
 	Cmd = cli.Command{
-		Name:  "orders",
+		Name:    "orders",
 		Aliases: []string{"o"},
 		Usage:   "Information about orders",
 
 		Subcommands: []*cli.Command{
+			{
+				Name:    "fulfillmentorders",
+				Aliases: []string{"fo"},
+				Usage:   "Fulfillment order commands for an order",
+				Subcommands: []*cli.Command{
+					{
+						Name:      "ls",
+						Aliases:   []string{"l"},
+						Usage:     "List fulfillment orders for the given order IDs",
+						ArgsUsage: "[ORDER ID [ORDER ID ...]]",
+						Flags:     cmd.Flags,
+						Action:    fulfillmentOrdersAction,
+					},
+				},
+			},
 			{
 				Name:    "fulfillments",
 				Aliases: []string{"f"},
 				Usage:   "Fulfillment commands for an order",
 				Subcommands: []*cli.Command{
 					{
-						Name:    "ls",
-						Aliases: []string{"l"},
-						Usage:   "List fulfillments for an order",
-						Flags:   cmd.Flags,
-						Action:  fulfillmentsAction,
+						Name:      "ls",
+						Aliases:   []string{"l"},
+						Usage:     "List fulfillments for the given order IDs",
+						ArgsUsage: "[ORDER ID [ORDER ID ...]]",
+						Flags:     cmd.Flags,
+						Action:    fulfillmentsAction,
 					},
 					{
 						Name:    "delivered",
@@ -379,11 +458,11 @@ func init() {
 						Action:  attributesAction,
 					},
 					{
-						Name:   "set",
+						Name:    "set",
 						Aliases: []string{"s"},
-						Usage:  "Set an order attribute: ID KEY VALUE",
-						Flags:  cmd.Flags,
-						Action: setAttributeAction,
+						Usage:   "Set an order attribute: ID KEY VALUE",
+						Flags:   cmd.Flags,
+						Action:  setAttributeAction,
 					},
 					{
 						Name:    "delete",
@@ -395,9 +474,9 @@ func init() {
 				},
 			},
 			{
-				Name: "ls",
-				Usage:   "List the shop's orders or the orders matching the given IDs and/or 'sku:VALUE' arguments",
-				Flags: append(cmd.Flags, ordersFlags...),
+				Name:   "ls",
+				Usage:  "List the shop's orders or the orders matching the given IDs and/or 'sku:VALUE' arguments",
+				Flags:  append(cmd.Flags, ordersFlags...),
 				Action: listAction,
 			},
 		},
