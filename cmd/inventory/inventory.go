@@ -10,6 +10,7 @@ import (
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/products"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/products/export"
 )
 
 var Cmd cli.Command
@@ -93,8 +94,8 @@ func init() {
 	}
 
 	Cmd = cli.Command{
-		Name:    "inventory",
-		Aliases: []string{"inv"},
+		Name:    "inventories",
+		Aliases: []string{"inv", "inventory"},
 		Usage:   "Do things with inventory",
 		Subcommands: []*cli.Command{
 			{
@@ -105,6 +106,23 @@ func init() {
 				Description: "If IDs are not given they're read from stdin one per line",
 				Flags:       append(cmd.Flags, itemsFlags...),
 				Action:      items,
+			},
+			{
+				Name:    "export",
+				Aliases: []string{"x"},
+				Usage:   "Export inventory quantities by variant and location to a CSV file",
+				Flags: append(cmd.Flags,
+					&cli.StringFlag{
+						Name:  "api-version",
+						Usage: "API version to use; default is a versionless call",
+					},
+					&cli.StringFlag{
+						Name:    "identify-by",
+						Aliases: []string{"i"},
+						Usage:   "Read identifiers from stdin and only export inventory for matching variants; one of: id, sku, barcode",
+					},
+				),
+				Action: export.Inventory,
 			},
 		},
 	}
