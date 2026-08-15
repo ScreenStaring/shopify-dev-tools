@@ -24,6 +24,8 @@ The CLI interface uses the executable `sdt`:
        admin, a                     Open admin pages
        charges, c, ch               Do things with charges
        collections, col             Do things with collections
+       inventory, inv               Do things with inventory
+       locations, loc               Do things with locations
        metafield, m, meta           Metafield utilities
        metaobjects, mo              Metaobject utilities
        orders, o                    Information about orders
@@ -201,8 +203,9 @@ Do things with charges
        sdt charges command [command options] [arguments...]
 
     COMMANDS:
-       ls, l      List the shop's charges or the charges given by the specified IDs
-       create, c  Create a one-time charge (application charge)
+       ls, l      List the shop's charges or the charges given by the specified IDs (bare ids are one time charges unless -r given)
+       create, c  Create a charge (one-time by default; use -i to create a recurring charge)
+       cancel     Cancel recurring charges (app subscriptions) by ID
        help, h    Shows a list of commands or help for one command
 
     OPTIONS:
@@ -220,6 +223,43 @@ Do things with collections
 
     COMMANDS:
        ls, l    List the shop's collections or a collection given by ID
+       help, h  Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
+
+
+### Inventory
+
+Do things with inventory
+
+    NAME:
+       sdt inventory - Do things with inventory
+
+    USAGE:
+       sdt inventory command [command options] [arguments...]
+
+    COMMANDS:
+       items, i  Look up the variants and products for the given inventory item IDs
+       help, h   Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
+
+IDs can be given on the command-line or read from stdin, 1 per line. Use the `-j`/`--jsonl` option to output the results in JSONL format.
+
+### Locations
+
+Do things with locations
+
+    NAME:
+       sdt locations - Do things with locations
+
+    USAGE:
+       sdt locations command [command options] [arguments...]
+
+    COMMANDS:
+       ls, l    List the shop's locations or the locations given by the specified IDs
        help, h  Shows a list of commands or help for one command
 
     OPTIONS:
@@ -255,13 +295,25 @@ Information about orders
        sdt orders command [command options] [arguments...]
 
     COMMANDS:
-       fulfillments, f Do things with an order's fulfillments
-       useragent, ua   Info about the web browser used to place the order
-       ls              List the shop's orders or the orders given by the specified IDs
-       help, h         Shows a list of commands or help for one command
+       fulfillments, f   Fulfillment commands for an order
+       attributes, attr  Do things with an order's attributes
+       ls                List the shop's orders or the orders matching the given IDs and/or 'sku:VALUE' arguments
+       help, h           Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
+
+#### Listing Orders
+
+`sdt orders ls` lists open orders by default. Use the `-s`/`--status` option to filter by status and the `--sort` option to change the sort order (lowercase GraphQL sort enum values are accepted). The maximum number of orders returned is 250, set with `-l`/`--limit`.
+
+Orders can be looked up by their IDs or by the SKU of an included line item:
+
+```
+sdt orders ls --shop YOUR_SHOP sku:ABC123
+```
+
+The `sku:` prefix is matched case-insensitively.
 
 #### Marking a Shipment as Delivered
 
@@ -303,11 +355,12 @@ Do things with products
        sdt products command [command options] [arguments...]
 
     COMMANDS:
-       ls, l      List some of a shop's products or the products given by the specified IDs
-       import, i  Import products synchronously from a Shopify CSV file
-       export, e  Export product information: identifiers, inventory counts, etc...
-       bulk, b    Import prodcuts from a Shopify CSV file using the Bulk API
-       help, h    Shows a list of commands or help for one command
+       ls, l         List some of a shop's products or the products given by the specified IDs
+       delete, d     Delete products by ID
+       import, i     Import products synchronously from a Shopify CSV file
+       export, e, x  Export product data
+       bulk, b       Import products from a Shopify CSV file using the Bulk API
+       help, h       Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
@@ -367,6 +420,12 @@ sdt products export ids --shop YOUR_SHOP -j -r sku
 
 Valid properties for the `-r`/`--json-root` option are: `product_id`, `product_title`, `barcode`, `handle`, `variant_id`, `sku`.
 
+#### Exporting Inventory Quantities
+
+`sdt products export inventory` exports inventory quantities by variant and location to a CSV file named `YOUR_SHOP-inventory.csv`.
+
+Use the `-i`/`--identify-by` option to read identifiers from stdin and only export inventory for the matching variants. Valid values are `id`, `sku`, and `barcode`.
+
 #### Deleting Products in Bulk
 
 You can specify multiple product IDs to delete on the command-line:
@@ -400,7 +459,7 @@ Run a GraphQL query against the Admin API
        --api-password value        Shopify API password [$SHOPIFY_API_PASSWORD]
        --access-token value        Shopify access token for shop [$SHOPIFY_ACCESS_TOKEN, $SHOPIFY_API_TOKEN]
        --api-key value             Shopify API key to for shop [$SHOPIFY_API_KEY]
-       --version value, -a value   API version to use; default is a versionless call
+       --version value, -a value, --api-version value  API version to use; default is a versionless call
        --variable value, -v value  GraphQL variable in the format name=value; can be specified multiple times
        --extras, -x                Include extension information in the response (default: false)
        --help, -h                  show help (default: false)
@@ -512,6 +571,10 @@ Webhooks utilities
 
     OPTIONS:
        --help, -h  show help (default: false)
+
+#### Filtering the Webhook List
+
+`sdt webhook ls` supports filtering by topic and address via the `-t`/`--topic` and `-a`/`--address` options. Use the `-j`/`--jsonl` option to output the webhooks in JSONL format.
 
 #### Avoiding Duplicate Webhooks
 
