@@ -183,6 +183,7 @@ query($first: Int!, $query: String) {
         tags
         status
         templateSuffix
+        hasOnlyDefaultVariant
         options {
           name
           position
@@ -211,7 +212,7 @@ query($first: Int!, $query: String) {
 type Product struct {
 	ID             int64           `json:"id,omitempty"`
 	Title          string          `json:"title,omitempty"`
-	BodyHTML        string          `json:"body_html,omitempty"`
+	BodyHTML       string          `json:"body_html,omitempty"`
 	Vendor         string          `json:"vendor,omitempty"`
 	ProductType    string          `json:"product_type,omitempty"`
 	Handle         string          `json:"handle,omitempty"`
@@ -223,6 +224,9 @@ type Product struct {
 	Options        []ProductOption `json:"options,omitempty"`
 	Variants       []Variant       `json:"variants,omitempty"`
 	TemplateSuffix string          `json:"template_suffix,omitempty"`
+	// Used only to hide the default "Title"/"Default Title" option from
+	// display output; not part of the public representation.
+	HasOnlyDefaultVariant bool `json:"-"`
 }
 
 type ProductOption struct {
@@ -256,19 +260,20 @@ type variantJSON struct {
 }
 
 type productJSON struct {
-	LegacyResourceId int64    `json:"legacyResourceId,string"`
-	Title            string   `json:"title"`
-	DescriptionHTML  string   `json:"descriptionHtml"`
-	Vendor           string   `json:"vendor"`
-	ProductType      string   `json:"productType"`
-	Handle           string   `json:"handle"`
-	CreatedAt        string   `json:"createdAt"`
-	UpdatedAt        string   `json:"updatedAt"`
-	PublishedAt      string   `json:"publishedAt"`
-	Tags             []string `json:"tags"`
-	Status           string   `json:"status"`
-	TemplateSuffix   string   `json:"templateSuffix"`
-	Options          []struct {
+	LegacyResourceId      int64    `json:"legacyResourceId,string"`
+	Title                 string   `json:"title"`
+	DescriptionHTML       string   `json:"descriptionHtml"`
+	Vendor                string   `json:"vendor"`
+	ProductType           string   `json:"productType"`
+	Handle                string   `json:"handle"`
+	CreatedAt             string   `json:"createdAt"`
+	UpdatedAt             string   `json:"updatedAt"`
+	PublishedAt           string   `json:"publishedAt"`
+	Tags                  []string `json:"tags"`
+	Status                string   `json:"status"`
+	TemplateSuffix        string   `json:"templateSuffix"`
+	HasOnlyDefaultVariant bool     `json:"hasOnlyDefaultVariant"`
+	Options               []struct {
 		Name     string   `json:"name"`
 		Position int      `json:"position"`
 		Values   []string `json:"values"`
@@ -714,18 +719,19 @@ func FetchProducts(shop, token string, ids []int64, status string, limit int, op
 		n := edge.Node
 
 		product := Product{
-			ID:             n.LegacyResourceId,
-			Title:          n.Title,
-			BodyHTML:        n.DescriptionHTML,
-			Vendor:         n.Vendor,
-			ProductType:    n.ProductType,
-			Handle:         n.Handle,
-			CreatedAt:      n.CreatedAt,
-			UpdatedAt:      n.UpdatedAt,
-			PublishedAt:    n.PublishedAt,
-			Tags:           strings.Join(n.Tags, ", "),
-			Status:         n.Status,
-			TemplateSuffix: n.TemplateSuffix,
+			ID:                    n.LegacyResourceId,
+			Title:                 n.Title,
+			BodyHTML:              n.DescriptionHTML,
+			Vendor:                n.Vendor,
+			ProductType:           n.ProductType,
+			Handle:                n.Handle,
+			CreatedAt:             n.CreatedAt,
+			UpdatedAt:             n.UpdatedAt,
+			PublishedAt:           n.PublishedAt,
+			Tags:                  strings.Join(n.Tags, ", "),
+			Status:                n.Status,
+			TemplateSuffix:        n.TemplateSuffix,
+			HasOnlyDefaultVariant: n.HasOnlyDefaultVariant,
 		}
 
 		for _, opt := range n.Options {

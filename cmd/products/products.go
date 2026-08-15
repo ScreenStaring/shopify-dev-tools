@@ -104,7 +104,7 @@ func PrintFormatted(products []gql.Product, fieldsToPrint []string) {
 			normalizedField := normalizeField(field)
 			label := displayFieldName(field)
 
-			if normalizedField == "options" || normalizedField == "variants" {
+			if normalizedField == "options" || normalizedField == "variants" || normalizedField == "hasonlydefaultvariant" {
 				continue
 			}
 
@@ -121,7 +121,7 @@ func PrintFormatted(products []gql.Product, fieldsToPrint []string) {
 
 		showAll := len(fieldsToPrint) == 0
 
-		if showAll || isFieldToPrint("options", normalizedFieldsToPrint) {
+		if (showAll && !product.HasOnlyDefaultVariant && len(product.Options) > 0) || (!showAll && isFieldToPrint("options", normalizedFieldsToPrint)) {
 			fmt.Println("Options")
 			printOptions(product.Options)
 			fmt.Print("\n")
