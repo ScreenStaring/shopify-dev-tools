@@ -20,7 +20,8 @@ import (
 
 var Cmd cli.Command
 
-func printJSONL(products []gql.Product) {
+// PrintJSONL outputs the products one JSON object per line.
+func PrintJSONL(products []gql.Product) {
 	for _, product := range products {
 		line, err := json.Marshal(product)
 		if err != nil {
@@ -83,7 +84,11 @@ func printVariants(variants []gql.Variant) {
 	t.Print()
 }
 
-func printFormatted(products []gql.Product, fieldsToPrint []string) {
+// PrintFormatted outputs the products in the tabular format used by
+// `products ls`: one block per product with its fields, options, and
+// variants. fieldsToPrint selects which product fields to print; an
+// empty slice prints all of them.
+func PrintFormatted(products []gql.Product, fieldsToPrint []string) {
 	t := tabby.New()
 	normalizedFieldsToPrint := []string{}
 
@@ -207,9 +212,9 @@ func listProducts(c *cli.Context) error {
 	}
 
 	if c.Bool("jsonl") {
-		printJSONL(products)
+		PrintJSONL(products)
 	} else {
-		printFormatted(products, fields)
+		PrintFormatted(products, fields)
 	}
 
 	return nil
