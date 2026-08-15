@@ -412,6 +412,12 @@ The `-v`/`--variable` argument is used to provide GraphQL variables. To specify 
 -v ids='["gid://shopify/Product/123", "gid://shopify/Product/456"]'
 ```
 
+#### Read-Only Mode
+
+To prevent Shopify Development Tools from executing GraphQL mutations set the `SDT_READONLY` environment variable to `"1"`.
+This is useful when using that good ol' untrustworthy AI.
+
+
 ### ScriptTags
 
 ScriptTag utilities
