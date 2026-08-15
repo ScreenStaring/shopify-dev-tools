@@ -13,7 +13,7 @@ import (
 )
 
 var Cmd cli.Command
-var webhookName = regexp.MustCompile(`(?i)\A[_a-zA-Z]+/[_a-zA-Z]+\z`)
+var webhookTopic = regexp.MustCompile(`(?i)\A[_a-zA-Z]+/[_a-zA-Z]+\z|\A[A-Z0-9]+_[A-Z0-9_]+\z`)
 
 func format(c *cli.Context) string {
 	if c.Bool("xml") {
@@ -138,7 +138,7 @@ func deleteAction(c *cli.Context) error {
 		}
 
 		for _, arg := range c.Args().Slice() {
-			if webhookName.MatchString(arg) {
+			if webhookTopic.MatchString(arg) {
 				found, err := listWebhooks(shop, token, []string{arg}, options)
 				if err != nil {
 					return fmt.Errorf("Cannot list webhooks for topic %s: %s", arg, err)
@@ -348,7 +348,7 @@ func init() {
 			},
 			{
 				Name: "delete",
-				ArgsUsage: "[topic or webhook ID]",
+				ArgsUsage: "[topic or webhook ID ...]",
 				Aliases: []string{"del", "rm", "d"},
 				Flags: append(cmd.Flags, deleteFlags...),
 				Action: deleteAction,
