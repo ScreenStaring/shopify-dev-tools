@@ -82,7 +82,7 @@ func syncImportProducts(c *cli.Context) error {
 				return
 			}
 
-			results[idx].ID = result.ProductID
+			results[idx].ID = strings.TrimPrefix(result.ProductID, "gid://shopify/Product/")
 			results[idx].Errors = result.UserErrors
 		}(i, p)
 	}

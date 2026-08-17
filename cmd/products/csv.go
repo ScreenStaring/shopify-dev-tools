@@ -25,9 +25,9 @@ type variantOptionValue struct {
 }
 
 type inventoryItemInput struct {
-	Tracked          *bool   `json:"tracked,omitempty"`
-	RequiresShipping *bool   `json:"requiresShipping,omitempty"`
-	Cost             string  `json:"cost,omitempty"`
+	Tracked          *bool  `json:"tracked,omitempty"`
+	RequiresShipping *bool  `json:"requiresShipping,omitempty"`
+	Cost             string `json:"cost,omitempty"`
 }
 
 type inventoryQuantityInput struct {
@@ -46,11 +46,19 @@ type importVariant struct {
 	InventoryPolicy     string                   `json:"inventoryPolicy,omitempty"`
 	InventoryItem       *inventoryItemInput      `json:"inventoryItem,omitempty"`
 	InventoryQuantities []inventoryQuantityInput `json:"inventoryQuantities,omitempty"`
+	Metafields          []metafieldInput         `json:"metafields,omitempty"`
 }
 
 type fileInput struct {
 	OriginalSource string `json:"originalSource"`
 	ContentType    string `json:"contentType"`
+}
+
+type metafieldInput struct {
+	Namespace string `json:"namespace,omitempty"`
+	Key       string `json:"key,omitempty"`
+	Value     string `json:"value,omitempty"`
+	Type      string `json:"type,omitempty"`
 }
 
 type importProduct struct {
@@ -65,6 +73,7 @@ type importProduct struct {
 	Files           []fileInput         `json:"files,omitempty"`
 	ProductOptions  []optionCreateInput `json:"productOptions,omitempty"`
 	Variants        []importVariant     `json:"variants,omitempty"`
+	Metafields      []metafieldInput    `json:"metafields,omitempty"`
 }
 
 type productSetIdentifier struct {
@@ -73,7 +82,7 @@ type productSetIdentifier struct {
 }
 
 type importProductInput struct {
-	Input      importProduct        `json:"input"`
+	Input      importProduct         `json:"input"`
 	Identifier *productSetIdentifier `json:"identifier,omitempty"`
 }
 
@@ -153,6 +162,12 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 	var optionValues [][]string
 	var optionSeen []map[string]bool
 
+	_, hasHandle := ci["handle"]
+	_, hasProductID := ci["product id"]
+	hasIDColumns := hasHandle || hasProductID
+
+	nameColumns := []string{"option1 name", "option2 name", "option3 name"}
+
 	finalize := func() {
 		if current == nil {
 			return
@@ -202,7 +217,31 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 		handle := get(row, "handle")
 		id := get(row, "product id")
 
-		if handle != "" || id != "" {
+		// Without handle/id columns every row carrying product or variant
+		// data is a new product; rows with only metafields attach to the
+		// current product.
+		newProduct := handle != "" || id != ""
+		if !newProduct && !hasIDColumns {
+			for _, name := range []string{
+				"title", "vendor", "body (html)", "body", "status", "product image url",
+				"variant sku", "variant price", "variant compare at price", "variant barcode", "unit cost",
+			} {
+				if get(row, name) != "" {
+					newProduct = true
+					break
+				}
+			}
+			if !newProduct {
+				for _, nameCol := range nameColumns {
+					if get(row, nameCol) != "" {
+						newProduct = true
+						break
+					}
+				}
+			}
+		}
+
+		if newProduct {
 			finalize()
 
 			status := strings.ToUpper(get(row, "status"))
@@ -221,7 +260,6 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 			optionValueCols = nil
 			optionValues = nil
 			optionSeen = nil
-			nameColumns := []string{"option1 name", "option2 name", "option3 name"}
 			valueColumns := []string{"option1 value", "option2 value", "option3 value"}
 			for idx, nameCol := range nameColumns {
 				if v := get(row, nameCol); v != "" {
@@ -237,11 +275,16 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 				files = append(files, fileInput{OriginalSource: u, ContentType: "IMAGE"})
 			}
 
+			description := get(row, "body (html)")
+			if description == "" {
+				description = get(row, "body")
+			}
+
 			current = &importProduct{
 				ID:              id,
 				Handle:          handle,
 				Title:           get(row, "title"),
-				DescriptionHTML: get(row, "body (html)"),
+				DescriptionHTML: description,
 				Vendor:          get(row, "vendor"),
 				ProductType:     get(row, "type"),
 				Tags:            tags,
@@ -354,6 +397,41 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 				InventoryQuantities: inventoryQuantities,
 			}
 			current.Variants = append(current.Variants, v)
+		}
+
+		// Metafield row: single group of metafield columns, one metafield per
+		// row. Owner column picks the target: Product (default) or Variant.
+		mf := metafieldInput{
+			Namespace: get(row, "metafield namespace"),
+			Key:       get(row, "metafield key"),
+			Value:     get(row, "metafield value"),
+			Type:      get(row, "metafield type"),
+		}
+		if mf.Namespace == "" && mf.Key == "" && mf.Value == "" && mf.Type == "" {
+			continue
+		}
+
+		if strings.EqualFold(get(row, "metafield owner"), "variant") {
+			sku = get(row, "variant sku")
+			var target *importVariant
+			if sku != "" {
+				for i := range current.Variants {
+					if current.Variants[i].SKU == sku {
+						target = &current.Variants[i]
+						break
+					}
+				}
+				if target == nil {
+					return nil, fmt.Errorf("Variant metafield references unknown variant SKU %q (place the metafield row after the variant row)", sku)
+				}
+			} else if len(current.Variants) > 0 {
+				target = &current.Variants[len(current.Variants)-1]
+			} else {
+				return nil, fmt.Errorf("Variant metafield on a row with no variant defined yet")
+			}
+			target.Metafields = append(target.Metafields, mf)
+		} else {
+			current.Metafields = append(current.Metafields, mf)
 		}
 	}
 
