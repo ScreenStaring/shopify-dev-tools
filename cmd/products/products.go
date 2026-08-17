@@ -220,34 +220,8 @@ func deleteProducts(c *cli.Context) error {
 	return nil
 }
 
-func parseProductArgs(c *cli.Context) ([]int64, []string, error) {
-	var ids []int64
-	var skus []string
-
-	for i := 0; i < c.NArg(); i++ {
-		arg := c.Args().Get(i)
-
-		if strings.HasPrefix(strings.ToLower(arg), "sku:") {
-			sku := arg[4:]
-			if len(sku) == 0 {
-				return nil, nil, fmt.Errorf("SKU value missing after 'sku:'")
-			}
-			skus = append(skus, sku)
-			continue
-		}
-
-		id, err := cmd.ParseIntAt(c, i)
-		if err != nil {
-			return nil, nil, fmt.Errorf("Argument '%s' invalid: must be a product id or 'sku:VALUE'", arg)
-		}
-		ids = append(ids, id)
-	}
-
-	return ids, skus, nil
-}
-
 func listProducts(c *cli.Context) error {
-	ids, skus, err := parseProductArgs(c)
+	ids, skus, err := cmd.ParseIDArgs(c, "a product id")
 	if err != nil {
 		return err
 	}
@@ -275,7 +249,7 @@ func listProducts(c *cli.Context) error {
 }
 
 func inventoryProducts(c *cli.Context) error {
-	ids, skus, err := parseProductArgs(c)
+	ids, skus, err := cmd.ParseIDArgs(c, "a product id")
 	if err != nil {
 		return err
 	}

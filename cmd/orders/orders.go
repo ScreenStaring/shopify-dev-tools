@@ -144,26 +144,9 @@ func deleteAttributeAction(c *cli.Context) error {
 }
 
 func listAction(c *cli.Context) error {
-	var ids []int64
-	var skus []string
-
-	for i := 0; i < c.NArg(); i++ {
-		arg := c.Args().Get(i)
-
-		if strings.HasPrefix(strings.ToLower(arg), "sku:") {
-			sku := arg[4:]
-			if len(sku) == 0 {
-				return fmt.Errorf("SKU value missing after 'sku:'")
-			}
-			skus = append(skus, sku)
-			continue
-		}
-
-		id, err := cmd.ParseIntAt(c, i)
-		if err != nil {
-			return fmt.Errorf("Argument '%s' invalid: must be an order id or 'sku:VALUE'", arg)
-		}
-		ids = append(ids, id)
+	ids, skus, err := cmd.ParseIDArgs(c, "an order id")
+	if err != nil {
+		return err
 	}
 
 	status := "open"
