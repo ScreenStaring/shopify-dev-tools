@@ -20,7 +20,9 @@ query($query: String!, $first: Int!, $sortKey: DraftOrderSortKeys!) {
         updatedAt
         completedAt
         invoiceSentAt
+        reserveInventoryUntil
         note2
+        order { legacyResourceId }
         lineItems(first: 250) {
           edges {
             node {
@@ -49,15 +51,17 @@ type LineItem struct {
 }
 
 type DraftOrder struct {
-	ID            int64      `json:"id,omitempty"`
-	Name          string     `json:"name,omitempty"`
-	Status        string     `json:"status,omitempty"`
-	CreatedAt     string     `json:"created_at,omitempty"`
-	UpdatedAt     string     `json:"updated_at,omitempty"`
-	CompletedAt   string     `json:"completed_at,omitempty"`
-	InvoiceSentAt string     `json:"invoice_sent_at,omitempty"`
-	Note          string     `json:"note,omitempty"`
-	LineItems     []LineItem `json:"line_items,omitempty"`
+	ID                    int64      `json:"id,omitempty"`
+	Name                  string     `json:"name,omitempty"`
+	Status                string     `json:"status,omitempty"`
+	CreatedAt             string     `json:"created_at,omitempty"`
+	UpdatedAt             string     `json:"updated_at,omitempty"`
+	CompletedAt           string     `json:"completed_at,omitempty"`
+	InvoiceSentAt         string     `json:"invoice_sent_at,omitempty"`
+	ReserveInventoryUntil string     `json:"reserve_inventory_until,omitempty"`
+	Note                  string     `json:"note,omitempty"`
+	OrderID               int64      `json:"order_id,omitempty"`
+	LineItems             []LineItem `json:"line_items,omitempty"`
 }
 
 type resourceRef struct {
@@ -74,15 +78,17 @@ type lineItemJSON struct {
 }
 
 type draftOrderJSON struct {
-	LegacyResourceId int64  `json:"legacyResourceId,string"`
-	Name             string `json:"name"`
-	Status           string `json:"status"`
-	CreatedAt        string `json:"createdAt"`
-	UpdatedAt        string `json:"updatedAt"`
-	CompletedAt      string `json:"completedAt"`
-	InvoiceSentAt    string `json:"invoiceSentAt"`
-	Note             string `json:"note2"`
-	LineItems        struct {
+	LegacyResourceId      int64        `json:"legacyResourceId,string"`
+	Name                  string       `json:"name"`
+	Status                string       `json:"status"`
+	CreatedAt             string       `json:"createdAt"`
+	UpdatedAt             string       `json:"updatedAt"`
+	CompletedAt           string       `json:"completedAt"`
+	InvoiceSentAt         string       `json:"invoiceSentAt"`
+	ReserveInventoryUntil string       `json:"reserveInventoryUntil"`
+	Note                  string       `json:"note2"`
+	Order                 *resourceRef `json:"order"`
+	LineItems             struct {
 		Edges []struct {
 			Node lineItemJSON `json:"node"`
 		} `json:"edges"`
@@ -168,14 +174,19 @@ func listDraftOrders(shop, token string, ids []int64, skus []string, status stri
 	for _, edge := range response.Data.DraftOrders.Edges {
 		n := edge.Node
 		order := DraftOrder{
-			ID:            n.LegacyResourceId,
-			Name:          n.Name,
-			Status:        n.Status,
-			CreatedAt:     n.CreatedAt,
-			UpdatedAt:     n.UpdatedAt,
-			CompletedAt:   n.CompletedAt,
-			InvoiceSentAt: n.InvoiceSentAt,
-			Note:          n.Note,
+			ID:                    n.LegacyResourceId,
+			Name:                  n.Name,
+			Status:                n.Status,
+			CreatedAt:             n.CreatedAt,
+			UpdatedAt:             n.UpdatedAt,
+			CompletedAt:           n.CompletedAt,
+			InvoiceSentAt:         n.InvoiceSentAt,
+			ReserveInventoryUntil: n.ReserveInventoryUntil,
+			Note:                  n.Note,
+		}
+
+		if n.Order != nil {
+			order.OrderID = n.Order.LegacyResourceId
 		}
 
 		for _, liEdge := range n.LineItems.Edges {

@@ -65,6 +65,8 @@ func printDraftOrders(orders []DraftOrder) {
 		t.AddLine("Updated At", order.UpdatedAt)
 		t.AddLine("Completed At", order.CompletedAt)
 		t.AddLine("Invoice Sent At", order.InvoiceSentAt)
+		t.AddLine("Reserve Inventory Until", order.ReserveInventoryUntil)
+		t.AddLine("Order ID", order.OrderID)
 
 		note := order.Note
 		if len(order.Note) > 0 {
