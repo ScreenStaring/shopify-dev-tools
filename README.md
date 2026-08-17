@@ -169,10 +169,10 @@ Metafield utilities
        delete, d                   Delete one or more metafields
        app                         List metafields for the app installation associated with the credentials
        customer, c                 List metafields for the given customer
-       product, products, prod, p  List metafields for the given product
+       product, products, prod, p  List metafields for the products matching the given IDs and/or 'sku:VALUE' arguments
        shop, s                     List metafields for the given shop
        storefront, sf              Storefront API utilities
-       variant, var, v             List metafields for the given variant
+       variant, var, v             List metafields for the variants matching the given IDs and/or 'sku:VALUE' arguments
        help, h                     Shows a list of commands or help for one command
 
     OPTIONS:

@@ -95,17 +95,29 @@ func productAction(c *cli.Context) error {
 		return errors.New("Product id required")
 	}
 
-	// TODO: accept handle too (maybe use regex to detect? But handle can be all digits too)
-	id, err := strconv.ParseInt(c.Args().Get(0), 10, 64)
+	ids, skus, err := cmd.ParseIDArgs(c, "an ID")
 	if err != nil {
-		return fmt.Errorf("Product id '%s' invalid: must be an int", c.Args().Get(0))
+		return err
 	}
 
 	options := contextToOptions(c)
 	client := cmd.NewGraphQLClient(c)
-	metafields, err := listProductMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
-	if err != nil {
-		return fmt.Errorf("Cannot list metafields for product %d: %s", id, err)
+
+	var metafields []Metafield
+	for _, id := range ids {
+		mfs, err := listProductMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
+		if err != nil {
+			return fmt.Errorf("Cannot list metafields for product %d: %s", id, err)
+		}
+		metafields = append(metafields, mfs...)
+	}
+
+	if len(skus) > 0 {
+		mfs, err := listProductMetafieldsBySku(client, skus, options.Namespace, options.Key, c.Bool("reverse"))
+		if err != nil {
+			return err
+		}
+		metafields = append(metafields, mfs...)
 	}
 
 	printMetafields(metafields, options)
@@ -157,16 +169,29 @@ func variantAction(c *cli.Context) error {
 		return errors.New("Variant id required")
 	}
 
-	id, err := strconv.ParseInt(c.Args().Get(0), 10, 64)
+	ids, skus, err := cmd.ParseIDArgs(c, "an ID")
 	if err != nil {
-		return fmt.Errorf("Variant id '%s' invalid: must be an int", c.Args().Get(0))
+		return err
 	}
 
 	options := contextToOptions(c)
 	client := cmd.NewGraphQLClient(c)
-	metafields, err := listVariantMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
-	if err != nil {
-		return fmt.Errorf("Cannot list metafields for variant %d: %s", id, err)
+
+	var metafields []Metafield
+	for _, id := range ids {
+		mfs, err := listVariantMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
+		if err != nil {
+			return fmt.Errorf("Cannot list metafields for variant %d: %s", id, err)
+		}
+		metafields = append(metafields, mfs...)
+	}
+
+	if len(skus) > 0 {
+		mfs, err := listVariantMetafieldsBySku(client, skus, options.Namespace, options.Key, c.Bool("reverse"))
+		if err != nil {
+			return err
+		}
+		metafields = append(metafields, mfs...)
 	}
 
 	printMetafields(metafields, options)
@@ -427,11 +452,12 @@ func init() {
 				Usage:   "List metafields for the given customer",
 			},
 			{
-				Name:    "product",
-				Flags:   append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
-				Aliases: []string{"products", "prod", "p"},
-				Action:  productAction,
-				Usage:   "List metafields for the given product",
+				Name:      "product",
+				Flags:     append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
+				Aliases:   []string{"products", "prod", "p"},
+				Action:    productAction,
+				Usage:     "List metafields for the given product(s)",
+				ArgsUsage: "[ID|sku:VALUE [ID|sku:VALUE ...]]",
 			},
 			{
 				Name:    "shop",
@@ -462,11 +488,12 @@ func init() {
 				},
 			},
 			{
-				Name:    "variant",
-				Aliases: []string{"var", "v"},
-				Flags:   append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
-				Action:  variantAction,
-				Usage:   "List metafields for the given variant",
+				Name:      "variant",
+				Aliases:   []string{"var", "v"},
+				Flags:     append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
+				Action:    variantAction,
+				Usage:     "List metafields for the given variant(s)",
+				ArgsUsage: "[ID|sku:VALUE [ID|sku:VALUE ...]]",
 			},
 		},
 	}

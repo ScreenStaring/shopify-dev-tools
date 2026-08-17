@@ -28,6 +28,34 @@ func ParseIntAt(c *cli.Context, pos int) (int64, error) {
 	return strconv.ParseInt(c.Args().Get(pos), 10, 64)
 }
 
+// ParseIDArgs splits command line args into numeric IDs and 'sku:VALUE'
+// arguments. idDesc names the resource for the error message, e.g. "an order id".
+func ParseIDArgs(c *cli.Context, idDesc string) ([]int64, []string, error) {
+	var ids []int64
+	var skus []string
+
+	for i := 0; i < c.NArg(); i++ {
+		arg := c.Args().Get(i)
+
+		if strings.HasPrefix(strings.ToLower(arg), "sku:") {
+			sku := arg[4:]
+			if len(sku) == 0 {
+				return nil, nil, fmt.Errorf("SKU value missing after 'sku:'")
+			}
+			skus = append(skus, sku)
+			continue
+		}
+
+		id, err := ParseIntAt(c, i)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Argument '%s' invalid: must be %s or 'sku:VALUE'", arg, idDesc)
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, skus, nil
+}
+
 func PrintSeparator() {
 	fmt.Printf("%s\n", strings.Repeat("-", 20))
 }

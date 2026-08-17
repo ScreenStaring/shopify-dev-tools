@@ -481,6 +481,306 @@ func listProductMetafields(client *gql.Client, productID int64, namespace, key s
 	return metafields, nil
 }
 
+const productMetafieldsBySkuQuery = `
+query($query: String!, $first: Int!, $after: String, $namespace: String, $keys: [String!], $reverse: Boolean) {
+  products(first: $first, after: $after, query: $query) {
+    edges {
+      node {
+        id
+        metafields(first: 250, namespace: $namespace, keys: $keys, reverse: $reverse) {
+          edges {
+            node {
+              id
+              namespace
+              key
+              description
+              value
+              type
+              createdAt
+              updatedAt
+            }
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+`
+
+type productMetafieldsBySkuResponse struct {
+	Data struct {
+		Products struct {
+			Edges []struct {
+				Node struct {
+					ID         string `json:"id"`
+					Metafields struct {
+						Edges []struct {
+							Node struct {
+								ID          string `json:"id"`
+								Namespace   string `json:"namespace"`
+								Key         string `json:"key"`
+								Description string `json:"description"`
+								Value       string `json:"value"`
+								Type        string `json:"type"`
+								CreatedAt   string `json:"createdAt"`
+								UpdatedAt   string `json:"updatedAt"`
+							} `json:"node"`
+						} `json:"edges"`
+						PageInfo struct {
+							HasNextPage bool   `json:"hasNextPage"`
+							EndCursor   string `json:"endCursor"`
+						} `json:"pageInfo"`
+					} `json:"metafields"`
+				} `json:"node"`
+			} `json:"edges"`
+			PageInfo struct {
+				HasNextPage bool   `json:"hasNextPage"`
+				EndCursor   string `json:"endCursor"`
+			} `json:"pageInfo"`
+		} `json:"products"`
+	} `json:"data"`
+}
+
+// listProductMetafieldsBySku lists metafields for the products whose variants
+// have any of the given SKUs, filtering the products connection directly by
+// sku instead of resolving SKUs to product IDs first. Metafields are limited
+// to the first 250 per product.
+func listProductMetafieldsBySku(client *gql.Client, skus []string, namespace, key string, reverse bool) ([]Metafield, error) {
+	vars := map[string]interface{}{
+		"query": skuQuery(skus),
+		"first": 250,
+	}
+
+	// The GraphQL keys argument requires the namespace.key format, so a bare
+	// key filter (no namespace) is applied client-side below.
+	filterByKey := false
+	if key != "" {
+		if namespace != "" {
+			vars["keys"] = []string{namespace + "." + key}
+		} else {
+			filterByKey = true
+		}
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	if reverse {
+		vars["reverse"] = true
+	}
+
+	var metafields []Metafield
+
+	for {
+		data, err := client.Execute(productMetafieldsBySkuQuery, vars)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for product: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for product: %s", err)
+		}
+
+		var response productMetafieldsBySkuResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for product: %s", err)
+		}
+
+		for _, edge := range response.Data.Products.Edges {
+			for _, mfEdge := range edge.Node.Metafields.Edges {
+				n := mfEdge.Node
+				if filterByKey && n.Key != key {
+					continue
+				}
+
+				metafields = append(metafields, Metafield{
+					ID:          n.ID,
+					Namespace:   n.Namespace,
+					Key:         n.Key,
+					Description: n.Description,
+					Value:       n.Value,
+					Type:        n.Type,
+					CreatedAt:   n.CreatedAt,
+					UpdatedAt:   n.UpdatedAt,
+				})
+			}
+		}
+
+		if !response.Data.Products.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.Products.PageInfo.EndCursor
+	}
+
+	return metafields, nil
+}
+
+const variantMetafieldsBySkuQuery = `
+query($query: String!, $first: Int!, $after: String, $namespace: String, $keys: [String!], $reverse: Boolean) {
+  productVariants(first: $first, after: $after, query: $query) {
+    edges {
+      node {
+        id
+        metafields(first: 250, namespace: $namespace, keys: $keys, reverse: $reverse) {
+          edges {
+            node {
+              id
+              namespace
+              key
+              description
+              value
+              type
+              createdAt
+              updatedAt
+            }
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+`
+
+type variantMetafieldsBySkuResponse struct {
+	Data struct {
+		ProductVariants struct {
+			Edges []struct {
+				Node struct {
+					ID         string `json:"id"`
+					Metafields struct {
+						Edges []struct {
+							Node struct {
+								ID          string `json:"id"`
+								Namespace   string `json:"namespace"`
+								Key         string `json:"key"`
+								Description string `json:"description"`
+								Value       string `json:"value"`
+								Type        string `json:"type"`
+								CreatedAt   string `json:"createdAt"`
+								UpdatedAt   string `json:"updatedAt"`
+							} `json:"node"`
+						} `json:"edges"`
+						PageInfo struct {
+							HasNextPage bool   `json:"hasNextPage"`
+							EndCursor   string `json:"endCursor"`
+						} `json:"pageInfo"`
+					} `json:"metafields"`
+				} `json:"node"`
+			} `json:"edges"`
+			PageInfo struct {
+				HasNextPage bool   `json:"hasNextPage"`
+				EndCursor   string `json:"endCursor"`
+			} `json:"pageInfo"`
+		} `json:"productVariants"`
+	} `json:"data"`
+}
+
+// listVariantMetafieldsBySku lists metafields for the variants with any of the
+// given SKUs, filtering the productVariants connection directly by sku instead
+// of resolving SKUs to variant IDs first. Metafields are limited to the first
+// 250 per variant.
+func listVariantMetafieldsBySku(client *gql.Client, skus []string, namespace, key string, reverse bool) ([]Metafield, error) {
+	vars := map[string]interface{}{
+		"query": skuQuery(skus),
+		"first": 250,
+	}
+
+	// The GraphQL keys argument requires the namespace.key format, so a bare
+	// key filter (no namespace) is applied client-side below.
+	filterByKey := false
+	if key != "" {
+		if namespace != "" {
+			vars["keys"] = []string{namespace + "." + key}
+		} else {
+			filterByKey = true
+		}
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	if reverse {
+		vars["reverse"] = true
+	}
+
+	var metafields []Metafield
+
+	for {
+		data, err := client.Execute(variantMetafieldsBySkuQuery, vars)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
+		}
+
+		var response variantMetafieldsBySkuResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
+		}
+
+		for _, edge := range response.Data.ProductVariants.Edges {
+			for _, mfEdge := range edge.Node.Metafields.Edges {
+				n := mfEdge.Node
+				if filterByKey && n.Key != key {
+					continue
+				}
+
+				metafields = append(metafields, Metafield{
+					ID:          n.ID,
+					Namespace:   n.Namespace,
+					Key:         n.Key,
+					Description: n.Description,
+					Value:       n.Value,
+					Type:        n.Type,
+					CreatedAt:   n.CreatedAt,
+					UpdatedAt:   n.UpdatedAt,
+				})
+			}
+		}
+
+		if !response.Data.ProductVariants.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.ProductVariants.PageInfo.EndCursor
+	}
+
+	return metafields, nil
+}
+
+// skuQuery builds a GraphQL search query matching any of the given SKUs,
+// e.g. "sku:FOO OR sku:BAR".
+func skuQuery(skus []string) string {
+	parts := make([]string, len(skus))
+	for i, sku := range skus {
+		parts[i] = "sku:" + sku
+	}
+	return strings.Join(parts, " OR ")
+}
+
 const variantMetafieldsQuery = `
 query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [String!], $reverse: Boolean) {
   productVariant(id: $ownerId) {
