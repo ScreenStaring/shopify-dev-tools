@@ -104,23 +104,34 @@ func productAction(c *cli.Context) error {
 	client := cmd.NewGraphQLClient(c)
 
 	var metafields []Metafield
+	var failures []string
 	for _, id := range ids {
 		mfs, err := listProductMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
 		if err != nil {
-			return fmt.Errorf("Cannot list metafields for product %d: %s", id, err)
+			failures = append(failures, fmt.Sprintf("%d: %s", id, err))
+			continue
 		}
 		metafields = append(metafields, mfs...)
 	}
 
 	if len(skus) > 0 {
-		mfs, err := listProductMetafieldsBySku(client, skus, options.Namespace, options.Key, c.Bool("reverse"))
+		mfs, foundSkus, err := listProductMetafieldsBySku(client, skus, options.Namespace, options.Key, c.Bool("reverse"))
 		if err != nil {
-			return err
+			failures = append(failures, err.Error())
+		} else {
+			metafields = append(metafields, mfs...)
+			for _, sku := range missingSkus(skus, foundSkus) {
+				failures = append(failures, fmt.Sprintf("sku:%s: not found", sku))
+			}
 		}
-		metafields = append(metafields, mfs...)
 	}
 
 	printMetafields(metafields, options)
+
+	if len(failures) > 0 {
+		return fmt.Errorf("Cannot retrieve metafield(s): %s", strings.Join(failures, ", "))
+	}
+
 	return nil
 }
 
@@ -178,25 +189,52 @@ func variantAction(c *cli.Context) error {
 	client := cmd.NewGraphQLClient(c)
 
 	var metafields []Metafield
+	var failures []string
 	for _, id := range ids {
 		mfs, err := listVariantMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
 		if err != nil {
-			return fmt.Errorf("Cannot list metafields for variant %d: %s", id, err)
+			failures = append(failures, fmt.Sprintf("%d: %s", id, err))
+			continue
 		}
 		metafields = append(metafields, mfs...)
 	}
 
 	if len(skus) > 0 {
-		mfs, err := listVariantMetafieldsBySku(client, skus, options.Namespace, options.Key, c.Bool("reverse"))
+		mfs, foundSkus, err := listVariantMetafieldsBySku(client, skus, options.Namespace, options.Key, c.Bool("reverse"))
 		if err != nil {
-			return err
+			failures = append(failures, err.Error())
+		} else {
+			metafields = append(metafields, mfs...)
+			for _, sku := range missingSkus(skus, foundSkus) {
+				failures = append(failures, fmt.Sprintf("sku:%s: not found", sku))
+			}
 		}
-		metafields = append(metafields, mfs...)
 	}
 
 	printMetafields(metafields, options)
 
+	if len(failures) > 0 {
+		return fmt.Errorf("Cannot retrieve metafield(s): %s", strings.Join(failures, ", "))
+	}
+
 	return nil
+}
+
+// missingSkus returns the requested SKUs that were not found.
+func missingSkus(requested, found []string) []string {
+	foundSet := make(map[string]bool, len(found))
+	for _, s := range found {
+		foundSet[s] = true
+	}
+
+	var missing []string
+	for _, s := range requested {
+		if !foundSet[s] {
+			missing = append(missing, s)
+		}
+	}
+
+	return missing
 }
 
 func storefrontListAction(c *cli.Context) error {

@@ -2,6 +2,7 @@ package metafields
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -410,6 +411,9 @@ type productMetafieldsResponse struct {
 	} `json:"data"`
 }
 
+// listProductMetafields lists metafields for the given product. When the
+// product doesn't exist (e.g. it was deleted or access is denied) the query
+// returns null and the error is non-nil.
 func listProductMetafields(client *gql.Client, productID int64, namespace, key string, reverse bool) ([]Metafield, error) {
 	vars := map[string]interface{}{
 		"ownerId": fmt.Sprintf("gid://shopify/Product/%d", productID),
@@ -436,6 +440,7 @@ func listProductMetafields(client *gql.Client, productID int64, namespace, key s
 	}
 
 	var metafields []Metafield
+	found := false
 
 	for {
 		data, err := client.Execute(productMetafieldsQuery, vars)
@@ -451,6 +456,10 @@ func listProductMetafields(client *gql.Client, productID int64, namespace, key s
 		var response productMetafieldsResponse
 		if err := json.Unmarshal(b, &response); err != nil {
 			return nil, fmt.Errorf("Cannot list metafields for product: %s", err)
+		}
+
+		if response.Data.Product.ID != "" {
+			found = true
 		}
 
 		for _, edge := range response.Data.Product.Metafields.Edges {
@@ -478,6 +487,10 @@ func listProductMetafields(client *gql.Client, productID int64, namespace, key s
 		vars["after"] = response.Data.Product.Metafields.PageInfo.EndCursor
 	}
 
+	if !found {
+		return nil, errors.New("not found")
+	}
+
 	return metafields, nil
 }
 
@@ -487,6 +500,11 @@ query($query: String!, $first: Int!, $after: String, $namespace: String, $keys: 
     edges {
       node {
         id
+        variants(first: 250) {
+          nodes {
+            sku
+          }
+        }
         metafields(first: 250, namespace: $namespace, keys: $keys, reverse: $reverse) {
           edges {
             node {
@@ -520,7 +538,12 @@ type productMetafieldsBySkuResponse struct {
 		Products struct {
 			Edges []struct {
 				Node struct {
-					ID         string `json:"id"`
+					ID       string `json:"id"`
+					Variants struct {
+						Nodes []struct {
+							SKU string `json:"sku"`
+						} `json:"nodes"`
+					} `json:"variants"`
 					Metafields struct {
 						Edges []struct {
 							Node struct {
@@ -552,8 +575,10 @@ type productMetafieldsBySkuResponse struct {
 // listProductMetafieldsBySku lists metafields for the products whose variants
 // have any of the given SKUs, filtering the products connection directly by
 // sku instead of resolving SKUs to product IDs first. Metafields are limited
-// to the first 250 per product.
-func listProductMetafieldsBySku(client *gql.Client, skus []string, namespace, key string, reverse bool) ([]Metafield, error) {
+// to the first 250 per product. The returned slice reports which of the
+// requested SKUs matched a variant; products with more than 250 variants may
+// report a false miss.
+func listProductMetafieldsBySku(client *gql.Client, skus []string, namespace, key string, reverse bool) ([]Metafield, []string, error) {
 	vars := map[string]interface{}{
 		"query": skuQuery(skus),
 		"first": 250,
@@ -579,24 +604,31 @@ func listProductMetafieldsBySku(client *gql.Client, skus []string, namespace, ke
 	}
 
 	var metafields []Metafield
+	foundSkus := make(map[string]bool)
 
 	for {
 		data, err := client.Execute(productMetafieldsBySkuQuery, vars)
 		if err != nil {
-			return nil, fmt.Errorf("Cannot list metafields for product: %s", err)
+			return nil, nil, fmt.Errorf("Cannot list metafields for product: %s", err)
 		}
 
 		b, err := json.Marshal(data)
 		if err != nil {
-			return nil, fmt.Errorf("Cannot list metafields for product: %s", err)
+			return nil, nil, fmt.Errorf("Cannot list metafields for product: %s", err)
 		}
 
 		var response productMetafieldsBySkuResponse
 		if err := json.Unmarshal(b, &response); err != nil {
-			return nil, fmt.Errorf("Cannot list metafields for product: %s", err)
+			return nil, nil, fmt.Errorf("Cannot list metafields for product: %s", err)
 		}
 
 		for _, edge := range response.Data.Products.Edges {
+			for _, v := range edge.Node.Variants.Nodes {
+				if v.SKU != "" {
+					foundSkus[v.SKU] = true
+				}
+			}
+
 			for _, mfEdge := range edge.Node.Metafields.Edges {
 				n := mfEdge.Node
 				if filterByKey && n.Key != key {
@@ -623,7 +655,14 @@ func listProductMetafieldsBySku(client *gql.Client, skus []string, namespace, ke
 		vars["after"] = response.Data.Products.PageInfo.EndCursor
 	}
 
-	return metafields, nil
+	var found []string
+	for _, sku := range skus {
+		if foundSkus[sku] {
+			found = append(found, sku)
+		}
+	}
+
+	return metafields, found, nil
 }
 
 const variantMetafieldsBySkuQuery = `
@@ -632,6 +671,7 @@ query($query: String!, $first: Int!, $after: String, $namespace: String, $keys: 
     edges {
       node {
         id
+        sku
         metafields(first: 250, namespace: $namespace, keys: $keys, reverse: $reverse) {
           edges {
             node {
@@ -666,6 +706,7 @@ type variantMetafieldsBySkuResponse struct {
 			Edges []struct {
 				Node struct {
 					ID         string `json:"id"`
+					SKU        string `json:"sku"`
 					Metafields struct {
 						Edges []struct {
 							Node struct {
@@ -697,8 +738,9 @@ type variantMetafieldsBySkuResponse struct {
 // listVariantMetafieldsBySku lists metafields for the variants with any of the
 // given SKUs, filtering the productVariants connection directly by sku instead
 // of resolving SKUs to variant IDs first. Metafields are limited to the first
-// 250 per variant.
-func listVariantMetafieldsBySku(client *gql.Client, skus []string, namespace, key string, reverse bool) ([]Metafield, error) {
+// 250 per variant. The returned slice reports which of the requested SKUs
+// matched a variant.
+func listVariantMetafieldsBySku(client *gql.Client, skus []string, namespace, key string, reverse bool) ([]Metafield, []string, error) {
 	vars := map[string]interface{}{
 		"query": skuQuery(skus),
 		"first": 250,
@@ -724,24 +766,29 @@ func listVariantMetafieldsBySku(client *gql.Client, skus []string, namespace, ke
 	}
 
 	var metafields []Metafield
+	foundSkus := make(map[string]bool)
 
 	for {
 		data, err := client.Execute(variantMetafieldsBySkuQuery, vars)
 		if err != nil {
-			return nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
+			return nil, nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
 		}
 
 		b, err := json.Marshal(data)
 		if err != nil {
-			return nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
+			return nil, nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
 		}
 
 		var response variantMetafieldsBySkuResponse
 		if err := json.Unmarshal(b, &response); err != nil {
-			return nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
+			return nil, nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
 		}
 
 		for _, edge := range response.Data.ProductVariants.Edges {
+			if edge.Node.SKU != "" {
+				foundSkus[edge.Node.SKU] = true
+			}
+
 			for _, mfEdge := range edge.Node.Metafields.Edges {
 				n := mfEdge.Node
 				if filterByKey && n.Key != key {
@@ -768,7 +815,14 @@ func listVariantMetafieldsBySku(client *gql.Client, skus []string, namespace, ke
 		vars["after"] = response.Data.ProductVariants.PageInfo.EndCursor
 	}
 
-	return metafields, nil
+	var found []string
+	for _, sku := range skus {
+		if foundSkus[sku] {
+			found = append(found, sku)
+		}
+	}
+
+	return metafields, found, nil
 }
 
 // skuQuery builds a GraphQL search query matching any of the given SKUs,
@@ -833,6 +887,9 @@ type variantMetafieldsResponse struct {
 	} `json:"data"`
 }
 
+// listVariantMetafields lists metafields for the given variant. When the
+// variant doesn't exist (e.g. it was deleted or access is denied) the query
+// returns null and the error is non-nil.
 func listVariantMetafields(client *gql.Client, variantID int64, namespace, key string, reverse bool) ([]Metafield, error) {
 	vars := map[string]interface{}{
 		"ownerId": fmt.Sprintf("gid://shopify/ProductVariant/%d", variantID),
@@ -859,6 +916,7 @@ func listVariantMetafields(client *gql.Client, variantID int64, namespace, key s
 	}
 
 	var metafields []Metafield
+	found := false
 
 	for {
 		data, err := client.Execute(variantMetafieldsQuery, vars)
@@ -874,6 +932,10 @@ func listVariantMetafields(client *gql.Client, variantID int64, namespace, key s
 		var response variantMetafieldsResponse
 		if err := json.Unmarshal(b, &response); err != nil {
 			return nil, fmt.Errorf("Cannot list metafields for variant: %s", err)
+		}
+
+		if response.Data.ProductVariant.ID != "" {
+			found = true
 		}
 
 		for _, edge := range response.Data.ProductVariant.Metafields.Edges {
@@ -899,6 +961,10 @@ func listVariantMetafields(client *gql.Client, variantID int64, namespace, key s
 		}
 
 		vars["after"] = response.Data.ProductVariant.Metafields.PageInfo.EndCursor
+	}
+
+	if !found {
+		return nil, errors.New("not found")
 	}
 
 	return metafields, nil
