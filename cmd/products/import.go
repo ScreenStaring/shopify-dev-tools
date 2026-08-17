@@ -3,6 +3,7 @@ package products
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -23,13 +24,19 @@ func syncImportProducts(c *cli.Context) error {
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
 	options := map[string]interface{}{"version": c.String("api-version")}
 	parallel := c.Int("parallel")
+	jsonOutput := c.Bool("json")
+
+	out := os.Stdout
+	if jsonOutput {
+		out = os.Stderr
+	}
 
 	locations, err := gql.FetchLocations(shop, token, options)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Parsing %s...\n", csvFile)
+	fmt.Fprintf(out, "Parsing %s...\n", csvFile)
 
 	products, err := parseCSV(csvFile, locations)
 	if err != nil {
@@ -42,7 +49,7 @@ func syncImportProducts(c *cli.Context) error {
 
 	setProductIdentifiers(products, c.String("identify-by"))
 
-	fmt.Printf("Importing %d products...\n", len(products))
+	fmt.Fprintf(out, "Importing %d products...\n", len(products))
 
 	type importResult struct {
 		Row    int
@@ -89,24 +96,52 @@ func syncImportProducts(c *cli.Context) error {
 
 	wg.Wait()
 
-	fmt.Println("Done!\n")
-
-	t := tabby.New()
-	t.AddHeader("Row", "Product", "Status")
-
 	var failures int
-	for _, r := range results {
-		if r.Err != nil {
-			failures++
-			t.AddLine(r.Row, "", "Error: "+r.Err.Error())
-		} else if len(r.Errors) > 0 {
-			failures++
-			t.AddLine(r.Row, r.ID, "Error: "+strings.Join(r.Errors, "; "))
-		} else {
-			t.AddLine(r.Row, r.ID, "OK")
+
+	if jsonOutput {
+		jsonResults := make([]map[string]interface{}, 0, len(results))
+
+		for _, r := range results {
+			item := map[string]interface{}{"row": r.Row, "id": r.ID, "status": "ok"}
+
+			if r.Err != nil {
+				failures++
+				item["status"] = "error"
+				item["errors"] = []string{r.Err.Error()}
+			} else if len(r.Errors) > 0 {
+				failures++
+				item["status"] = "error"
+				item["errors"] = r.Errors
+			}
+
+			jsonResults = append(jsonResults, item)
 		}
+
+		b, err := json.MarshalIndent(jsonResults, "", "  ")
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(b))
+	} else {
+		fmt.Fprintln(out, "Done!\n")
+
+		t := tabby.New()
+		t.AddHeader("Row", "Product", "Status")
+
+		for _, r := range results {
+			if r.Err != nil {
+				failures++
+				t.AddLine(r.Row, "", "Error: "+r.Err.Error())
+			} else if len(r.Errors) > 0 {
+				failures++
+				t.AddLine(r.Row, r.ID, "Error: "+strings.Join(r.Errors, "; "))
+			} else {
+				t.AddLine(r.Row, r.ID, "OK")
+			}
+		}
+		t.Print()
 	}
-	t.Print()
 
 	if failures > 0 {
 		return cli.Exit("", 1)

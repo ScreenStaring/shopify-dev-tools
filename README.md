@@ -381,6 +381,8 @@ Use the `-i`/`--identify-by` option to specify the identifier.
 
 A good use of `import` over `bulk` is to seed your store for automated tests.
 
+To output the results of the bulk import in JSON use the `-j`/`--json` option.
+
 #### Asynchronously Using the Bulk API
 
 1. `sdt products bulk import` with the appropriate arguments. This will return an ID you can use to check the bulk operation's status

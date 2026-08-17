@@ -400,6 +400,11 @@ func init() {
 						Value:   5,
 						Usage:   "Number of parallel API calls to make",
 					},
+					&cli.BoolFlag{
+						Name:    "json",
+						Aliases: []string{"j"},
+						Usage:   "Output the results in JSON format",
+					},
 					apiVersionFlag,
 				),
 				Action: syncImportProducts,
