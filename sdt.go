@@ -7,6 +7,8 @@ import (
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/admin"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/charges"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/collections"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/customers"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/draftorders"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/gql"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/inventory"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/locations"
@@ -14,7 +16,6 @@ import (
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/metaobjects"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/orders"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/products"
-	"github.com/ScreenStaring/shopify-dev-tools/cmd/customers"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/scripttags"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/shop"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/themes"
@@ -34,6 +35,7 @@ func main() {
 			&admin.Cmd,
 			&charges.Cmd,
 			&collections.Cmd,
+			&draftorders.Cmd,
 			&inventory.Cmd,
 			&locations.Cmd,
 			&metafields.Cmd,

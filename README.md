@@ -29,6 +29,7 @@ The CLI interface uses the executable `sdt`:
        metafield, m, meta           Metafield utilities
        metaobjects, mo              Metaobject utilities
        orders, o                    Information about orders
+       draftorders, do              Information about draft orders
        products, p                  Do things with products
        graphql, gql                 Run a GraphQL query against the Admin API
        shop, s                      Information about the given shop
