@@ -94,8 +94,8 @@ func init() {
 	}
 
 	Cmd = cli.Command{
-		Name:    "inventories",
-		Aliases: []string{"inv", "inventory"},
+		Name:    "inventory",
+		Aliases: []string{"inv"},
 		Usage:   "Do things with inventory",
 		Subcommands: []*cli.Command{
 			{

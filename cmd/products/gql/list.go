@@ -236,14 +236,15 @@ type ProductOption struct {
 }
 
 type Variant struct {
-	ID                int64  `json:"id,omitempty"`
-	Title             string `json:"title,omitempty"`
-	SKU               string `json:"sku,omitempty"`
-	Barcode           string `json:"barcode,omitempty"`
-	Price             string `json:"price,omitempty"`
-	CompareAtPrice    string `json:"compare_at_price,omitempty"`
-	Position          int    `json:"position,omitempty"`
-	InventoryQuantity int    `json:"inventory_quantity,omitempty"`
+	ID                int64            `json:"id,omitempty"`
+	Title             string           `json:"title,omitempty"`
+	SKU               string           `json:"sku,omitempty"`
+	Barcode           string           `json:"barcode,omitempty"`
+	Price             string           `json:"price,omitempty"`
+	CompareAtPrice    string           `json:"compare_at_price,omitempty"`
+	Position          int              `json:"position,omitempty"`
+	InventoryQuantity int              `json:"inventory_quantity,omitempty"`
+	InventoryLevels   []InventoryLevel `json:"inventory_levels,omitempty"`
 }
 
 // JSON structs for parsing GraphQL response
@@ -257,6 +258,21 @@ type variantJSON struct {
 	CompareAtPrice    string `json:"compareAtPrice"`
 	Position          int    `json:"position"`
 	InventoryQuantity int    `json:"inventoryQuantity"`
+	InventoryItem     struct {
+		InventoryLevels struct {
+			Edges []struct {
+				Node struct {
+					Location struct {
+						Name string `json:"name"`
+					} `json:"location"`
+					Quantities []struct {
+						Name     string `json:"name"`
+						Quantity int    `json:"quantity"`
+					} `json:"quantities"`
+				} `json:"node"`
+			} `json:"edges"`
+		} `json:"inventoryLevels"`
+	} `json:"inventoryItem"`
 }
 
 type productJSON struct {
@@ -359,6 +375,7 @@ query($first: Int!, $after: String) {
 type InventoryLevel struct {
 	Location  string
 	Available int
+	Committed int
 	OnHand    int
 }
 
@@ -608,6 +625,8 @@ func FetchInventoryByIdentifiers(shop, token, identifyBy string, identifiers []s
 					switch q.Name {
 					case "available":
 						il.Available = q.Quantity
+					case "committed":
+						il.Committed = q.Quantity
 					case "on_hand":
 						il.OnHand = q.Quantity
 					}
@@ -719,48 +738,158 @@ func FetchProducts(shop, token string, ids []int64, skus []string, status string
 
 	var result []Product
 	for _, edge := range response.Data.Products.Edges {
-		n := edge.Node
-
-		product := Product{
-			ID:                    n.LegacyResourceId,
-			Title:                 n.Title,
-			BodyHTML:              n.DescriptionHTML,
-			Vendor:                n.Vendor,
-			ProductType:           n.ProductType,
-			Handle:                n.Handle,
-			CreatedAt:             n.CreatedAt,
-			UpdatedAt:             n.UpdatedAt,
-			PublishedAt:           n.PublishedAt,
-			Tags:                  strings.Join(n.Tags, ", "),
-			Status:                n.Status,
-			TemplateSuffix:        n.TemplateSuffix,
-			HasOnlyDefaultVariant: n.HasOnlyDefaultVariant,
-		}
-
-		for _, opt := range n.Options {
-			product.Options = append(product.Options, ProductOption{
-				Name:     opt.Name,
-				Position: opt.Position,
-				Values:   opt.Values,
-			})
-		}
-
-		for _, vEdge := range n.Variants.Edges {
-			v := vEdge.Node
-			product.Variants = append(product.Variants, Variant{
-				ID:                v.LegacyResourceId,
-				Title:             v.Title,
-				SKU:               v.SKU,
-				Barcode:           v.Barcode,
-				Price:             v.Price,
-				CompareAtPrice:    v.CompareAtPrice,
-				Position:          v.Position,
-				InventoryQuantity: v.InventoryQuantity,
-			})
-		}
-
-		result = append(result, product)
+		result = append(result, toProduct(edge.Node))
 	}
 
 	return result, nil
+}
+
+// toProduct converts a productJSON GraphQL response node into a Product,
+// including each variant's per-location inventory levels when the query
+// requested them.
+func toProduct(n productJSON) Product {
+	product := Product{
+		ID:                    n.LegacyResourceId,
+		Title:                 n.Title,
+		BodyHTML:              n.DescriptionHTML,
+		Vendor:                n.Vendor,
+		ProductType:           n.ProductType,
+		Handle:                n.Handle,
+		CreatedAt:             n.CreatedAt,
+		UpdatedAt:             n.UpdatedAt,
+		PublishedAt:           n.PublishedAt,
+		Tags:                  strings.Join(n.Tags, ", "),
+		Status:                n.Status,
+		TemplateSuffix:        n.TemplateSuffix,
+		HasOnlyDefaultVariant: n.HasOnlyDefaultVariant,
+	}
+
+	for _, opt := range n.Options {
+		product.Options = append(product.Options, ProductOption{
+			Name:     opt.Name,
+			Position: opt.Position,
+			Values:   opt.Values,
+		})
+	}
+
+	for _, vEdge := range n.Variants.Edges {
+		v := vEdge.Node
+		variant := Variant{
+			ID:                v.LegacyResourceId,
+			Title:             v.Title,
+			SKU:               v.SKU,
+			Barcode:           v.Barcode,
+			Price:             v.Price,
+			CompareAtPrice:    v.CompareAtPrice,
+			Position:          v.Position,
+			InventoryQuantity: v.InventoryQuantity,
+		}
+
+		for _, levelEdge := range v.InventoryItem.InventoryLevels.Edges {
+			level := levelEdge.Node
+			il := InventoryLevel{Location: level.Location.Name}
+			for _, q := range level.Quantities {
+				switch q.Name {
+				case "available":
+					il.Available = q.Quantity
+				case "committed":
+					il.Committed = q.Quantity
+				case "on_hand":
+					il.OnHand = q.Quantity
+				}
+			}
+			variant.InventoryLevels = append(variant.InventoryLevels, il)
+		}
+
+		product.Variants = append(product.Variants, variant)
+	}
+
+	return product
+}
+
+const productInventoryQuery = `
+query($id: ID!, $first: Int!) {
+  product(id: $id) {
+    legacyResourceId
+    title
+    descriptionHtml
+    vendor
+    productType
+    handle
+    createdAt
+    updatedAt
+    publishedAt
+    tags
+    status
+    templateSuffix
+    hasOnlyDefaultVariant
+    options {
+      name
+      position
+      values
+    }
+    variants(first: $first) {
+      edges {
+        node {
+          legacyResourceId
+          title
+          sku
+          barcode
+          price
+          compareAtPrice
+          position
+          inventoryQuantity
+          inventoryItem {
+            inventoryLevels(first: 20) {
+              edges {
+                node {
+                  location {
+                    name
+                  }
+                  quantities(names: ["available", "committed", "on_hand"]) {
+                    name
+                    quantity
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`
+
+type productInventoryResponse struct {
+	Data struct {
+		Product productJSON `json:"product"`
+	} `json:"data"`
+}
+
+// FetchProductInventory fetches a single product by ID with each variant's
+// per-location inventory levels.
+func FetchProductInventory(shop, token string, id int64, options map[string]interface{}) (*Product, error) {
+	client := gqlclient.NewClient(shop, token, options)
+
+	data, err := client.Execute(productInventoryQuery, map[string]interface{}{
+		"id":    fmt.Sprintf("gid://shopify/Product/%d", id),
+		"first": 250,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Cannot fetch product inventory: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot re-encode product inventory response: %s", err)
+	}
+
+	var response productInventoryResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return nil, fmt.Errorf("Cannot parse product inventory response: %s", err)
+	}
+
+	product := toProduct(response.Data.Product)
+	return &product, nil
 }

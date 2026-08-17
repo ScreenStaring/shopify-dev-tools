@@ -136,6 +136,40 @@ func PrintFormatted(products []gql.Product, fieldsToPrint []string) {
 	}
 }
 
+// PrintInventory shows each product's ID and title, then an "Inventories"
+// section with one block per variant: variant ID and title, then a horizontal
+// table of inventory quantities per location.
+func PrintInventory(products []gql.Product) {
+	for _, product := range products {
+		t := tabby.New()
+		t.AddLine("ID", product.ID)
+		t.AddLine("Title", product.Title)
+		t.Print()
+
+		fmt.Println("Inventories")
+
+		for _, v := range product.Variants {
+			t := tabby.New()
+			t.AddLine("Variant ID", v.ID)
+			t.AddLine("Variant Title", v.Title)
+			t.AddLine("SKU", v.SKU)
+			t.AddLine("Barcode", v.Barcode)
+			t.Print()
+
+			t = tabby.New()
+			t.AddHeader("Location", "Unavailable", "Committed", "Available", "On Hand")
+			for _, level := range v.InventoryLevels {
+				unavailable := level.OnHand - level.Available - level.Committed
+				t.AddLine(level.Location, unavailable, level.Committed, level.Available, level.OnHand)
+			}
+			t.Print()
+			fmt.Print("\n")
+		}
+
+		cmd.PrintSeparator()
+	}
+}
+
 func toProductGID(id string) string {
 	if strings.HasPrefix(id, "gid://") {
 		return id
@@ -186,10 +220,9 @@ func deleteProducts(c *cli.Context) error {
 	return nil
 }
 
-func listProducts(c *cli.Context) error {
+func parseProductArgs(c *cli.Context) ([]int64, []string, error) {
 	var ids []int64
 	var skus []string
-	var fields []string
 
 	for i := 0; i < c.NArg(); i++ {
 		arg := c.Args().Get(i)
@@ -197,7 +230,7 @@ func listProducts(c *cli.Context) error {
 		if strings.HasPrefix(strings.ToLower(arg), "sku:") {
 			sku := arg[4:]
 			if len(sku) == 0 {
-				return fmt.Errorf("SKU value missing after 'sku:'")
+				return nil, nil, fmt.Errorf("SKU value missing after 'sku:'")
 			}
 			skus = append(skus, sku)
 			continue
@@ -205,10 +238,21 @@ func listProducts(c *cli.Context) error {
 
 		id, err := cmd.ParseIntAt(c, i)
 		if err != nil {
-			return fmt.Errorf("Argument '%s' invalid: must be a product id or 'sku:VALUE'", arg)
+			return nil, nil, fmt.Errorf("Argument '%s' invalid: must be a product id or 'sku:VALUE'", arg)
 		}
 		ids = append(ids, id)
 	}
+
+	return ids, skus, nil
+}
+
+func listProducts(c *cli.Context) error {
+	ids, skus, err := parseProductArgs(c)
+	if err != nil {
+		return err
+	}
+
+	var fields []string
 
 	if len(c.String("fields")) > 0 {
 		fields = strings.Split(c.String("fields"), ",")
@@ -225,6 +269,48 @@ func listProducts(c *cli.Context) error {
 		PrintJSONL(products)
 	} else {
 		PrintFormatted(products, fields)
+	}
+
+	return nil
+}
+
+func inventoryProducts(c *cli.Context) error {
+	ids, skus, err := parseProductArgs(c)
+	if err != nil {
+		return err
+	}
+
+	if len(ids) == 0 && len(skus) == 0 {
+		return fmt.Errorf("No product IDs or 'sku:VALUE' arguments given")
+	}
+
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"version": c.String("api-version")}
+
+	// Resolve sku: arguments to product IDs first; the inventory query is per product.
+	if len(skus) > 0 {
+		products, err := gql.FetchProducts(shop, token, nil, skus, "", 250, options)
+		if err != nil {
+			return err
+		}
+		for _, p := range products {
+			ids = append(ids, p.ID)
+		}
+	}
+
+	var result []gql.Product
+	for _, id := range ids {
+		product, err := gql.FetchProductInventory(shop, token, id, options)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error fetching inventory for product %d: %s\n", id, err)
+			continue
+		}
+		result = append(result, *product)
+	}
+
+	if len(result) > 0 {
+		PrintInventory(result)
 	}
 
 	return nil
@@ -283,6 +369,14 @@ func init() {
 				ArgsUsage: "[ID|sku:VALUE [ID|sku:VALUE ...]]",
 				Flags:     append(cmd.Flags, productFlags...),
 				Action:    listProducts,
+			},
+			{
+				Name:      "inventory",
+				Aliases:   []string{"inv"},
+				Usage:     "List per-location inventory quantities for the given products",
+				ArgsUsage: "[ID|sku:VALUE [ID|sku:VALUE ...]]",
+				Flags:     append(cmd.Flags, apiVersionFlag),
+				Action:    inventoryProducts,
 			},
 			{
 				Name:        "delete",
