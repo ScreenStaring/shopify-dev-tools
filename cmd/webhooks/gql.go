@@ -99,16 +99,16 @@ mutation webhookSubscriptionUpdate($id: ID!, $webhookSubscription: WebhookSubscr
 `
 
 type Webhook struct {
-	ID         int64    `json:"id"`
-	GID        string   `json:"-"`
-	Topic      string   `json:"topic"`
-	Endpoint   string   `json:"endpoint"`
-	Format     string   `json:"format"`
+	ID                  int64    `json:"id"`
+	GID                 string   `json:"-"`
+	Topic               string   `json:"topic"`
+	Endpoint            string   `json:"endpoint"`
+	Format              string   `json:"format"`
 	Fields              []string `json:"fields"`
 	MetafieldNamespaces []string `json:"metafieldNamespaces"`
 	ApiVersion          string   `json:"apiVersion"`
-	CreatedAt  string   `json:"createdAt"`
-	UpdatedAt  string   `json:"updatedAt"`
+	CreatedAt           string   `json:"createdAt"`
+	UpdatedAt           string   `json:"updatedAt"`
 }
 
 type endpointJSON struct {
@@ -120,12 +120,12 @@ type endpointJSON struct {
 }
 
 type webhookJSON struct {
-	ID               string       `json:"id"`
-	LegacyResourceId int64        `json:"legacyResourceId,string"`
-	Topic            string       `json:"topic"`
-	Format           string       `json:"format"`
-	IncludeFields       []string     `json:"includeFields"`
-	MetafieldNamespaces []string     `json:"metafieldNamespaces"`
+	ID                  string   `json:"id"`
+	LegacyResourceId    int64    `json:"legacyResourceId,string"`
+	Topic               string   `json:"topic"`
+	Format              string   `json:"format"`
+	IncludeFields       []string `json:"includeFields"`
+	MetafieldNamespaces []string `json:"metafieldNamespaces"`
 	ApiVersion          struct {
 		Handle string `json:"handle"`
 	} `json:"apiVersion"`
@@ -205,16 +205,16 @@ func listWebhooks(shop, token string, topics []string, options map[string]interf
 	for _, edge := range response.Data.WebhookSubscriptions.Edges {
 		n := edge.Node
 		result = append(result, Webhook{
-			ID:         n.LegacyResourceId,
-			GID:        n.ID,
-			Topic:      n.Topic,
-			Endpoint:   endpointAddress(n.Endpoint),
-			Format:     n.Format,
+			ID:                  n.LegacyResourceId,
+			GID:                 n.ID,
+			Topic:               n.Topic,
+			Endpoint:            endpointAddress(n.Endpoint),
+			Format:              n.Format,
 			Fields:              n.IncludeFields,
 			MetafieldNamespaces: n.MetafieldNamespaces,
 			ApiVersion:          n.ApiVersion.Handle,
-			CreatedAt:  n.CreatedAt,
-			UpdatedAt:  n.UpdatedAt,
+			CreatedAt:           n.CreatedAt,
+			UpdatedAt:           n.UpdatedAt,
 		})
 	}
 

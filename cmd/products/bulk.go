@@ -127,7 +127,7 @@ func importProducts(c *cli.Context) error {
 	csvFile := c.Args().First()
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{}
 
 	locations, err := gql.FetchLocations(shop, token, options)
 	if err != nil {
@@ -235,7 +235,7 @@ func importStatus(c *cli.Context) error {
 
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{}
 
 	result, err := gql.FetchBulkOperationStatus(shop, token, operationID, options)
 	if err != nil {
@@ -291,7 +291,7 @@ func cancelBulkOperation(c *cli.Context) error {
 
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{}
 
 	id, status, err := gql.CancelBulkOperation(shop, token, operationID, options)
 	if err != nil {

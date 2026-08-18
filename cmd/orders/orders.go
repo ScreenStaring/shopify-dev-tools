@@ -160,7 +160,7 @@ func listAction(c *cli.Context) error {
 	}
 
 	shop := c.String("shop")
-	orders, err := listOrders(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, skus, status, c.Int("limit"), sortKey, c.String("api-version"))
+	orders, err := listOrders(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, skus, status, c.Int("limit"), sortKey)
 	if err != nil {
 		return err
 	}
@@ -358,6 +358,8 @@ func printFulfillmentLineItems(lines []LineItem) {
 }
 
 func init() {
+	apiVersionFlag := cmd.APIVersionFlag
+
 	ordersFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name:    "status",
@@ -374,11 +376,7 @@ func init() {
 			Name:  "sort",
 			Usage: "GQL sort enum value, lowercase accepted",
 		},
-		&cli.StringFlag{
-			Name:    "version",
-			Aliases: []string{"api-version"},
-			Usage:   "API version to use; default is a versionless call",
-		},
+		apiVersionFlag,
 	}
 
 	Cmd = cli.Command{
@@ -397,7 +395,7 @@ func init() {
 						Aliases:   []string{"l"},
 						Usage:     "List fulfillment orders for the given order IDs",
 						ArgsUsage: "[ORDER ID [ORDER ID ...]]",
-						Flags:     cmd.Flags,
+						Flags:     append(cmd.Flags, apiVersionFlag),
 						Action:    fulfillmentOrdersAction,
 					},
 				},
@@ -412,14 +410,14 @@ func init() {
 						Aliases:   []string{"l"},
 						Usage:     "List fulfillments for the given order IDs",
 						ArgsUsage: "[ORDER ID [ORDER ID ...]]",
-						Flags:     cmd.Flags,
+						Flags:     append(cmd.Flags, apiVersionFlag),
 						Action:    fulfillmentsAction,
 					},
 					{
 						Name:    "delivered",
 						Aliases: []string{"d"},
 						Usage:   "Create a delivered fulfillment event",
-						Flags: append(cmd.Flags, &cli.StringFlag{
+						Flags: append(cmd.Flags, apiVersionFlag, &cli.StringFlag{
 							Name:    "date",
 							Aliases: []string{"d"},
 							Usage:   "Date/time the delivery happened (RFC3339 format), defaults to now",
@@ -437,21 +435,21 @@ func init() {
 						Name:    "ls",
 						Aliases: []string{"l"},
 						Usage:   "List an order's attributes",
-						Flags:   cmd.Flags,
+						Flags:   append(cmd.Flags, apiVersionFlag),
 						Action:  attributesAction,
 					},
 					{
 						Name:    "set",
 						Aliases: []string{"s"},
 						Usage:   "Set an order attribute: ID KEY VALUE",
-						Flags:   cmd.Flags,
+						Flags:   append(cmd.Flags, apiVersionFlag),
 						Action:  setAttributeAction,
 					},
 					{
 						Name:    "delete",
 						Aliases: []string{"del", "rm", "d"},
 						Usage:   "Delete an order attribute: ID KEY",
-						Flags:   cmd.Flags,
+						Flags:   append(cmd.Flags, apiVersionFlag),
 						Action:  deleteAttributeAction,
 					},
 				},

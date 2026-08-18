@@ -320,6 +320,8 @@ func listCharges(c *cli.Context) error {
 }
 
 func init() {
+	apiVersionFlag := cmd.APIVersionFlag
+
 	listFlags := []cli.Flag{
 		&cli.BoolFlag{
 			Name:    "jsonl",
@@ -368,7 +370,7 @@ func init() {
 				Aliases:   []string{"l"},
 				Usage:     "List the shop's charges or the charges given by the specified IDs (bare ids are one time charges unless -r given)",
 				ArgsUsage: "[ID [ID ...]]",
-				Flags:     append(cmd.Flags, listFlags...),
+				Flags:     append(cmd.Flags, append(listFlags, apiVersionFlag)...),
 				Action:    listCharges,
 			},
 			{
@@ -376,7 +378,7 @@ func init() {
 				Aliases:   []string{"c"},
 				Usage:     "Create a charge (one-time by default; use -i to create a recurring charge)",
 				ArgsUsage: "NAME PRICE RETURN-URL",
-				Flags:     append(cmd.Flags, createFlags...),
+				Flags:     append(cmd.Flags, append(createFlags, apiVersionFlag)...),
 				Action:    createCharge,
 			},
 			{
@@ -389,6 +391,7 @@ func init() {
 						Name:  "prorate",
 						Usage: "Issue prorated credits for the unused portion of the subscription",
 					},
+					apiVersionFlag,
 				),
 				Action: cancelCharge,
 			},

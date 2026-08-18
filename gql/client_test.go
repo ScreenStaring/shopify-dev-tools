@@ -33,3 +33,28 @@ func TestContainsMutation(t *testing.T) {
 		t.Error("mutation should be detected")
 	}
 }
+
+func TestNewClientDefaultAPIVersion(t *testing.T) {
+	old := DefaultAPIVersion
+	defer func() { DefaultAPIVersion = old }()
+
+	// explicit option wins
+	client := NewClient("test", "token", map[string]interface{}{"version": "2026-07"})
+	if !strings.HasSuffix(client.endpoint, "/admin/api/2026-07/graphql.json") {
+		t.Errorf("explicit version not used: %s", client.endpoint)
+	}
+
+	// falls back to DefaultAPIVersion
+	DefaultAPIVersion = "2026-04"
+	client = NewClient("test", "token")
+	if !strings.HasSuffix(client.endpoint, "/admin/api/2026-04/graphql.json") {
+		t.Errorf("DefaultAPIVersion not applied: %s", client.endpoint)
+	}
+
+	// versionless when neither set
+	DefaultAPIVersion = ""
+	client = NewClient("test", "token")
+	if !strings.HasSuffix(client.endpoint, "/admin/api/graphql.json") {
+		t.Errorf("expected versionless endpoint: %s", client.endpoint)
+	}
+}

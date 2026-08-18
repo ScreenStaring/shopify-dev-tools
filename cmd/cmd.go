@@ -18,10 +18,19 @@ import (
 var Flags []cli.Flag
 var accessTokenCommand = regexp.MustCompile(`\A\s*<\s*(.+)\z`)
 
+// APIVersionFlag is the shared --api-version flag. Its Destination writes the
+// process-wide gql.DefaultAPIVersion, so clients pick it up without callers
+// threading the version through every function.
+var APIVersionFlag = &cli.StringFlag{
+	Name:        "api-version",
+	Usage:       "API version to use; default is a versionless call",
+	Destination: &gql.DefaultAPIVersion,
+}
+
 func NewGraphQLClient(c *cli.Context) *gql.Client {
 	shop := c.String("shop")
 	token := LookupAccessToken(shop, c.String("access-token"))
-	return gql.NewClient(shop, token, map[string]interface{}{"version": c.String("api-version")})
+	return gql.NewClient(shop, token)
 }
 
 func ParseIntAt(c *cli.Context, pos int) (int64, error) {

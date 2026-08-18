@@ -62,6 +62,8 @@ func printCollections(collections []gql.Collection) {
 }
 
 func init() {
+	apiVersionFlag := cmd.APIVersionFlag
+
 	listFlags := []cli.Flag{
 		&cli.IntFlag{
 			Name:    "limit",
@@ -103,7 +105,7 @@ func init() {
 				Aliases:   []string{"l"},
 				ArgsUsage: "[ID]",
 				Usage:     "List the shop's collections or a collection given by ID",
-				Flags:     append(cmd.Flags, listFlags...),
+				Flags:     append(cmd.Flags, append(listFlags, apiVersionFlag)...),
 				Action:    listAction,
 			},
 		},

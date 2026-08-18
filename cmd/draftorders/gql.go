@@ -150,8 +150,8 @@ func buildQuery(ids []int64, skus []string, status string) string {
 	return "status:" + status
 }
 
-func listDraftOrders(shop, token string, ids []int64, skus []string, status string, limit int, sortKey, apiVersion string) ([]DraftOrder, error) {
-	client := gql.NewClient(shop, token, map[string]interface{}{"version": apiVersion})
+func listDraftOrders(shop, token string, ids []int64, skus []string, status string, limit int, sortKey string) ([]DraftOrder, error) {
+	client := gql.NewClient(shop, token)
 
 	query := buildQuery(ids, skus, status)
 

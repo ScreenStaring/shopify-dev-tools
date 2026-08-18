@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/urfave/cli/v2"
 	"github.com/cheynewallace/tabby"
+	"github.com/urfave/cli/v2"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
 )
@@ -23,7 +23,7 @@ func format(c *cli.Context) string {
 	return "JSON"
 }
 
-func printFormatted(webhooks []Webhook)  {
+func printFormatted(webhooks []Webhook) {
 	t := tabby.New()
 	for _, webhook := range webhooks {
 		t.AddLine("Id", webhook.ID)
@@ -40,7 +40,7 @@ func printFormatted(webhooks []Webhook)  {
 	}
 }
 
-func printJSONL(webhooks []Webhook)  {
+func printJSONL(webhooks []Webhook) {
 	for _, webhook := range webhooks {
 		line, err := json.Marshal(webhook)
 		if err != nil {
@@ -79,7 +79,7 @@ func parseMetafields(raw []string) ([]map[string]string, error) {
 func createAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version"), "verbose": c.Bool("verbose")}
+	options := map[string]interface{}{"verbose": c.Bool("verbose")}
 
 	metafields, err := parseMetafields(c.StringSlice("metafields"))
 	if err != nil {
@@ -122,7 +122,7 @@ func createAction(c *cli.Context) error {
 func deleteAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version"), "verbose": c.Bool("verbose")}
+	options := map[string]interface{}{"verbose": c.Bool("verbose")}
 
 	var webhooks []Webhook
 
@@ -173,7 +173,7 @@ func updateAction(c *cli.Context) error {
 
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version"), "verbose": c.Bool("verbose")}
+	options := map[string]interface{}{"verbose": c.Bool("verbose")}
 	gid := webhookGID(c.Args().Get(0))
 
 	input := map[string]interface{}{}
@@ -213,7 +213,7 @@ func updateAction(c *cli.Context) error {
 func listAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{}
 
 	if c.IsSet("address") {
 		options["address"] = c.String("address")
@@ -239,19 +239,16 @@ func listAction(c *cli.Context) error {
 }
 
 func init() {
-	apiVersionFlag := &cli.StringFlag{
-		Name:  "api-version",
-		Usage: "API version to use; default is a versionless call",
-	}
+	apiVersionFlag := cmd.APIVersionFlag
 
 	createFlags := []cli.Flag{
 		&cli.StringFlag{
-			Name: "address",
+			Name:     "address",
 			Required: true,
-			Aliases: []string{"a"},
+			Aliases:  []string{"a"},
 		},
 		&cli.StringSliceFlag{
-			Name: "fields",
+			Name:    "fields",
 			Aliases: []string{"f"},
 		},
 		&cli.StringSliceFlag{
@@ -270,24 +267,24 @@ func init() {
 			Usage:   "Error if a webhook already exists for this topic and address",
 		},
 		&cli.BoolFlag{
-			Name: "xml",
+			Name:  "xml",
 			Value: false,
 		},
 		&cli.StringFlag{
-			Name: "topic",
+			Name:     "topic",
 			Required: true,
-			Aliases: []string{"t"},
+			Aliases:  []string{"t"},
 		},
 		apiVersionFlag,
 	}
 
 	updateFlags := []cli.Flag{
 		&cli.StringFlag{
-			Name: "address",
+			Name:    "address",
 			Aliases: []string{"a"},
 		},
 		&cli.StringSliceFlag{
-			Name: "fields",
+			Name:    "fields",
 			Aliases: []string{"f"},
 		},
 		&cli.StringSliceFlag{
@@ -301,7 +298,7 @@ func init() {
 			Usage:   "Metafields to include in the webhook in namespace.key format",
 		},
 		&cli.StringFlag{
-			Name: "topic",
+			Name:    "topic",
 			Aliases: []string{"t"},
 		},
 		apiVersionFlag,
@@ -309,7 +306,7 @@ func init() {
 
 	deleteFlags := []cli.Flag{
 		&cli.BoolFlag{
-			Name: "all",
+			Name:    "all",
 			Aliases: []string{"a"},
 		},
 		apiVersionFlag,
@@ -335,38 +332,38 @@ func init() {
 	}
 
 	Cmd = cli.Command{
-		Name:  "webhook",
+		Name:    "webhook",
 		Aliases: []string{"webhooks", "hooks", "w"},
 		Usage:   "Webhook utilities",
 		Subcommands: []*cli.Command{
 			{
-				Name: "create",
+				Name:    "create",
 				Aliases: []string{"c"},
-				Flags: append(cmd.Flags, createFlags...),
-				Action: createAction,
-				Usage: "Create a webhook for the given shop",
+				Flags:   append(cmd.Flags, createFlags...),
+				Action:  createAction,
+				Usage:   "Create a webhook for the given shop",
 			},
 			{
-				Name: "delete",
+				Name:      "delete",
 				ArgsUsage: "[topic or webhook ID ...]",
-				Aliases: []string{"del", "rm", "d"},
-				Flags: append(cmd.Flags, deleteFlags...),
-				Action: deleteAction,
-				Usage: "Delete the given webhook",
+				Aliases:   []string{"del", "rm", "d"},
+				Flags:     append(cmd.Flags, deleteFlags...),
+				Action:    deleteAction,
+				Usage:     "Delete the given webhook",
 			},
 			{
-				Name: "update",
+				Name:      "update",
 				ArgsUsage: "[webhook ID]",
-				Aliases: []string{"u"},
-				Flags: append(cmd.Flags, updateFlags...),
-				Action: updateAction,
-				Usage: "Update the given webhook",
+				Aliases:   []string{"u"},
+				Flags:     append(cmd.Flags, updateFlags...),
+				Action:    updateAction,
+				Usage:     "Update the given webhook",
 			},
 			{
-				Name: "ls",
-				Flags: append(cmd.Flags, listFlags...),
+				Name:   "ls",
+				Flags:  append(cmd.Flags, listFlags...),
 				Action: listAction,
-				Usage: "List the shop's webhooks",
+				Usage:  "List the shop's webhooks",
 			},
 		},
 	}

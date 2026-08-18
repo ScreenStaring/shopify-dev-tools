@@ -58,7 +58,6 @@ func parseVariables(args []string) (map[string]interface{}, error) {
 func queryAction(c *cli.Context) error {
 	shop := c.String("shop")
 	options := map[string]interface{}{
-		"version": c.String("api-version"),
 		"extras":  c.Bool("extras"),
 		"verbose": c.Bool("verbose"),
 	}
@@ -89,11 +88,7 @@ func queryAction(c *cli.Context) error {
 
 func init() {
 	flags := []cli.Flag{
-		&cli.StringFlag{
-			Name:    "version",
-			Aliases: []string{"a", "api-version"},
-			Usage:   "API version to use; default is a versionless call",
-		},
+		cmd.APIVersionFlag,
 		&cli.StringSliceFlag{
 			Name:    "variable",
 			Aliases: []string{"v"},

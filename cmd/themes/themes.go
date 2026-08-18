@@ -25,12 +25,12 @@ func destinationPath(source, destination string) string {
 	const themePathSeperator = "/"
 
 	if strings.Index(destination, ".") == -1 {
-		if(destination[len(destination) - 1] != themePathSeperator[0]) {
+		if destination[len(destination)-1] != themePathSeperator[0] {
 			destination = destination + themePathSeperator
 		}
 
 		path := strings.Split(source, string(os.PathSeparator))
-		destination = destination + path[len(path) - 1]
+		destination = destination + path[len(path)-1]
 	}
 
 	return destination
@@ -74,7 +74,7 @@ func uploadDirectory(client *gql.Client, themeID int64, source, destination stri
 		return fmt.Errorf("Failed to read directory '%s': %s", source, err)
 	}
 
-	for _, file := range(files) {
+	for _, file := range files {
 		if !file.IsDir() {
 			path := []string{source, file.Name()}
 
@@ -115,7 +115,6 @@ func copyAction(c *cli.Context) error {
 		return fmt.Errorf("You must supply a source and destination")
 	}
 
-
 	themeID, err := cmd.ParseIntAt(c, 0)
 	if err != nil {
 		return fmt.Errorf("Theme id '%s' invalid: must be an int", c.Args().Get(0))
@@ -124,10 +123,10 @@ func copyAction(c *cli.Context) error {
 	client := cmd.NewGraphQLClient(c)
 
 	args := c.Args().Slice()
-	sources := args[1:len(args) - 1]
-	destination := args[len(args) - 1]
+	sources := args[1 : len(args)-1]
+	destination := args[len(args)-1]
 
-	for _, source := range(sources) {
+	for _, source := range sources {
 		if isDir(source) {
 			err = uploadDirectory(client, themeID, source, destination)
 		} else {
@@ -143,24 +142,26 @@ func copyAction(c *cli.Context) error {
 }
 
 func init() {
+	apiVersionFlag := cmd.APIVersionFlag
+
 	Cmd = cli.Command{
-		Name:  "themes",
+		Name:    "themes",
 		Aliases: []string{"theme", "t"},
 		Usage:   "Theme utilities",
 		Subcommands: []*cli.Command{
 			{
 				Name:   "ls",
 				Usage:  "List the shop's themes",
-				Flags:  cmd.Flags,
+				Flags:  append(cmd.Flags, apiVersionFlag),
 				Action: listAction,
 			},
 			{
-				Name: "cp",
-				Aliases: []string{"copy"},
-				Usage:   "Copy files to a theme",
+				Name:      "cp",
+				Aliases:   []string{"copy"},
+				Usage:     "Copy files to a theme",
 				ArgsUsage: "themeid source [...] destination",
-				Flags: cmd.Flags,
-				Action: copyAction,
+				Flags:     append(cmd.Flags, apiVersionFlag),
+				Action:    copyAction,
 			},
 		},
 	}

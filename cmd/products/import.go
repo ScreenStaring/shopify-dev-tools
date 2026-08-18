@@ -22,7 +22,7 @@ func syncImportProducts(c *cli.Context) error {
 	csvFile := c.Args().First()
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{}
 	parallel := c.Int("parallel")
 	jsonOutput := c.Bool("json")
 
@@ -124,7 +124,7 @@ func syncImportProducts(c *cli.Context) error {
 
 		fmt.Println(string(b))
 	} else {
-		fmt.Fprintln(out, "Done!\n")
+		fmt.Fprintln(out, "Done!")
 
 		t := tabby.New()
 		t.AddHeader("Row", "Product", "Status")

@@ -28,7 +28,7 @@ func listAction(c *cli.Context) error {
 	}
 
 	shop := c.String("shop")
-	orders, err := listDraftOrders(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, skus, status, c.Int("limit"), sortKey, c.String("api-version"))
+	orders, err := listDraftOrders(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, skus, status, c.Int("limit"), sortKey)
 	if err != nil {
 		return err
 	}
@@ -135,11 +135,7 @@ func init() {
 			Name:  "sort",
 			Usage: "GQL sort enum value, lowercase accepted",
 		},
-		&cli.StringFlag{
-			Name:    "version",
-			Aliases: []string{"api-version"},
-			Usage:   "API version to use; default is a versionless call",
-		},
+		cmd.APIVersionFlag,
 		&cli.BoolFlag{
 			Name:    "jsonl",
 			Aliases: []string{"j"},

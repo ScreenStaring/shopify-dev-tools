@@ -122,6 +122,8 @@ func formatValidations(validations []gql.MetaobjectFieldValidation) string {
 }
 
 func init() {
+	apiVersionFlag := cmd.APIVersionFlag
+
 	limitFlag := &cli.IntFlag{
 		Name:    "limit",
 		Aliases: []string{"l"},
@@ -175,7 +177,7 @@ func init() {
 				Aliases:   []string{"l"},
 				ArgsUsage: "TYPE",
 				Usage:     "List metaobjects of the given type",
-				Flags:     append(cmd.Flags, listFlags...),
+				Flags:     append(cmd.Flags, append(listFlags, apiVersionFlag)...),
 				Action:    listAction,
 			},
 			{
@@ -183,7 +185,7 @@ func init() {
 				Aliases:   []string{"x"},
 				ArgsUsage: "TYPE",
 				Usage:     "Export metaobjects of the given type to CSV or JSONL",
-				Flags:     append(cmd.Flags, exportFlags...),
+				Flags:     append(cmd.Flags, append(exportFlags, apiVersionFlag)...),
 				Action:    exportAction,
 			},
 			{
@@ -196,7 +198,7 @@ func init() {
 						Aliases:   []string{"l"},
 						ArgsUsage: "[ID ...]",
 						Usage:     "List metaobject definitions or the definitions given by ID",
-						Flags:     append(cmd.Flags, defListFlags...),
+						Flags:     append(cmd.Flags, append(defListFlags, apiVersionFlag)...),
 						Action:    defListAction,
 					},
 				},

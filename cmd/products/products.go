@@ -199,7 +199,7 @@ func deleteProducts(c *cli.Context) error {
 
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{}
 
 	for _, id := range ids {
 		gid := toProductGID(id)
@@ -214,7 +214,7 @@ func deleteProducts(c *cli.Context) error {
 			continue
 		}
 
-		fmt.Println("Deleted %s\n", result.DeletedProductID)
+		fmt.Printf("Deleted %s\n", result.DeletedProductID)
 	}
 
 	return nil
@@ -233,7 +233,7 @@ func listProducts(c *cli.Context) error {
 	}
 
 	shop := c.String("shop")
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{}
 	products, err := gql.FetchProducts(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, skus, c.String("status"), int(c.Int64("limit")), options)
 	if err != nil {
 		return err
@@ -260,7 +260,7 @@ func inventoryProducts(c *cli.Context) error {
 
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{}
 
 	// Resolve sku: arguments to product IDs first; the inventory query is per product.
 	if len(skus) > 0 {
@@ -291,10 +291,7 @@ func inventoryProducts(c *cli.Context) error {
 }
 
 func init() {
-	apiVersionFlag := &cli.StringFlag{
-		Name:  "api-version",
-		Usage: "API version to use; default is a versionless call",
-	}
+	apiVersionFlag := cmd.APIVersionFlag
 
 	productFlags := []cli.Flag{
 		// &cli.StringSliceFlag{
@@ -393,6 +390,7 @@ func init() {
 						Aliases: []string{"i"},
 						Usage:   "Export product and variant IDs, and other identifiers, to a CSV or JSON file",
 						Flags: append(cmd.Flags,
+							apiVersionFlag,
 							&cli.StringFlag{
 								Name:    "status",
 								Aliases: []string{"s"},
@@ -436,7 +434,7 @@ func init() {
 						Aliases:   []string{"i"},
 						Usage:     "Import a Shopify CSV file",
 						ArgsUsage: "products.csv",
-						Flags:     append(cmd.Flags, identifyByFlag),
+						Flags:     append(cmd.Flags, identifyByFlag, apiVersionFlag),
 						Action:    importProducts,
 					},
 					{
@@ -444,7 +442,7 @@ func init() {
 						Aliases:   []string{"s"},
 						Usage:     "Check the status of a bulk import operation",
 						ArgsUsage: "<operation-id>",
-						Flags:     cmd.Flags,
+						Flags:     append(cmd.Flags, apiVersionFlag),
 						Action:    importStatus,
 					},
 					{
@@ -452,7 +450,7 @@ func init() {
 						Aliases:   []string{"c"},
 						Usage:     "Cancel a running bulk import operation",
 						ArgsUsage: "<operation-id>",
-						Flags:     cmd.Flags,
+						Flags:     append(cmd.Flags, apiVersionFlag),
 						Action:    cancelBulkOperation,
 					},
 				},

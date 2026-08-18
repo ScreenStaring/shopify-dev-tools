@@ -104,7 +104,7 @@ func init() {
 				Usage:       "Look up the variants and products for the given inventory item IDs",
 				ArgsUsage:   "[ID [ID ...]]",
 				Description: "If IDs are not given they're read from stdin one per line",
-				Flags:       append(cmd.Flags, itemsFlags...),
+				Flags:       append(cmd.Flags, append(itemsFlags, cmd.APIVersionFlag)...),
 				Action:      items,
 			},
 			{
@@ -112,10 +112,7 @@ func init() {
 				Aliases: []string{"x"},
 				Usage:   "Export inventory quantities by variant and location to a CSV file",
 				Flags: append(cmd.Flags,
-					&cli.StringFlag{
-						Name:  "api-version",
-						Usage: "API version to use; default is a versionless call",
-					},
+					cmd.APIVersionFlag,
 					&cli.StringFlag{
 						Name:    "identify-by",
 						Aliases: []string{"i"},

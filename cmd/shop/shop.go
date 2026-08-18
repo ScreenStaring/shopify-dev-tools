@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/urfave/cli/v2"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
 	"github.com/cheynewallace/tabby"
+	"github.com/urfave/cli/v2"
 )
 
 var Cmd cli.Command
@@ -74,24 +74,26 @@ func infoAction(c *cli.Context) error {
 }
 
 func init() {
+	apiVersionFlag := cmd.APIVersionFlag
+
 	Cmd = cli.Command{
-		Name:  "shop",
+		Name:    "shop",
 		Aliases: []string{"s"},
 		Usage:   "Information about the given shop",
 		Subcommands: []*cli.Command{
 			{
-				Name: "access",
+				Name:    "access",
 				Aliases: []string{"a"},
 				Usage:   "List access scopes granted to the shop's token",
-				Flags: cmd.Flags,
-				Action: accessAction,
+				Flags:   append(cmd.Flags, apiVersionFlag),
+				Action:  accessAction,
 			},
 			{
-				Name: "info",
+				Name:    "info",
 				Aliases: []string{"i"},
 				Usage:   "Information about the shop",
-				Flags: cmd.Flags,
-				Action: infoAction,
+				Flags:   append(cmd.Flags, apiVersionFlag),
+				Action:  infoAction,
 			},
 		},
 	}

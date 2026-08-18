@@ -32,7 +32,7 @@ func IDs(c *cli.Context) error {
 		exportFormat = "JSON"
 	}
 
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{}
 
 	total, err := gql.FetchProductCount(shop, token, status, options)
 	if err != nil {

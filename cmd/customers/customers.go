@@ -117,6 +117,8 @@ func printSegments(segments []gql.Segment) {
 }
 
 func init() {
+	apiVersionFlag := cmd.APIVersionFlag
+
 	listFlags := []cli.Flag{
 		&cli.IntFlag{
 			Name:    "limit",
@@ -146,7 +148,7 @@ func init() {
 				Aliases:   []string{"l"},
 				ArgsUsage: "[ID]",
 				Usage:     "List the shop's customers or a customer given by ID",
-				Flags:     append(cmd.Flags, listFlags...),
+				Flags:     append(cmd.Flags, append(listFlags, apiVersionFlag)...),
 				Action:    listAction,
 			},
 			{
@@ -159,7 +161,7 @@ func init() {
 						Aliases:   []string{"l"},
 						ArgsUsage: "[ID]",
 						Usage:     "List the shop's segments or a segment given by ID",
-						Flags:     append(cmd.Flags, segmentsFlags...),
+						Flags:     append(cmd.Flags, append(segmentsFlags, apiVersionFlag)...),
 						Action:    segmentsListAction,
 					},
 					{
@@ -167,7 +169,7 @@ func init() {
 						Aliases:   []string{"del", "rm", "d"},
 						ArgsUsage: "ID",
 						Usage:     "Delete the given segment",
-						Flags:     cmd.Flags,
+						Flags:     append(cmd.Flags, apiVersionFlag),
 						Action:    segmentsDeleteAction,
 					},
 				},

@@ -411,11 +411,7 @@ func init() {
 		},
 	}
 
-	apiVersionFlag := &cli.StringFlag{
-		Name:    "api-version",
-		Aliases: []string{"a"},
-		Usage:   "API version to use; default is a versionless call",
-	}
+	apiVersionFlag := cmd.APIVersionFlag
 
 	metafieldFlags := []cli.Flag{
 		&cli.StringFlag{
@@ -468,7 +464,7 @@ func init() {
 				Aliases:     []string{"d"},
 				ArgsUsage:   "GID@namespace.key [GID@namespace.key ...]",
 				Description: "If IDs are not given they're read from stdin one per line",
-				Flags:       cmd.Flags,
+				Flags:       append(cmd.Flags, apiVersionFlag),
 				Action:      deleteAction,
 				Usage:       "Delete one or more metafields",
 			},

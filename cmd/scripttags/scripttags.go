@@ -108,11 +108,7 @@ func printFormatted(tags []ScriptTag) {
 }
 
 func init() {
-	apiVersionFlag := &cli.StringFlag{
-		Name:    "api-version",
-		Aliases: []string{"a"},
-		Usage:   "API version to use; default is a versionless call",
-	}
+	apiVersionFlag := cmd.APIVersionFlag
 
 	Cmd = cli.Command{
 		Name:  "scripttags",

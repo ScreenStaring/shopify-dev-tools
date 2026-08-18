@@ -104,13 +104,13 @@ type ShopInfo struct {
 }
 
 type shopJSON struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	ShopOwnerName string `json:"shopOwnerName"`
-	Email         string `json:"email"`
-	ContactEmail  string `json:"contactEmail"`
-	CreatedAt     string `json:"createdAt"`
-	UpdatedAt     string `json:"updatedAt"`
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	ShopOwnerName   string `json:"shopOwnerName"`
+	Email           string `json:"email"`
+	ContactEmail    string `json:"contactEmail"`
+	CreatedAt       string `json:"createdAt"`
+	UpdatedAt       string `json:"updatedAt"`
 	MyshopifyDomain string `json:"myshopifyDomain"`
 	PrimaryDomain   struct {
 		Host string `json:"host"`

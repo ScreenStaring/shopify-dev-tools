@@ -24,6 +24,10 @@ type Client struct {
 // We omit the "/" after API for the case where there's no version.
 const endpoint = "https://%s.myshopify.com/admin/api%s/graphql.json"
 
+// DefaultAPIVersion is used when NewClient is called without a "version"
+// option. Set once per process (the CLI sets it from --api-version).
+var DefaultAPIVersion string
+
 func NewClient(shop, token string, options ...map[string]interface{}) *Client {
 	opts := map[string]interface{}{}
 	if len(options) > 0 {
@@ -31,6 +35,9 @@ func NewClient(shop, token string, options ...map[string]interface{}) *Client {
 	}
 
 	version, _ := opts["version"].(string)
+	if len(version) == 0 {
+		version = DefaultAPIVersion
+	}
 	if len(version) > 0 {
 		version = "/" + version
 	}

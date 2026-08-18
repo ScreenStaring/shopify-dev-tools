@@ -35,7 +35,7 @@ func readIdentifiers() ([]string, error) {
 func Inventory(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"version": c.String("api-version")}
+	options := map[string]interface{}{}
 	baseName := shopBaseName(shop)
 
 	identifyBy := c.String("identify-by")

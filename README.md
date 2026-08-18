@@ -506,7 +506,7 @@ Run a GraphQL query against the Admin API
        --api-password value        Shopify API password [$SHOPIFY_API_PASSWORD]
        --access-token value        Shopify access token for shop [$SHOPIFY_ACCESS_TOKEN, $SHOPIFY_API_TOKEN]
        --api-key value             Shopify API key to for shop [$SHOPIFY_API_KEY]
-       --version value, -a value, --api-version value  API version to use; default is a versionless call
+       --api-version value  API version to use; default is a versionless call
        --variable value, -v value  GraphQL variable in the format name=value; can be specified multiple times
        --extras, -x                Include extension information in the response (default: false)
        --help, -h                  show help (default: false)

@@ -88,6 +88,8 @@ func printLocations(locations []Location) {
 }
 
 func init() {
+	apiVersionFlag := cmd.APIVersionFlag
+
 	listFlags := []cli.Flag{
 		&cli.BoolFlag{
 			Name:    "jsonl",
@@ -106,7 +108,7 @@ func init() {
 				Aliases:   []string{"l"},
 				Usage:     "List the shop's locations or the locations given by the specified IDs",
 				ArgsUsage: "[ID [ID ...]]",
-				Flags:     append(cmd.Flags, listFlags...),
+				Flags:     append(cmd.Flags, append(listFlags, apiVersionFlag)...),
 				Action:    listLocations,
 			},
 		},
