@@ -1,3 +1,22 @@
+v0.1.0 2026-08-18
+--------------------
+- Moved remaining REST API calls to GraphQL
+- Removed `orders useragent` command as there's no GQL equivalent
+- Removed `charges` command-line options that don't work with GraphQL interface
+- Removed various command-line options that  don't work with GraphQL interface
+- Add command for listing locations
+- Add command for inventories
+- Add command to list fulfillment orders
+- Add command to list draft orders
+- Add command to get product inventory at all locations
+- Add --api-version argument to all command are remove other aliases
+- Add CRUD commands for order attributes
+- Add support for listing app metafields
+- Add SDT_READONLY environment variable to force read-only behavior
+- Add support for SKU lookup to various commands
+- Add support for importing product and variant metafields
+- Add option to output bulk import results in JSON
+
 v0.0.13 2026-07-10
 --------------------
 - Add collections command with title/page/type filter
