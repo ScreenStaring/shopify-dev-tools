@@ -18,18 +18,18 @@ The CLI interface uses the executable `sdt`:
        sdt [global options] command [command options] [arguments...]
 
     VERSION:
-       0.0.13
+       0.1.0
 
     COMMANDS:
        admin, a                     Open admin pages
        charges, c, ch               Do things with charges
        collections, col             Do things with collections
+       draftorders, do              Information about draft orders
        inventory, inv               Do things with inventory
        locations, loc               Do things with locations
        metafield, m, meta           Metafield utilities
        metaobjects, mo              Metaobject utilities
        orders, o                    Information about orders
-       draftorders, do              Information about draft orders
        products, p                  Do things with products
        graphql, gql                 Run a GraphQL query against the Admin API
        shop, s                      Information about the given shop
@@ -157,8 +157,6 @@ For more info see [Shopify's documentation](https://shopify.dev/docs/apps/build/
 
 ### Metafields
 
-Metafield utilities
-
     NAME:
        sdt metafield - Metafield utilities
 
@@ -179,6 +177,16 @@ Metafield utilities
     OPTIONS:
        --help, -h  show help (default: false)
 
+#### Exporting Metafields to JSON
+
+Use the `-j`/`--jsonl` option to export the given metafields to JSONL. For example, to export variant metafields for products with the given IDs and SKUs:
+
+```
+sdt metafields ls -j 123123 sku:LP-SMALL > metafields.jsonl
+```
+
+Note that SKUs must be prefixed with `sku:`
+
 #### Deleting Metafields in Bulk
 
 You can specify multiple metafields to delete on the command-line:
@@ -195,7 +203,7 @@ sdt metafields delete < list-of-ids.txt
 
 ### Charges
 
-Do things with charges
+Do things with app and onetime charges
 
     NAME:
        sdt charges - Do things with charges
@@ -232,7 +240,7 @@ Do things with collections
 
 ### Inventory
 
-Do things with inventory
+Do things with inventory and inventory items
 
     NAME:
        sdt inventory - Do things with inventory
@@ -241,8 +249,9 @@ Do things with inventory
        sdt inventory command [command options] [arguments...]
 
     COMMANDS:
-       items, i  Look up the variants and products for the given inventory item IDs
-       help, h   Shows a list of commands or help for one command
+       items, i     Look up the variants and products for the given inventory item IDs
+       export, x    Export inventory quantities by variant and location to a CSV file
+       help, h      Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
@@ -296,17 +305,19 @@ Information about orders
        sdt orders command [command options] [arguments...]
 
     COMMANDS:
-       fulfillments, f   Fulfillment commands for an order
-       attributes, attr  Do things with an order's attributes
-       ls                List the shop's orders or the orders matching the given IDs and/or 'sku:VALUE' arguments
-       help, h           Shows a list of commands or help for one command
+       fulfillmentorders, fo  Fulfillment order commands for an order
+       fulfillments, f        Fulfillment commands for an order
+       attributes, attr       Do things with an order's attributes
+       ls                     List the shop's orders or the orders matching the given IDs and/or 'sku:VALUE' arguments
+       help, h                Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
 
 #### Listing Orders
 
-`sdt orders ls` lists open orders by default. Use the `-s`/`--status` option to filter by status and the `--sort` option to change the sort order (lowercase GraphQL sort enum values are accepted). The maximum number of orders returned is 250, set with `-l`/`--limit`.
+`sdt orders ls` lists open orders by default. Use the `-s`/`--status` option to filter by status and the `--sort` option to change the sort order (lowercase GraphQL sort enum values are accepted).
+The maximum number of orders returned is 250, set with `-l`/`--limit`.
 
 Orders can be looked up by their IDs or by the SKU of an included line item:
 
@@ -324,7 +335,7 @@ This requires the ID of the fulfillment to mark as delivered.
 ##### 1. Find the ID of the fulfillment
 
 ```
-sdt orders fulfillments list --shop YOUR_SHOP ORDER_ID
+sdt orders fulfillments ls --shop YOUR_SHOP ORDER_ID
 ```
 
 Here `ORDER_ID` is the numeric order ID or the Shopify GID.
@@ -345,6 +356,27 @@ The fulfillment is now marked as delivered. If you want to add a message and/or 
 sdt orders fulfillments delivered --shop YOUR_SHOP -d '2026-02-14T02:30' FULFILLMENT_ID 'Your message goes here'
 ```
 
+### Draft Orders
+
+Information about draft orders
+
+    NAME:
+       sdt draftorders - Information about draft orders
+
+    USAGE:
+       sdt draftorders command [command options] [arguments...]
+
+    COMMANDS:
+       ls, l    List the shop's draft orders or the draft orders matching the given IDs and/or 'sku:VALUE' arguments
+       help, h  Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
+
+#### Listing Draft Orders
+
+`sdt draftorders ls` accepts the same arguments as [`orders ls`](#listing-orders).
+
 ### Products
 
 Do things with products
@@ -356,7 +388,7 @@ Do things with products
        sdt products command [command options] [arguments...]
 
     COMMANDS:
-       ls, l         List some of a shop's products or the products given by the specified IDs
+       ls, l         List some of a shop's products or the products matching the given IDs and/or 'sku:VALUE' arguments
        delete, d     Delete products by ID
        import, i     Import products synchronously from a Shopify CSV file
        export, e, x  Export product data
@@ -383,6 +415,18 @@ Use the `-i`/`--identify-by` option to specify the identifier.
 A good use of `import` over `bulk` is to seed your store for automated tests.
 
 To output the results of the bulk import in JSON use the `-j`/`--json` option.
+
+#### Metafields
+
+Products and variant metafields can be imported in bulk by using the following columns:
+
+- `Metafield Owner`: `Product` or `Variant`
+- `Metafield Type`: [Shopify metafield type](https://shopify.dev/docs/apps/build/metafields/list-of-data-types)
+- `Metafield Namespace`
+- `Metafield Key`
+- `Metafield Value`
+
+Multiple metafields can be provided by include additional rows underneath the initial product's row.
 
 #### Asynchronously Using the Bulk API
 
@@ -583,6 +627,22 @@ Webhooks utilities
 
 Shopify allows one to create multiple webhooks with the same topic and endpoint. You can avoid this by using the `webhook create`'s `-1` option. This will result in an error if the
 webhook you're creating exists for the given topic and endpoint.
+
+#### Deleting Webhooks
+
+`webhook delete` accepts one or more webhook IDs and/or topics. Topics can be given in `resource/action` or `RESOURCE_ACTION` format:
+
+```
+sdt webhook delete ORDERS_CREATE 1234567 products/update 8901234
+```
+
+This deletes every webhook matching the given topics, plus the webhooks with the given IDs.
+
+You can delete all of the shop's webhooks via the `--all` option:
+
+```
+sdt webhook delete --all
+```
 
 ## See Also
 
