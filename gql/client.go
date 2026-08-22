@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/cheynewallace/tabby"
 	"github.com/clbanning/mxj"
@@ -27,6 +29,13 @@ const endpoint = "https://%s.myshopify.com/admin/api%s/graphql.json"
 // DefaultAPIVersion is used when NewClient is called without a "version"
 // option. Set once per process (the CLI sets it from --api-version).
 var DefaultAPIVersion string
+
+const (
+	// maxAttempts is the total number of request attempts, the original plus retries.
+	maxAttempts = 3
+	// initialRetryDelay is the wait before the first retry; it doubles per attempt.
+	initialRetryDelay = 500 * time.Millisecond
+)
 
 func NewClient(shop, token string, options ...map[string]interface{}) *Client {
 	opts := map[string]interface{}{}
@@ -92,11 +101,38 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 		return result, fmt.Errorf("Failed to marshal GraphQL request body: %s", err)
 	}
 
+	// Retrying a mutation could apply it twice, so only queries are retried.
+	retryable := !containsMutation(gql)
+
 	client := http.Client{}
 
-	req, err := http.NewRequest("POST", c.endpoint, strings.NewReader(string(body)))
+	for attempt := 0; ; attempt++ {
+		result, retryAfter, err := c.roundTrip(client, body, gql)
+		if err == nil {
+			return result, nil
+		}
+		if !retryable || retryAfter < 0 || attempt >= maxAttempts-1 {
+			return result, err
+		}
+
+		delay := initialRetryDelay << attempt
+		if retryAfter > delay {
+			delay = retryAfter
+		}
+		fmt.Fprintf(os.Stderr, "GraphQL request to %s failed (%s); retrying in %s\n", c.endpoint, err, delay)
+		time.Sleep(delay)
+	}
+}
+
+// roundTrip performs one HTTP request and parses the response. On failure it
+// returns the suggested wait before retrying; a negative retryAfter means the
+// failure is not retryable and zero means fall back to the default backoff.
+func (c *Client) roundTrip(client http.Client, body, gql string) (mxj.Map, time.Duration, error) {
+	var result mxj.Map
+
+	req, err := http.NewRequest("POST", c.endpoint, strings.NewReader(body))
 	if err != nil {
-		return result, fmt.Errorf("Failed to make GraphQL request to %s: %s", c.endpoint, err)
+		return result, -1, fmt.Errorf("Failed to make GraphQL request to %s: %s", c.endpoint, err)
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -117,17 +153,27 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return result, fmt.Errorf("GraphQL request to %s failed: %s", c.endpoint, err)
+		// Transport-level failure (connection refused, timeout): retryable.
+		return result, 0, fmt.Errorf("GraphQL request to %s failed: %s", c.endpoint, err)
 	}
 
 	defer resp.Body.Close()
 	bytes, err := ioutil.ReadAll(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
+		var msg error
 		if len(bytes) > 0 {
-			return result, fmt.Errorf("query failed with HTTP response code %d: %s", resp.StatusCode, string(bytes))
+			msg = fmt.Errorf("query failed with HTTP response code %d: %s", resp.StatusCode, string(bytes))
+		} else {
+			msg = fmt.Errorf("query failed with HTTP response code %d", resp.StatusCode)
 		}
-		return result, fmt.Errorf("query failed with HTTP response code %d", resp.StatusCode)
+
+		// 429 and 5xx are transient server conditions; other 4xx errors are
+		// client mistakes that retrying will not fix.
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			return result, retryDelay(resp), msg
+		}
+		return result, -1, msg
 	}
 
 	if c.verbose {
@@ -145,14 +191,26 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 
 	result, err = mxj.NewMapJson(bytes)
 	if err != nil {
-		return result, fmt.Errorf("Failed to unmarshal GraphQL response body: %s", err)
+		return result, -1, fmt.Errorf("Failed to unmarshal GraphQL response body: %s", err)
 	}
 
 	if err := responseErrors(result); err != nil {
-		return result, err
+		return result, -1, err
 	}
 
-	return result, nil
+	return result, 0, nil
+}
+
+// retryDelay parses the Retry-After header (seconds or an HTTP date) and
+// returns zero when it is absent or unparseable, letting the caller use its
+// own backoff.
+func retryDelay(resp *http.Response) time.Duration {
+	if v := resp.Header.Get("Retry-After"); v != "" {
+		if seconds, err := strconv.Atoi(v); err == nil {
+			return time.Duration(seconds) * time.Second
+		}
+	}
+	return 0
 }
 
 func responseErrors(result mxj.Map) error {
