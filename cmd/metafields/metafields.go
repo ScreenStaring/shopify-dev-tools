@@ -220,6 +220,77 @@ func variantAction(c *cli.Context) error {
 	return nil
 }
 
+// parseOrderArgs pulls 'name:VALUE' args out, then delegates the rest to
+// cmd.ParseIDArgs.
+func parseOrderArgs(args []string) (orderFilter, error) {
+	var filter orderFilter
+	var rest []string
+
+	for _, arg := range args {
+		if strings.HasPrefix(strings.ToLower(arg), "name:") {
+			name := arg[5:]
+			if len(name) == 0 {
+				return filter, fmt.Errorf("Name value missing after 'name:'")
+			}
+			filter.Names = append(filter.Names, name)
+			continue
+		}
+
+		rest = append(rest, arg)
+	}
+
+	ids, skus, err := cmd.ParseIDArgs(rest, "an order id")
+	if err != nil {
+		return filter, err
+	}
+
+	filter.IDs = ids
+	filter.SKUs = skus
+
+	return filter, nil
+}
+
+func orderAction(c *cli.Context) error {
+	if c.NArg() == 0 {
+		return errors.New("Order id required")
+	}
+
+	filter, err := parseOrderArgs(c.Args().Slice())
+	if err != nil {
+		return err
+	}
+
+	options := contextToOptions(c)
+	client := cmd.NewGraphQLClient(c)
+
+	var metafields []Metafield
+	var failures []string
+	for _, id := range filter.IDs {
+		mfs, err := listOrderMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%d: %s", id, err))
+			continue
+		}
+		metafields = append(metafields, mfs...)
+	}
+
+	if len(filter.Names) > 0 || len(filter.SKUs) > 0 {
+		mfs, err := listOrdersMetafields(client, filter.Names, filter.SKUs, c.Int("limit"), options.Namespace, options.Key, c.Bool("reverse"))
+		if err != nil {
+			return err
+		}
+		metafields = append(metafields, mfs...)
+	}
+
+	printMetafields(metafields, options)
+
+	if len(failures) > 0 {
+		return fmt.Errorf("Cannot retrieve metafield(s): %s", strings.Join(failures, ", "))
+	}
+
+	return nil
+}
+
 // missingSkus returns the requested SKUs that were not found.
 func missingSkus(requested, found []string) []string {
 	foundSet := make(map[string]bool, len(found))
@@ -484,6 +555,19 @@ func init() {
 				Aliases: []string{"c"},
 				Action:  customerAction,
 				Usage:   "List metafields for the given customer",
+			},
+			{
+				Name:    "orders",
+				Aliases: []string{"order", "o"},
+				Flags: append(append(cmd.Flags, metafieldFlags...), &cli.IntFlag{
+					Name:    "limit",
+					Aliases: []string{"l"},
+					Usage:   "Maximum number of orders to return, must be <= 250",
+					Value:   10,
+				}, apiVersionFlag),
+				Action:    orderAction,
+				Usage:     "List metafields for the given order(s)",
+				ArgsUsage: "[ID|name:VALUE|sku:VALUE [ID|name:VALUE|sku:VALUE ...]]",
 			},
 			{
 				Name:      "product",

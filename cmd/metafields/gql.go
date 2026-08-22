@@ -58,6 +58,13 @@ type Metafield struct {
 	UpdatedAt   string `json:"updatedAt"`
 }
 
+// orderFilter holds the criteria used to resolve order IDs by name/sku.
+type orderFilter struct {
+	IDs   []int64
+	Names []string
+	SKUs  []string
+}
+
 type metafieldDefinitionsResponse struct {
 	Data struct {
 		MetafieldDefinitions struct {
@@ -965,6 +972,278 @@ func listVariantMetafields(client *gql.Client, variantID int64, namespace, key s
 
 	if !found {
 		return nil, errors.New("not found")
+	}
+
+	return metafields, nil
+}
+
+const orderMetafieldsQuery = `
+query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [String!], $reverse: Boolean) {
+  order(id: $ownerId) {
+    id
+    metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
+      edges {
+        node {
+          id
+          namespace
+          key
+          description
+          value
+          type
+          createdAt
+          updatedAt
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`
+
+type orderMetafieldsResponse struct {
+	Data struct {
+		Order struct {
+			ID         string `json:"id"`
+			Metafields struct {
+				Edges []struct {
+					Node struct {
+						ID          string `json:"id"`
+						Namespace   string `json:"namespace"`
+						Key         string `json:"key"`
+						Description string `json:"description"`
+						Value       string `json:"value"`
+						Type        string `json:"type"`
+						CreatedAt   string `json:"createdAt"`
+						UpdatedAt   string `json:"updatedAt"`
+					} `json:"node"`
+				} `json:"edges"`
+				PageInfo struct {
+					HasNextPage bool   `json:"hasNextPage"`
+					EndCursor   string `json:"endCursor"`
+				} `json:"pageInfo"`
+			} `json:"metafields"`
+		} `json:"order"`
+	} `json:"data"`
+}
+
+// listOrderMetafields lists metafields for the given order. When the order
+// doesn't exist (e.g. it was deleted or access is denied) the query returns
+// null and the error is non-nil.
+func listOrderMetafields(client *gql.Client, orderID int64, namespace, key string, reverse bool) ([]Metafield, error) {
+	vars := map[string]interface{}{
+		"ownerId": fmt.Sprintf("gid://shopify/Order/%d", orderID),
+		"first":   250,
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	if reverse {
+		vars["reverse"] = true
+	}
+
+	// The GraphQL keys argument requires the namespace.key format, so a bare
+	// key filter (no namespace) is applied client-side below.
+	filterByKey := false
+	if key != "" {
+		if namespace != "" {
+			vars["keys"] = []string{namespace + "." + key}
+		} else {
+			filterByKey = true
+		}
+	}
+
+	var metafields []Metafield
+	found := false
+
+	for {
+		data, err := client.Execute(orderMetafieldsQuery, vars)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for order: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for order: %s", err)
+		}
+
+		var response orderMetafieldsResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for order: %s", err)
+		}
+
+		if response.Data.Order.ID != "" {
+			found = true
+		}
+
+		for _, edge := range response.Data.Order.Metafields.Edges {
+			n := edge.Node
+			if filterByKey && n.Key != key {
+				continue
+			}
+
+			metafields = append(metafields, Metafield{
+				ID:          n.ID,
+				Namespace:   n.Namespace,
+				Key:         n.Key,
+				Description: n.Description,
+				Value:       n.Value,
+				Type:        n.Type,
+				CreatedAt:   n.CreatedAt,
+				UpdatedAt:   n.UpdatedAt,
+			})
+		}
+
+		if !response.Data.Order.Metafields.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.Order.Metafields.PageInfo.EndCursor
+	}
+
+	if !found {
+		return nil, errors.New("not found")
+	}
+
+	return metafields, nil
+}
+
+const ordersMetafieldsQuery = `
+query($query: String!, $first: Int!, $namespace: String, $keys: [String!], $reverse: Boolean) {
+  orders(first: $first, query: $query) {
+    edges {
+      node {
+        id
+        metafields(first: 250, namespace: $namespace, keys: $keys, reverse: $reverse) {
+          edges {
+            node {
+              id
+              namespace
+              key
+              description
+              value
+              type
+              createdAt
+              updatedAt
+            }
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
+      }
+    }
+  }
+}
+`
+
+type ordersMetafieldsResponse struct {
+	Data struct {
+		Orders struct {
+			Edges []struct {
+				Node struct {
+					ID         string `json:"id"`
+					Metafields struct {
+						Edges []struct {
+							Node struct {
+								ID          string `json:"id"`
+								Namespace   string `json:"namespace"`
+								Key         string `json:"key"`
+								Description string `json:"description"`
+								Value       string `json:"value"`
+								Type        string `json:"type"`
+								CreatedAt   string `json:"createdAt"`
+								UpdatedAt   string `json:"updatedAt"`
+							} `json:"node"`
+						} `json:"edges"`
+						PageInfo struct {
+							HasNextPage bool   `json:"hasNextPage"`
+							EndCursor   string `json:"endCursor"`
+						} `json:"pageInfo"`
+					} `json:"metafields"`
+				} `json:"node"`
+			} `json:"edges"`
+		} `json:"orders"`
+	} `json:"data"`
+}
+
+// listOrdersMetafields lists metafields for the orders matching any of the
+// given names and/or product SKUs, using the same search query syntax as the
+// orders ls command. The orders are selected by the query and their metafields
+// come back in the same response; limit caps how many orders are returned.
+// Metafields are limited to the first 250 per order.
+func listOrdersMetafields(client *gql.Client, names, skus []string, limit int, namespace, key string, reverse bool) ([]Metafield, error) {
+	var parts []string
+	for _, name := range names {
+		parts = append(parts, "name:"+name)
+	}
+	for _, sku := range skus {
+		parts = append(parts, "sku:"+sku)
+	}
+
+	vars := map[string]interface{}{
+		"query": strings.Join(parts, " OR "),
+		"first": limit,
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	if reverse {
+		vars["reverse"] = true
+	}
+
+	// The GraphQL keys argument requires the namespace.key format, so a bare
+	// key filter (no namespace) is applied client-side below.
+	filterByKey := false
+	if key != "" {
+		if namespace != "" {
+			vars["keys"] = []string{namespace + "." + key}
+		} else {
+			filterByKey = true
+		}
+	}
+
+	data, err := client.Execute(ordersMetafieldsQuery, vars)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot list metafields for order: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot list metafields for order: %s", err)
+	}
+
+	var response ordersMetafieldsResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return nil, fmt.Errorf("Cannot list metafields for order: %s", err)
+	}
+
+	var metafields []Metafield
+	for _, edge := range response.Data.Orders.Edges {
+		for _, mfEdge := range edge.Node.Metafields.Edges {
+			n := mfEdge.Node
+			if filterByKey && n.Key != key {
+				continue
+			}
+
+			metafields = append(metafields, Metafield{
+				ID:          n.ID,
+				Namespace:   n.Namespace,
+				Key:         n.Key,
+				Description: n.Description,
+				Value:       n.Value,
+				Type:        n.Type,
+				CreatedAt:   n.CreatedAt,
+				UpdatedAt:   n.UpdatedAt,
+			})
+		}
 	}
 
 	return metafields, nil

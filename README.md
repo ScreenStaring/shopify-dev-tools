@@ -168,6 +168,7 @@ For more info see [Shopify's documentation](https://shopify.dev/docs/apps/build/
        delete, d                   Delete one or more metafields
        app                         List metafields for the app installation associated with the credentials
        customer, c                 List metafields for the given customer
+       orders, order, o            List metafields for the orders matching the given IDs, 'name:VALUE' and/or 'sku:VALUE' arguments
        product, products, prod, p  List metafields for the products matching the given IDs and/or 'sku:VALUE' arguments
        shop, s                     List metafields for the given shop
        storefront, sf              Storefront API utilities

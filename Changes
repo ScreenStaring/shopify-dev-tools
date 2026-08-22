@@ -1,3 +1,7 @@
+Unreleased
+--------------------
+- Add `metafields orders` command to list metafields by order ID, order name, or product SKU
+
 v0.1.0 2026-08-18
 --------------------
 - Moved remaining REST API calls to GraphQL
