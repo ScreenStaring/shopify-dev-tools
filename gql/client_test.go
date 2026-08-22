@@ -1,8 +1,15 @@
 package gql
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/clbanning/mxj"
 )
 
 // With SDT_READONLY=1 set, Execute must reject a mutation before making any
@@ -31,6 +38,200 @@ func TestContainsMutation(t *testing.T) {
 
 	if !containsMutation("mutation { metafieldsDelete(metafields: []) { userErrors { message } } }") {
 		t.Error("mutation should be detected")
+	}
+}
+
+// testServer returns a Client pointed at a counting httptest server. The
+// handler responds with status, body pairs, cycling past the end.
+func testServer(t *testing.T, pairs [][2]string) (*Client, *int) {
+	t.Helper()
+
+	hits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		i := hits
+		hits++
+		if i >= len(pairs) {
+			i = len(pairs) - 1
+		}
+		w.WriteHeader(statusCode(t, pairs[i][0]))
+		fmt.Fprint(w, pairs[i][1])
+	}))
+	t.Cleanup(server.Close)
+
+	return &Client{endpoint: server.URL, token: "test-token"}, &hits
+}
+
+func statusCode(t *testing.T, status string) int {
+	t.Helper()
+
+	code, err := strconv.Atoi(status)
+	if err != nil {
+		t.Fatalf("invalid status %q", status)
+	}
+	return code
+}
+
+func TestRequestRetriesTransientFailures(t *testing.T) {
+	client, hits := testServer(t, [][2]string{
+		{"500", "internal error"},
+		{"500", "internal error"},
+		{"200", `{"data":{"shop":{"name":"test"}}}`},
+	})
+
+	_, err := client.Execute("query { shop { name } }")
+	if err != nil {
+		t.Fatalf("expected success after retries, got: %v", err)
+	}
+	if *hits != 3 {
+		t.Errorf("expected 3 attempts after two 500s, got %d", *hits)
+	}
+}
+
+func TestRequestExhaustsRetries(t *testing.T) {
+	client, hits := testServer(t, [][2]string{{"500", "internal error"}})
+
+	_, err := client.Execute("query { shop { name } }")
+	if err == nil {
+		t.Fatal("expected error after exhausting retries, got nil")
+	}
+	if *hits != maxAttempts {
+		t.Errorf("expected %d attempts, got %d", maxAttempts, *hits)
+	}
+}
+
+func TestRequestHonorsRetryAfter(t *testing.T) {
+	client, hits := testServer(t, [][2]string{{"429", "throttled"}})
+
+	_, err := client.Execute("query { shop { name } }")
+	if err == nil {
+		t.Fatal("expected error after exhausting retries, got nil")
+	}
+	if *hits != maxAttempts {
+		t.Errorf("expected %d attempts, got %d", maxAttempts, *hits)
+	}
+}
+
+func TestRequestDoesNotRetryMutation(t *testing.T) {
+	client, hits := testServer(t, [][2]string{{"500", "internal error"}})
+
+	_, err := client.Execute("mutation { metafieldsDelete(metafields: []) { userErrors { message } } }")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if *hits != 1 {
+		t.Errorf("expected a single attempt for a mutation, got %d", *hits)
+	}
+}
+
+func TestRequestDoesNotRetryClientError(t *testing.T) {
+	client, hits := testServer(t, [][2]string{{"400", "bad request"}})
+
+	_, err := client.Execute("query { shop { name } }")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if *hits != 1 {
+		t.Errorf("expected a single attempt for a 400, got %d", *hits)
+	}
+}
+
+func TestRequestRetriesThrottledGraphQLError(t *testing.T) {
+	throttled := `{"errors":[{"message":"Throttled","extensions":{"code":"THROTTLED","cost":{"requestedQueryCost":900,"throttleStatus":{"currentlyAvailable":100,"restoreRate":100}}}}]}`
+	client, hits := testServer(t, [][2]string{
+		{"200", throttled},
+		{"200", `{"data":{"shop":{"name":"test"}}}`},
+	})
+
+	_, err := client.Execute("query { shop { name } }")
+	if err != nil {
+		t.Fatalf("expected success after throttle retry, got: %v", err)
+	}
+	if *hits != 2 {
+		t.Errorf("expected 2 attempts, got %d", *hits)
+	}
+}
+
+func TestRequestRetriesGraphQLTimeoutError(t *testing.T) {
+	timeout := `{"errors":[{"message":"Timed out","extensions":{"code":"TIMEOUT"}}]}`
+	client, hits := testServer(t, [][2]string{
+		{"200", timeout},
+		{"200", `{"data":{"shop":{"name":"test"}}}`},
+	})
+
+	_, err := client.Execute("query { shop { name } }")
+	if err != nil {
+		t.Fatalf("expected success after timeout retry, got: %v", err)
+	}
+	if *hits != 2 {
+		t.Errorf("expected 2 attempts, got %d", *hits)
+	}
+}
+
+func TestRequestDoesNotRetryGraphQLError(t *testing.T) {
+	invalid := `{"errors":[{"message":"Invalid id","extensions":{"code":"INVALID_ID"}}]}`
+	client, hits := testServer(t, [][2]string{{"200", invalid}})
+
+	_, err := client.Execute("query { shop { name } }")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if *hits != 1 {
+		t.Errorf("expected a single attempt for a GraphQL error, got %d", *hits)
+	}
+}
+
+func TestThrottledRetryDelay(t *testing.T) {
+	throttled := `{"errors":[{"message":"Throttled","extensions":{"code":"THROTTLED","cost":{"requestedQueryCost":900,"throttleStatus":{"currentlyAvailable":100,"restoreRate":100}}}}]}`
+	result, err := mxj.NewMapJson([]byte(throttled))
+	if err != nil {
+		t.Fatalf("failed to parse throttled response: %v", err)
+	}
+
+	if got := graphQLErrorRetryDelay(result); got != 8*time.Second {
+		t.Errorf("expected 8s from throttle cost data, got %s", got)
+	}
+}
+
+func TestThrottledRetryDelayFallsBackWithoutCost(t *testing.T) {
+	throttled := `{"errors":[{"message":"Throttled","extensions":{"code":"THROTTLED"}}]}`
+	result, err := mxj.NewMapJson([]byte(throttled))
+	if err != nil {
+		t.Fatalf("failed to parse throttled response: %v", err)
+	}
+
+	if got := graphQLErrorRetryDelay(result); got != 0 {
+		t.Errorf("expected 0 without cost data, got %s", got)
+	}
+}
+
+func TestGraphQLErrorRetryDelayForClientError(t *testing.T) {
+	invalid := `{"errors":[{"message":"Invalid id","extensions":{"code":"INVALID_ID"}}]}`
+	result, err := mxj.NewMapJson([]byte(invalid))
+	if err != nil {
+		t.Fatalf("failed to parse error response: %v", err)
+	}
+
+	if got := graphQLErrorRetryDelay(result); got != -1 {
+		t.Errorf("expected -1 for a non-retryable error, got %s", got)
+	}
+}
+
+func TestRetryDelay(t *testing.T) {
+	resp := &http.Response{Header: http.Header{}}
+
+	resp.Header.Set("Retry-After", "5")
+	if got := retryDelay(resp); got != 5*time.Second {
+		t.Errorf("expected 5s from Retry-After, got %s", got)
+	}
+
+	resp.Header.Set("Retry-After", "not-a-number")
+	if got := retryDelay(resp); got != 0 {
+		t.Errorf("expected 0 for unparseable Retry-After, got %s", got)
+	}
+
+	resp.Header.Del("Retry-After")
+	if got := retryDelay(resp); got != 0 {
+		t.Errorf("expected 0 without Retry-After, got %s", got)
 	}
 }
 

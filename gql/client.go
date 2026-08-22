@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/cheynewallace/tabby"
 	"github.com/clbanning/mxj"
@@ -27,6 +29,13 @@ const endpoint = "https://%s.myshopify.com/admin/api%s/graphql.json"
 // DefaultAPIVersion is used when NewClient is called without a "version"
 // option. Set once per process (the CLI sets it from --api-version).
 var DefaultAPIVersion string
+
+const (
+	// maxAttempts is the total number of request attempts, the original plus retries.
+	maxAttempts = 3
+	// initialRetryDelay is the wait before the first retry; it doubles per attempt.
+	initialRetryDelay = 500 * time.Millisecond
+)
 
 func NewClient(shop, token string, options ...map[string]interface{}) *Client {
 	opts := map[string]interface{}{}
@@ -92,11 +101,38 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 		return result, fmt.Errorf("Failed to marshal GraphQL request body: %s", err)
 	}
 
+	// Retrying a mutation could apply it twice, so only queries are retried.
+	retryable := !containsMutation(gql)
+
 	client := http.Client{}
 
-	req, err := http.NewRequest("POST", c.endpoint, strings.NewReader(string(body)))
+	for attempt := 0; ; attempt++ {
+		result, retryAfter, err := c.roundTrip(client, body, gql)
+		if err == nil {
+			return result, nil
+		}
+		if !retryable || retryAfter < 0 || attempt >= maxAttempts-1 {
+			return result, err
+		}
+
+		delay := initialRetryDelay << attempt
+		if retryAfter > delay {
+			delay = retryAfter
+		}
+		fmt.Fprintf(os.Stderr, "GraphQL request to %s failed (%s); retrying in %s\n", c.endpoint, err, delay)
+		time.Sleep(delay)
+	}
+}
+
+// roundTrip performs one HTTP request and parses the response. On failure it
+// returns the suggested wait before retrying; a negative retryAfter means the
+// failure is not retryable and zero means fall back to the default backoff.
+func (c *Client) roundTrip(client http.Client, body, gql string) (mxj.Map, time.Duration, error) {
+	var result mxj.Map
+
+	req, err := http.NewRequest("POST", c.endpoint, strings.NewReader(body))
 	if err != nil {
-		return result, fmt.Errorf("Failed to make GraphQL request to %s: %s", c.endpoint, err)
+		return result, -1, fmt.Errorf("Failed to make GraphQL request to %s: %s", c.endpoint, err)
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -104,6 +140,9 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 	if c.costDebug {
 		req.Header.Add("Shopify-GraphQL-Cost-Debug", "1")
 	}
+	// Ask Shopify to include cost data so throttled responses can compute a
+	// precise retry delay (see throttledRetryDelay).
+	req.Header.Add("X-GraphQL-Cost-Include-Fields", "true")
 
 	if c.verbose {
 		fmt.Fprintf(os.Stderr, "> %s %s\n", req.Method, req.URL)
@@ -117,17 +156,31 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return result, fmt.Errorf("GraphQL request to %s failed: %s", c.endpoint, err)
+		// Transport-level failure (connection refused, timeout): retryable.
+		return result, 0, fmt.Errorf("GraphQL request to %s failed: %s", c.endpoint, err)
 	}
 
 	defer resp.Body.Close()
 	bytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		// The response body failed mid-stream; treat it like a transport error.
+		return result, 0, fmt.Errorf("Failed to read GraphQL response from %s: %s", c.endpoint, err)
+	}
 
 	if resp.StatusCode != http.StatusOK {
+		var msg error
 		if len(bytes) > 0 {
-			return result, fmt.Errorf("query failed with HTTP response code %d: %s", resp.StatusCode, string(bytes))
+			msg = fmt.Errorf("query failed with HTTP response code %d: %s", resp.StatusCode, string(bytes))
+		} else {
+			msg = fmt.Errorf("query failed with HTTP response code %d", resp.StatusCode)
 		}
-		return result, fmt.Errorf("query failed with HTTP response code %d", resp.StatusCode)
+
+		// 429 and 5xx are transient server conditions; other 4xx errors are
+		// client mistakes that retrying will not fix.
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			return result, retryDelay(resp), msg
+		}
+		return result, -1, msg
 	}
 
 	if c.verbose {
@@ -145,14 +198,109 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 
 	result, err = mxj.NewMapJson(bytes)
 	if err != nil {
-		return result, fmt.Errorf("Failed to unmarshal GraphQL response body: %s", err)
+		return result, -1, fmt.Errorf("Failed to unmarshal GraphQL response body: %s", err)
 	}
 
 	if err := responseErrors(result); err != nil {
-		return result, err
+		return result, graphQLErrorRetryDelay(result), err
 	}
 
-	return result, nil
+	return result, 0, nil
+}
+
+// graphQLErrorRetryDelay returns the wait suggested by GraphQL-level errors:
+// THROTTLED responses carry the time needed for the query cost to become
+// available, and TIMEOUT / INTERNAL_SERVER_ERROR fall back to the default
+// backoff. Any other GraphQL error is not retryable and yields -1.
+func graphQLErrorRetryDelay(result mxj.Map) time.Duration {
+	errors, _ := result["errors"].([]interface{})
+	for _, e := range errors {
+		eMap, ok := e.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		extensions, ok := eMap["extensions"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		switch extensions["code"] {
+		case "THROTTLED":
+			return throttledRetryDelay(extensions)
+		case "TIMEOUT", "INTERNAL_SERVER_ERROR":
+			return 0
+		}
+	}
+
+	return -1
+}
+
+// throttledRetryDelay computes the sleep needed for a throttled query to
+// become available from the error's extensions.cost block, mirroring
+// Shopify's documented calculation. It returns zero (use the default backoff)
+// when the cost data is absent or unusable.
+func throttledRetryDelay(extensions map[string]interface{}) time.Duration {
+	cost, ok := extensions["cost"].(map[string]interface{})
+	if !ok {
+		return 0
+	}
+
+	// A cost block with actualQueryCost describes a normal response, not a
+	// throttled one.
+	if _, ok := numVal(cost["actualQueryCost"]); ok {
+		return 0
+	}
+
+	status, ok := cost["throttleStatus"].(map[string]interface{})
+	if !ok {
+		return 0
+	}
+
+	requested, ok := numVal(cost["requestedQueryCost"])
+	if !ok {
+		return 0
+	}
+	available, ok := numVal(status["currentlyAvailable"])
+	if !ok {
+		return 0
+	}
+	restoreRate, ok := numVal(status["restoreRate"])
+	if !ok || restoreRate <= 0 {
+		return 0
+	}
+
+	wait := (requested - available) / restoreRate
+	if wait <= 0 {
+		return 0
+	}
+	return time.Duration(wait * float64(time.Second))
+}
+
+// numVal converts a JSON number decoded by mxj (int, int64, or float64) to a
+// float64.
+func numVal(v interface{}) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	}
+	return 0, false
+}
+
+// retryDelay parses the Retry-After header (seconds or an HTTP date) and
+// returns zero when it is absent or unparseable, letting the caller use its
+// own backoff.
+func retryDelay(resp *http.Response) time.Duration {
+	if v := resp.Header.Get("Retry-After"); v != "" {
+		if seconds, err := strconv.Atoi(v); err == nil {
+			return time.Duration(seconds) * time.Second
+		}
+	}
+	return 0
 }
 
 func responseErrors(result mxj.Map) error {
