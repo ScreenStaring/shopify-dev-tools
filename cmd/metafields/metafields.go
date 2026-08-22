@@ -291,6 +291,47 @@ func orderAction(c *cli.Context) error {
 	return nil
 }
 
+func draftOrderAction(c *cli.Context) error {
+	if c.NArg() == 0 {
+		return errors.New("Draft order id required")
+	}
+
+	filter, err := parseOrderArgs(c.Args().Slice())
+	if err != nil {
+		return err
+	}
+
+	options := contextToOptions(c)
+	client := cmd.NewGraphQLClient(c)
+
+	var metafields []Metafield
+	var failures []string
+	for _, id := range filter.IDs {
+		mfs, err := listDraftOrderMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%d: %s", id, err))
+			continue
+		}
+		metafields = append(metafields, mfs...)
+	}
+
+	if len(filter.Names) > 0 || len(filter.SKUs) > 0 {
+		mfs, err := listDraftOrdersMetafields(client, filter.Names, filter.SKUs, c.Int("limit"), options.Namespace, options.Key, c.Bool("reverse"))
+		if err != nil {
+			return err
+		}
+		metafields = append(metafields, mfs...)
+	}
+
+	printMetafields(metafields, options)
+
+	if len(failures) > 0 {
+		return fmt.Errorf("Cannot retrieve metafield(s): %s", strings.Join(failures, ", "))
+	}
+
+	return nil
+}
+
 // missingSkus returns the requested SKUs that were not found.
 func missingSkus(requested, found []string) []string {
 	foundSet := make(map[string]bool, len(found))
@@ -555,6 +596,19 @@ func init() {
 				Aliases: []string{"c"},
 				Action:  customerAction,
 				Usage:   "List metafields for the given customer",
+			},
+			{
+				Name:    "draftorders",
+				Aliases: []string{"draftorder", "do"},
+				Flags: append(append(cmd.Flags, metafieldFlags...), &cli.IntFlag{
+					Name:    "limit",
+					Aliases: []string{"l"},
+					Usage:   "Maximum number of draft orders to return, must be <= 250",
+					Value:   10,
+				}, apiVersionFlag),
+				Action:    draftOrderAction,
+				Usage:     "List metafields for the given draft order(s)",
+				ArgsUsage: "[ID|name:VALUE|sku:VALUE [ID|name:VALUE|sku:VALUE ...]]",
 			},
 			{
 				Name:    "orders",
