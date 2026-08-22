@@ -143,15 +143,45 @@ func deleteAttributeAction(c *cli.Context) error {
 	return nil
 }
 
+// parseOrderArgs pulls 'name:VALUE' args out, then delegates the rest to
+// cmd.ParseIDArgs.
+func parseOrderArgs(c *cli.Context) (OrderFilter, error) {
+	var filter OrderFilter
+	var rest []string
+
+	for _, arg := range c.Args().Slice() {
+		if strings.HasPrefix(strings.ToLower(arg), "name:") {
+			name := arg[5:]
+			if len(name) == 0 {
+				return filter, fmt.Errorf("Name value missing after 'name:'")
+			}
+			filter.Names = append(filter.Names, name)
+			continue
+		}
+
+		rest = append(rest, arg)
+	}
+
+	ids, skus, err := cmd.ParseIDArgs(rest, "an order id")
+	if err != nil {
+		return filter, err
+	}
+
+	filter.IDs = ids
+	filter.SKUs = skus
+
+	return filter, nil
+}
+
 func listAction(c *cli.Context) error {
-	ids, skus, err := cmd.ParseIDArgs(c, "an order id")
+	filter, err := parseOrderArgs(c)
 	if err != nil {
 		return err
 	}
 
-	status := "open"
+	filter.Status = "open"
 	if len(c.String("status")) > 0 {
-		status = c.String("status")
+		filter.Status = c.String("status")
 	}
 
 	sortKey, err := ResolveOrderSortKey(c.String("sort"))
@@ -160,7 +190,7 @@ func listAction(c *cli.Context) error {
 	}
 
 	shop := c.String("shop")
-	orders, err := listOrders(shop, cmd.LookupAccessToken(shop, c.String("access-token")), ids, skus, status, c.Int("limit"), sortKey)
+	orders, err := listOrders(shop, cmd.LookupAccessToken(shop, c.String("access-token")), filter, c.Int("limit"), sortKey)
 	if err != nil {
 		return err
 	}
@@ -456,7 +486,7 @@ func init() {
 			},
 			{
 				Name:   "ls",
-				Usage:  "List the shop's orders or the orders matching the given IDs and/or 'sku:VALUE' arguments",
+				Usage:  "List the shop's orders or the orders matching the given IDs, 'sku:VALUE' and/or 'name:VALUE' arguments",
 				Flags:  append(cmd.Flags, ordersFlags...),
 				Action: listAction,
 			},

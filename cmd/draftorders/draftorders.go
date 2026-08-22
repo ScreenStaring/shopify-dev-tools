@@ -12,7 +12,7 @@ import (
 var Cmd cli.Command
 
 func listAction(c *cli.Context) error {
-	ids, skus, err := cmd.ParseIDArgs(c, "a draft order id")
+	ids, skus, err := cmd.ParseIDArgs(c.Args().Slice(), "a draft order id")
 	if err != nil {
 		return err
 	}

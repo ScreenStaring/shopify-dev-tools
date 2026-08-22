@@ -1,20 +1,9 @@
 package cmd
 
 import (
-	"flag"
 	"reflect"
 	"testing"
-
-	"github.com/urfave/cli/v2"
 )
-
-func testContext(args ...string) *cli.Context {
-	set := flag.NewFlagSet("test", flag.ContinueOnError)
-	if err := set.Parse(args); err != nil {
-		panic(err)
-	}
-	return cli.NewContext(cli.NewApp(), set, nil)
-}
 
 func TestParseIDArgs(t *testing.T) {
 	tests := []struct {
@@ -82,7 +71,7 @@ func TestParseIDArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ids, skus, err := ParseIDArgs(testContext(tt.args...), tt.idDesc)
+			ids, skus, err := ParseIDArgs(tt.args, tt.idDesc)
 
 			if tt.wantErr != "" {
 				if err == nil || err.Error() != tt.wantErr {

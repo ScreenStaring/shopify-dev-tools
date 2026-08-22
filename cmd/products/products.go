@@ -221,7 +221,7 @@ func deleteProducts(c *cli.Context) error {
 }
 
 func listProducts(c *cli.Context) error {
-	ids, skus, err := cmd.ParseIDArgs(c, "a product id")
+	ids, skus, err := cmd.ParseIDArgs(c.Args().Slice(), "a product id")
 	if err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func listProducts(c *cli.Context) error {
 }
 
 func inventoryProducts(c *cli.Context) error {
-	ids, skus, err := cmd.ParseIDArgs(c, "a product id")
+	ids, skus, err := cmd.ParseIDArgs(c.Args().Slice(), "a product id")
 	if err != nil {
 		return err
 	}

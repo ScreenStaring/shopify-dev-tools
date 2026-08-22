@@ -246,26 +246,37 @@ func ResolveOrderSortKey(value string) (string, error) {
 	return "", fmt.Errorf("Invalid --sort value '%s'", value)
 }
 
-func buildQuery(ids []int64, skus []string, status string) string {
+// OrderFilter holds the criteria used to build the orders query.
+type OrderFilter struct {
+	IDs    []int64
+	SKUs   []string
+	Names  []string
+	Status string
+}
+
+func buildQuery(filter OrderFilter) string {
 	var parts []string
 
-	for _, id := range ids {
+	for _, id := range filter.IDs {
 		parts = append(parts, fmt.Sprintf("id:%d", id))
 	}
-	for _, sku := range skus {
+	for _, sku := range filter.SKUs {
 		parts = append(parts, fmt.Sprintf("sku:%s", sku))
+	}
+	for _, name := range filter.Names {
+		parts = append(parts, fmt.Sprintf("name:%s", name))
 	}
 
 	if len(parts) > 0 {
 		return strings.Join(parts, " OR ")
 	}
-	return "status:" + status
+	return "status:" + filter.Status
 }
 
-func listOrders(shop, token string, ids []int64, skus []string, status string, limit int, sortKey string) ([]Order, error) {
+func listOrders(shop, token string, filter OrderFilter, limit int, sortKey string) ([]Order, error) {
 	client := gql.NewClient(shop, token)
 
-	query := buildQuery(ids, skus, status)
+	query := buildQuery(filter)
 
 	data, err := client.Execute(ordersQuery, map[string]interface{}{"query": query, "first": limit, "sortKey": sortKey})
 	if err != nil {

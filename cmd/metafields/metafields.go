@@ -95,7 +95,7 @@ func productAction(c *cli.Context) error {
 		return errors.New("Product id required")
 	}
 
-	ids, skus, err := cmd.ParseIDArgs(c, "an ID")
+	ids, skus, err := cmd.ParseIDArgs(c.Args().Slice(), "an ID")
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func variantAction(c *cli.Context) error {
 		return errors.New("Variant id required")
 	}
 
-	ids, skus, err := cmd.ParseIDArgs(c, "an ID")
+	ids, skus, err := cmd.ParseIDArgs(c.Args().Slice(), "an ID")
 	if err != nil {
 		return err
 	}

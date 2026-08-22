@@ -37,15 +37,13 @@ func ParseIntAt(c *cli.Context, pos int) (int64, error) {
 	return strconv.ParseInt(c.Args().Get(pos), 10, 64)
 }
 
-// ParseIDArgs splits command line args into numeric IDs and 'sku:VALUE'
-// arguments. idDesc names the resource for the error message, e.g. "an order id".
-func ParseIDArgs(c *cli.Context, idDesc string) ([]int64, []string, error) {
+// ParseIDArgs splits args into numeric IDs and 'sku:VALUE' arguments. idDesc
+// names the resource for the error message, e.g. "an order id".
+func ParseIDArgs(args []string, idDesc string) ([]int64, []string, error) {
 	var ids []int64
 	var skus []string
 
-	for i := 0; i < c.NArg(); i++ {
-		arg := c.Args().Get(i)
-
+	for _, arg := range args {
 		if strings.HasPrefix(strings.ToLower(arg), "sku:") {
 			sku := arg[4:]
 			if len(sku) == 0 {
@@ -55,7 +53,7 @@ func ParseIDArgs(c *cli.Context, idDesc string) ([]int64, []string, error) {
 			continue
 		}
 
-		id, err := ParseIntAt(c, i)
+		id, err := strconv.ParseInt(arg, 10, 64)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Argument '%s' invalid: must be %s or 'sku:VALUE'", arg, idDesc)
 		}
