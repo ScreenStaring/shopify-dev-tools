@@ -252,7 +252,7 @@ func printLineItems(lines []LineItem) {
 
 	for _, line := range lines {
 		x.AddLine(
-			line.ID,
+			strings.TrimPrefix(line.ID, "gid://shopify/LineItem/"),
 			line.ProductID,
 			line.VariantID,
 			line.SKU,
