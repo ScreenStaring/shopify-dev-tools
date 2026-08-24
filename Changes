@@ -1,6 +1,11 @@
-Unreleased
+v0.1.1 2026-08-24
 --------------------
-- Add `metafields orders` command to list metafields by order ID, order name, or product SKU
+- Add `metafield definitions import` command to create metafield definitions from a CSV spreadsheet
+- Add `metafield definitions delete` command to delete metafield definitions
+- Add `metafield draftorders` command to list draft order metafields
+- Add `metafields orders` command to list an order's metafields
+- Add order name lookupa to `orders ls`
+- Remove global ID prefix from line items id in `orders ls` command
 
 v0.1.0 2026-08-18
 --------------------
