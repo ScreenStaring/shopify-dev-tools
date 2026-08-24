@@ -18,7 +18,7 @@ The CLI interface uses the executable `sdt`:
        sdt [global options] command [command options] [arguments...]
 
     VERSION:
-       0.1.0
+       0.1.1
 
     COMMANDS:
        admin, a                     Open admin pages
@@ -202,6 +202,35 @@ Or via stdin, with 1 ID per line:
 ```
 sdt metafields delete < list-of-ids.txt
 ```
+
+#### Creating Metafield Definitions in Bulk
+
+Create metafield definitions from a CSV file:
+
+```
+sdt metafield definitions import FILE.csv
+```
+
+If `FILE` is not given the CSV is read from stdin. Supported columns:
+
+| Column | Description |
+| ------ | ----------- |
+| `Owner Type` | Required. Owner type, e.g. `PRODUCT`, `SHOP`, `CUSTOMER` |
+| `Name` | Required. Human-readable name |
+| `Key` | Required. Unique identifier within the namespace |
+| `Type` | Required. [Metafield type](https://shopify.dev/docs/apps/build/metafields/list-of-data-types), e.g. `single_line_text_field` |
+| `Namespace` | Defaults to the app-reserved namespace if empty |
+| `Description` | Optional |
+| `Pin` | `true`/`false`, default `false` |
+| `Access Admin` | [MetafieldAdminAccessInput](https://shopify.dev/docs/api/admin-graphql/latest/enums/MetafieldAdminAccessInput); empty means the API default |
+| `Access Customer Account` | [MetafieldCustomerAccountAccessInput](https://shopify.dev/docs/api/admin-graphql/latest/enums/MetafieldCustomerAccountAccessInput) |
+| `Access Storefront` | [MetafieldStorefrontAccessInput](https://shopify.dev/docs/api/admin-graphql/latest/enums/MetafieldStorefrontAccessInput) |
+| `Capability Admin Filterable` / `Capability Smart Collection Condition` / `Capability Unique Values` | `true`/`false`, default `false`. `smart_collection_condition` cannot be combined with constraints |
+| `Constraint Key` | Constraint subtype key, e.g. `category`; requires `Constraint Value` |
+| `Constraint Value` | Constraint values (GIDs), `\|`-separated |
+| `Validation Name` / `Validation Value` | Validations per the [validation specs](https://shopify.dev/docs/apps/build/metafields/list-of-validation-options). One validation per column pair. To specify multiple validations add multiple  `Validation Name` / `Validation Value` columns. |
+
+Column names are matched case-insensitively. Each row is one definition.
 
 ### Charges
 

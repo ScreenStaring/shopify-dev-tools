@@ -569,6 +569,30 @@ func init() {
 						Action: definitionsAction,
 						Usage:  "List metafield definitions for the given resource",
 					},
+					{
+						Name:      "import",
+						Aliases:   []string{"i"},
+						ArgsUsage: "[FILE]",
+						Usage:     "Create metafield definitions from a CSV spreadsheet (reads stdin if FILE not given)",
+						Flags: append(cmd.Flags, apiVersionFlag, &cli.BoolFlag{
+							Name:    "json",
+							Aliases: []string{"j"},
+							Usage:   "Output the results in JSON format",
+						}),
+						Action: importDefinitionsAction,
+					},
+					{
+						Name:      "delete",
+						Aliases:   []string{"d"},
+						ArgsUsage: "ID|GID [ID|GID ...]",
+						Usage:     "Delete the given metafield definition(s)",
+						Flags: append(cmd.Flags, apiVersionFlag, &cli.BoolFlag{
+							Name:    "no-metafields",
+							Aliases: []string{"n"},
+							Usage:   "Don't delete the metafields associated with the definition",
+						}),
+						Action: deleteDefinitionAction,
+					},
 				},
 			},
 			{
