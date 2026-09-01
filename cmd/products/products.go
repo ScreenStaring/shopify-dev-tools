@@ -422,6 +422,34 @@ func init() {
 						),
 						Action: export.Inventory,
 					},
+					{
+						Name:    "metafields",
+						Aliases: []string{"mf"},
+						Usage:   "Export product metafields to a CSV or JSON file",
+						Flags: append(cmd.Flags,
+							apiVersionFlag,
+							&cli.StringFlag{
+								Name:    "status",
+								Aliases: []string{"s"},
+							},
+							&cli.StringFlag{
+								Name:    "namespace",
+								Aliases: []string{"n"},
+								Usage:   "Only export metafields with the given namespace",
+							},
+							&cli.StringFlag{
+								Name:    "key",
+								Aliases: []string{"k"},
+								Usage:   "Only export metafields with the given key",
+							},
+							&cli.BoolFlag{
+								Name:    "jsonl",
+								Aliases: []string{"j"},
+								Usage:   "Output the metafields in JSONL format",
+							},
+						),
+						Action: export.Metafields,
+					},
 				},
 			},
 			{

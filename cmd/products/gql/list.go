@@ -166,6 +166,171 @@ func FetchAllProducts(shop, token, status string, fn func(Product) error, option
 	return nil
 }
 
+const productMetafieldsExportQuery = `
+query($first: Int!, $after: String, $query: String, $namespace: String, $keys: [String!]) {
+  products(first: $first, after: $after, query: $query) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        legacyResourceId
+        title
+        productType
+        handle
+        metafields(first: 250, namespace: $namespace, keys: $keys) {
+          edges {
+            node {
+              id
+              namespace
+              key
+              description
+              value
+              type
+              createdAt
+              updatedAt
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`
+
+type ProductMetafield struct {
+	ID          string
+	Namespace   string
+	Key         string
+	Description string
+	Value       string
+	Type        string
+	CreatedAt   string
+	UpdatedAt   string
+}
+
+type ProductMetafields struct {
+	ProductID    int64
+	ProductTitle string
+	ProductType  string
+	Handle       string
+	Metafields   []ProductMetafield
+}
+
+type productMetafieldsExportNode struct {
+	LegacyResourceId int64  `json:"legacyResourceId,string"`
+	Title            string `json:"title"`
+	ProductType      string `json:"productType"`
+	Handle           string `json:"handle"`
+	Metafields       struct {
+		Edges []struct {
+			Node ProductMetafield `json:"node"`
+		} `json:"edges"`
+	} `json:"metafields"`
+}
+
+type productMetafieldsExportResponse struct {
+	Data struct {
+		Products struct {
+			PageInfo struct {
+				HasNextPage bool   `json:"hasNextPage"`
+				EndCursor   string `json:"endCursor"`
+			} `json:"pageInfo"`
+			Edges []struct {
+				Node productMetafieldsExportNode `json:"node"`
+			} `json:"edges"`
+		} `json:"products"`
+	} `json:"data"`
+}
+
+// toProductMetafields converts a productMetafieldsExportResponse edge node
+// into a ProductMetafields.
+func toProductMetafields(n productMetafieldsExportNode) ProductMetafields {
+	pm := ProductMetafields{
+		ProductID:    n.LegacyResourceId,
+		ProductTitle: n.Title,
+		ProductType:  n.ProductType,
+		Handle:       n.Handle,
+	}
+
+	for _, mfEdge := range n.Metafields.Edges {
+		pm.Metafields = append(pm.Metafields, mfEdge.Node)
+	}
+
+	return pm
+}
+
+// FetchAllProductMetafields paginates through all products and their
+// metafields. Metafields are limited to the first 250 per product, matching
+// the productMetafieldsBySku query used by the metafields command. When key is
+// given without namespace it's applied client-side, since the GraphQL keys
+// argument requires the namespace.key format.
+func FetchAllProductMetafields(shop, token, status, namespace, key string, fn func(ProductMetafields) error, options map[string]interface{}) error {
+	client := gqlclient.NewClient(shop, token, options)
+
+	vars := map[string]interface{}{"first": 250}
+	if len(status) > 0 {
+		vars["query"] = "status:" + status
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	filterByKey := false
+	if key != "" {
+		if namespace != "" {
+			vars["keys"] = []string{namespace + "." + key}
+		} else {
+			filterByKey = true
+		}
+	}
+
+	for {
+		data, err := client.Execute(productMetafieldsExportQuery, vars)
+		if err != nil {
+			return fmt.Errorf("Cannot fetch product metafields: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return fmt.Errorf("Cannot re-encode product metafields response: %s", err)
+		}
+
+		var response productMetafieldsExportResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return fmt.Errorf("Cannot parse product metafields response: %s", err)
+		}
+
+		for _, edge := range response.Data.Products.Edges {
+			pm := toProductMetafields(edge.Node)
+
+			if filterByKey {
+				filtered := pm.Metafields[:0]
+				for _, mf := range pm.Metafields {
+					if mf.Key == key {
+						filtered = append(filtered, mf)
+					}
+				}
+				pm.Metafields = filtered
+			}
+
+			if err := fn(pm); err != nil {
+				return err
+			}
+		}
+
+		if !response.Data.Products.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.Products.PageInfo.EndCursor
+	}
+
+	return nil
+}
+
 const productsQuery = `
 query($first: Int!, $query: String) {
   products(first: $first, query: $query) {

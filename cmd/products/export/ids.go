@@ -44,7 +44,41 @@ func IDs(c *cli.Context) error {
 	var d dumper
 
 	if c.Bool("json") {
-		d, err = exportformat.NewJSON(baseName, c.String("json-root"))
+		d, err = exportformat.NewJSON(baseName+".json", c.String("json-root"),
+			exportformat.JSONRootProperties,
+			[]string{"variant_id", "sku", "barcode"},
+			func(p gql.Product) map[string]interface{} {
+				record := exportformat.ProductMap(p)
+
+				var variants []map[string]interface{}
+				for _, v := range p.Variants {
+					variants = append(variants, exportformat.VariantMap(v))
+				}
+
+				record["variants"] = variants
+
+				return record
+			},
+			func(p gql.Product, root string) []exportformat.FlatRecord {
+				var out []exportformat.FlatRecord
+
+				for _, v := range p.Variants {
+					record := exportformat.VariantMap(v)
+
+					for k, value := range exportformat.ProductMap(p) {
+						record[k] = value
+					}
+
+					key, ok := record[root].(string)
+					if !ok {
+						panic(fmt.Sprintf("Cannot convert JSON root property '%s' to string for product '%s'", root, p.Title))
+					}
+
+					out = append(out, exportformat.FlatRecord{Key: key, Record: record})
+				}
+
+				return out
+			})
 	} else {
 		d, err = exportformat.NewCSV(baseName)
 	}

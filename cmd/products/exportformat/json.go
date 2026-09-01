@@ -9,12 +9,8 @@ import (
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/products/gql"
 )
 
-type JSON struct {
-	out      *os.File
-	root     string
-	products []gql.Product
-}
-
+// JSONRootProperties are the valid --json-root values for the product IDs
+// export.
 var JSONRootProperties = []string{
 	"barcode",
 	"product_id",
@@ -24,9 +20,43 @@ var JSONRootProperties = []string{
 	"sku",
 }
 
-func isValidJSONRootProperty(name string) bool {
-	for _, property := range JSONRootProperties {
-		if name == property {
+// FlatRecord is a child-level record (e.g. a variant) keyed by a flat root
+// property, with the parent context already merged in.
+type FlatRecord struct {
+	Key    string
+	Record map[string]interface{}
+}
+
+// JSON writes records as a JSON array, or as a map keyed by a root property.
+// parent returns the full record (children nested) used by the array and
+// parent-level root modes. flatten returns the child-level records used by
+// the flatRoots modes, given the root property being used as the key.
+type JSON[T any] struct {
+	out       *os.File
+	root      string
+	rootProps []string
+	flatRoots []string
+	items     []T
+	parent    func(T) map[string]interface{}
+	flatten   func(T, string) []FlatRecord
+}
+
+func NewJSON[T any](fileName, root string, rootProps, flatRoots []string, parent func(T) map[string]interface{}, flatten func(T, string) []FlatRecord) (*JSON[T], error) {
+	if len(root) > 0 && !contains(rootProps, root) {
+		return nil, fmt.Errorf("Invalid JSON root property: %s", root)
+	}
+
+	out, err := os.Create(fileName)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create JSON file: %s", err)
+	}
+
+	return &JSON[T]{out: out, root: root, rootProps: rootProps, flatRoots: flatRoots, parent: parent, flatten: flatten}, nil
+}
+
+func contains(haystack []string, needle string) bool {
+	for _, s := range haystack {
+		if s == needle {
 			return true
 		}
 	}
@@ -34,125 +64,13 @@ func isValidJSONRootProperty(name string) bool {
 	return false
 }
 
-func productMap(product gql.Product) map[string]interface{} {
-	return map[string]interface{}{
-		"product_id":    strconv.FormatInt(product.ID, 10),
-		"handle":        product.Handle,
-		"product_title": product.Title,
-		"product_type":  product.ProductType,
-	}
-}
-
-func variantMap(variant gql.Variant) map[string]string {
-	return map[string]string{
-		"barcode":       variant.Barcode,
-		"variant_id":    strconv.FormatInt(variant.ID, 10),
-		"variant_title": variant.Title,
-		"sku":           variant.SKU,
-	}
-}
-
-func (j *JSON) formatForOutput() interface{} {
-	if j.root == "variant_id" || j.root == "sku" || j.root == "barcode" {
-		return j.formatWithVariantRoot()
-	}
-
-	return j.formatWithProduct()
-}
-
-func (j *JSON) formatWithVariantRoot() map[string]interface{} {
-	output := make(map[string]interface{})
-
-	for _, product := range j.products {
-		for _, variant := range product.Variants {
-			record := variantMap(variant)
-			key := record[j.root]
-			if len(key) == 0 {
-				continue
-			}
-
-			for k, value := range productMap(product) {
-				svalue, ok := value.(string)
-				if !ok {
-					panic(fmt.Sprintf("Cannot convert product property '%s' to string for product '%s'", k, product.Title))
-				}
-
-				record[k] = svalue
-			}
-
-			output[key] = record
-		}
-	}
-
-	return output
-}
-
-func (j *JSON) formatWithProduct() interface{} {
-	if len(j.root) > 0 {
-		return j.formatWithProductRoot()
-	}
-
-	var output []map[string]interface{}
-
-	for _, product := range j.products {
-		record := productMap(product)
-
-		var variants []map[string]string
-		for _, variant := range product.Variants {
-			variants = append(variants, variantMap(variant))
-		}
-
-		record["variants"] = variants
-		output = append(output, record)
-	}
-
-	return output
-}
-
-func (j *JSON) formatWithProductRoot() map[string]interface{} {
-	output := make(map[string]interface{})
-
-	for _, product := range j.products {
-		record := productMap(product)
-
-		var variants []map[string]string
-		for _, variant := range product.Variants {
-			variants = append(variants, variantMap(variant))
-		}
-
-		record["variants"] = variants
-
-		key, ok := record[j.root].(string)
-		if !ok {
-			panic(fmt.Sprintf("Cannot convert JSON root property '%s' to string for product '%s'", j.root, product.Title))
-		}
-
-		output[key] = record
-	}
-
-	return output
-}
-
-func NewJSON(shop string, jsonRoot string) (*JSON, error) {
-	if len(jsonRoot) > 0 && !isValidJSONRootProperty(jsonRoot) {
-		return nil, fmt.Errorf("Invalid JSON root property: %s", jsonRoot)
-	}
-
-	out, err := os.Create(shop + ".json")
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create JSON file: %s", err)
-	}
-
-	return &JSON{out: out, root: jsonRoot}, nil
-}
-
-func (j *JSON) Dump(product gql.Product) error {
-	j.products = append(j.products, product)
+func (j *JSON[T]) Dump(item T) error {
+	j.items = append(j.items, item)
 
 	return nil
 }
 
-func (j *JSON) Close() error {
+func (j *JSON[T]) Close() error {
 	defer j.out.Close()
 
 	out, err := json.Marshal(j.formatForOutput())
@@ -170,4 +88,77 @@ func (j *JSON) Close() error {
 	}
 
 	return nil
+}
+
+func (j *JSON[T]) formatForOutput() interface{} {
+	if len(j.root) > 0 {
+		if contains(j.flatRoots, j.root) {
+			return j.formatWithFlatRoot()
+		}
+
+		return j.formatWithParentRoot()
+	}
+
+	return j.formatAsArray()
+}
+
+func (j *JSON[T]) formatAsArray() interface{} {
+	output := make([]map[string]interface{}, 0, len(j.items))
+
+	for _, item := range j.items {
+		output = append(output, j.parent(item))
+	}
+
+	return output
+}
+
+func (j *JSON[T]) formatWithParentRoot() map[string]interface{} {
+	output := make(map[string]interface{})
+
+	for _, item := range j.items {
+		record := j.parent(item)
+
+		key, ok := record[j.root].(string)
+		if !ok {
+			panic(fmt.Sprintf("Cannot convert JSON root property '%s' to string for record with product_id '%v'", j.root, record["product_id"]))
+		}
+
+		output[key] = record
+	}
+
+	return output
+}
+
+func (j *JSON[T]) formatWithFlatRoot() map[string]interface{} {
+	output := make(map[string]interface{})
+
+	for _, item := range j.items {
+		for _, flat := range j.flatten(item, j.root) {
+			if len(flat.Key) == 0 {
+				continue
+			}
+
+			output[flat.Key] = flat.Record
+		}
+	}
+
+	return output
+}
+
+func ProductMap(product gql.Product) map[string]interface{} {
+	return map[string]interface{}{
+		"product_id":    strconv.FormatInt(product.ID, 10),
+		"handle":        product.Handle,
+		"product_title": product.Title,
+		"product_type":  product.ProductType,
+	}
+}
+
+func VariantMap(variant gql.Variant) map[string]interface{} {
+	return map[string]interface{}{
+		"barcode":       variant.Barcode,
+		"variant_id":    strconv.FormatInt(variant.ID, 10),
+		"variant_title": variant.Title,
+		"sku":           variant.SKU,
+	}
 }
