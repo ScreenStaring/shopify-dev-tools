@@ -266,13 +266,10 @@ func toProductMetafields(n productMetafieldsExportNode) ProductMetafields {
 // the productMetafieldsBySku query used by the metafields command. When key is
 // given without namespace it's applied client-side, since the GraphQL keys
 // argument requires the namespace.key format.
-func FetchAllProductMetafields(shop, token, status, namespace, key string, fn func(ProductMetafields) error, options map[string]interface{}) error {
+func FetchAllProductMetafields(shop, token, namespace, key string, fn func(ProductMetafields) error, options map[string]interface{}) error {
 	client := gqlclient.NewClient(shop, token, options)
 
 	vars := map[string]interface{}{"first": 250}
-	if len(status) > 0 {
-		vars["query"] = "status:" + status
-	}
 
 	if namespace != "" {
 		vars["namespace"] = namespace

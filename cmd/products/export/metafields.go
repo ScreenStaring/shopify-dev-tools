@@ -57,14 +57,13 @@ func writeJSONL(out io.Writer, pm gql.ProductMetafields) error {
 func Metafields(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	status := c.String("status")
 	namespace := c.String("namespace")
 	key := c.String("key")
 	baseName := shopBaseName(shop)
 
 	options := map[string]interface{}{}
 
-	total, err := gql.FetchProductCount(shop, token, status, options)
+	total, err := gql.FetchProductCount(shop, token, "", options)
 	if err != nil {
 		return err
 	}
@@ -130,7 +129,7 @@ func Metafields(c *cli.Context) error {
 	}
 
 	count := 0
-	err = gql.FetchAllProductMetafields(shop, token, status, namespace, key, func(pm gql.ProductMetafields) error {
+	err = gql.FetchAllProductMetafields(shop, token, namespace, key, func(pm gql.ProductMetafields) error {
 		var err error
 
 		if jsonlBuf != nil {

@@ -429,10 +429,6 @@ func init() {
 						Flags: append(cmd.Flags,
 							apiVersionFlag,
 							&cli.StringFlag{
-								Name:    "status",
-								Aliases: []string{"s"},
-							},
-							&cli.StringFlag{
 								Name:    "namespace",
 								Aliases: []string{"n"},
 								Usage:   "Only export metafields with the given namespace",
