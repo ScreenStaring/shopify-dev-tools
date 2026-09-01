@@ -515,8 +515,7 @@ sdt products export metafields --shop YOUR_SHOP
 
 Use the `-n`/`--namespace` and `-k`/`--key` options to only export metafields with the given namespace and/or key.
 
-Each row is a metafield with the product identifier columns used by the other `products export` commands (`Product ID`, `Product Title`, `Product Type`, `Handle`) followed by the metafields.
-To output the metafields as JSONL instead, use the `-j`/`--jsonl` option, which writes `YOUR_SHOP-metafields.jsonl` with one JSON object per metafield, the same format as `metafields product -j`:
+Each row is a metafield with the product identifier columns followed by the metafields. To output the metafields as JSONL instead, use the `-j`/`--jsonl` option:
 
 ```sh
 sdt products export metafields --shop YOUR_SHOP -j
