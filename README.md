@@ -18,7 +18,7 @@ The CLI interface uses the executable `sdt`:
        sdt [global options] command [command options] [arguments...]
 
     VERSION:
-       0.1.1
+       0.1.2
 
     COMMANDS:
        admin, a                     Open admin pages

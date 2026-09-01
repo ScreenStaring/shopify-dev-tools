@@ -1,3 +1,8 @@
+v0.1.2 2026-09-01
+--------------------
+- Add support for retrying failed requests
+- Add `products export metafields` for exporting product metafields to CSV or JSONL
+
 v0.1.1 2026-08-24
 --------------------
 - Add `metafield definitions import` command to create metafield definitions from a CSV spreadsheet
