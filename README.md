@@ -184,10 +184,12 @@ For more info see [Shopify's documentation](https://shopify.dev/docs/apps/build/
 Use the `-j`/`--jsonl` option to export the given metafields to JSONL. For example, to export variant metafields for products with the given IDs and SKUs:
 
 ```
-sdt metafields ls -j 123123 sku:LP-SMALL > metafields.jsonl
+sdt metafields products -j 123123 sku:LP-SMALL > metafields.jsonl
 ```
 
 Note that SKUs must be prefixed with `sku:`
+
+To export metafields for all products see [Exporting Product Metafields](#exporting-product-metafields).
 
 #### Deleting Metafields in Bulk
 
