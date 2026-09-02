@@ -31,11 +31,29 @@ const endpoint = "https://%s.myshopify.com/admin/api%s/graphql.json"
 var DefaultAPIVersion string
 
 const (
-	// maxAttempts is the total number of request attempts, the original plus retries.
-	maxAttempts = 3
 	// initialRetryDelay is the wait before the first retry; it doubles per attempt.
 	initialRetryDelay = 500 * time.Millisecond
 )
+
+// maxAttempts is the total number of request attempts, the original plus
+// retries. It defaults to 10 and can be changed with the
+// SDT_MAX_RETRY_ATTEMPTS environment variable; an unset, empty, or invalid
+// value falls back to the default.
+func maxAttempts() int {
+	const defaultAttempts = 10
+
+	v := os.Getenv("SDT_MAX_RETRY_ATTEMPTS")
+	if v == "" {
+		return defaultAttempts
+	}
+
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return defaultAttempts
+	}
+
+	return n
+}
 
 func NewClient(shop, token string, options ...map[string]interface{}) *Client {
 	opts := map[string]interface{}{}
@@ -105,13 +123,14 @@ func (c *Client) request(gql string, variables map[string]interface{}) (mxj.Map,
 	retryable := !containsMutation(gql)
 
 	client := http.Client{}
+	attempts := maxAttempts()
 
 	for attempt := 0; ; attempt++ {
 		result, retryAfter, err := c.roundTrip(client, body, gql)
 		if err == nil {
 			return result, nil
 		}
-		if !retryable || retryAfter < 0 || attempt >= maxAttempts-1 {
+		if !retryable || retryAfter < 0 || attempt >= attempts-1 {
 			return result, err
 		}
 

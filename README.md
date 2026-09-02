@@ -108,6 +108,8 @@ You can use the following environment variables to set credentials:
 Other environment variables:
 
 - `SHOPIFY_PRODUCT_FIELDS` - default fields for the `products` command's `--fields` flag
+- `SDT_MAX_RETRY_ATTEMPTS` - default connection retry attempts; defaults to `10`
+- `SDT_READONLY` - [Read-only mode](#read-only-mode)
 
 ## Commands
 

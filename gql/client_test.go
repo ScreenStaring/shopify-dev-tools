@@ -88,26 +88,42 @@ func TestRequestRetriesTransientFailures(t *testing.T) {
 }
 
 func TestRequestExhaustsRetries(t *testing.T) {
+	// Keep the backoff short: 3 attempts is 0.5s + 1s of sleep.
+	t.Setenv("SDT_MAX_RETRY_ATTEMPTS", "3")
 	client, hits := testServer(t, [][2]string{{"500", "internal error"}})
 
 	_, err := client.Execute("query { shop { name } }")
 	if err == nil {
 		t.Fatal("expected error after exhausting retries, got nil")
 	}
-	if *hits != maxAttempts {
-		t.Errorf("expected %d attempts, got %d", maxAttempts, *hits)
+	if *hits != 3 {
+		t.Errorf("expected 3 attempts, got %d", *hits)
 	}
 }
 
 func TestRequestHonorsRetryAfter(t *testing.T) {
+	t.Setenv("SDT_MAX_RETRY_ATTEMPTS", "3")
 	client, hits := testServer(t, [][2]string{{"429", "throttled"}})
 
 	_, err := client.Execute("query { shop { name } }")
 	if err == nil {
 		t.Fatal("expected error after exhausting retries, got nil")
 	}
-	if *hits != maxAttempts {
-		t.Errorf("expected %d attempts, got %d", maxAttempts, *hits)
+	if *hits != 3 {
+		t.Errorf("expected 3 attempts, got %d", *hits)
+	}
+}
+
+func TestRequestMaxAttemptsEnvVar(t *testing.T) {
+	t.Setenv("SDT_MAX_RETRY_ATTEMPTS", "2")
+	client, hits := testServer(t, [][2]string{{"500", "internal error"}})
+
+	_, err := client.Execute("query { shop { name } }")
+	if err == nil {
+		t.Fatal("expected error after exhausting retries, got nil")
+	}
+	if *hits != 2 {
+		t.Errorf("expected 2 attempts, got %d", *hits)
 	}
 }
 

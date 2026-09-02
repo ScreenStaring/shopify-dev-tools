@@ -1,3 +1,7 @@
+Unreleased
+--------------------
+- Add `SDT_MAX_RETRY_ATTEMPTS` environment variable to control GraphQL retry attempts (default: 10)
+
 v0.1.2 2026-09-01
 --------------------
 - Add support for retrying failed requests
