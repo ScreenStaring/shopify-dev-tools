@@ -36,13 +36,13 @@ query($ownerType: MetafieldOwnerType!, $first: Int!, $after: String, $namespace:
 `
 
 type MetafieldDefinition struct {
-	ID          string
-	Name        string
-	Namespace   string
-	Key         string
-	Description string
-	Type        string
-	OwnerType   string
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Namespace   string `json:"namespace"`
+	Key         string `json:"key"`
+	Description string `json:"description"`
+	Type        string `json:"type"`
+	OwnerType   string `json:"ownerType"`
 }
 
 // Metafield is the package's native metafield shape as returned by the

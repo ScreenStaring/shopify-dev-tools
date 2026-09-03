@@ -421,9 +421,20 @@ func definitionsAction(c *cli.Context) error {
 		return err
 	}
 
+	// Report the bare numeric id, as definition import does, not the full
+	// gid://.../MetafieldDefinition/ form returned by the API.
+	for i := range definitions {
+		definitions[i].ID = strings.TrimPrefix(definitions[i].ID, definitionGIDPrefix)
+	}
+
+	if c.Bool("jsonl") {
+		printDefinitionsJSONL(definitions)
+		return nil
+	}
+
 	t := tabby.New()
 	for _, def := range definitions {
-		t.AddLine("Gid", def.ID)
+		t.AddLine("Id", def.ID)
 		t.AddLine("Name", def.Name)
 		t.AddLine("Namespace", def.Namespace)
 		t.AddLine("Key", def.Key)
@@ -435,6 +446,17 @@ func definitionsAction(c *cli.Context) error {
 	}
 
 	return nil
+}
+
+func printDefinitionsJSONL(definitions []MetafieldDefinition) {
+	for _, def := range definitions {
+		line, err := json.Marshal(def)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println(string(line))
+	}
 }
 
 func printDeleteResults(deleted []DeletedMetafield) {
@@ -561,11 +583,18 @@ func init() {
 					{
 						Name:      "ls",
 						ArgsUsage: "resource",
-						Flags: append(cmd.Flags, apiVersionFlag, &cli.StringFlag{
-							Name:    "namespace",
-							Aliases: []string{"n"},
-							Usage:   "Filter by namespace",
-						}),
+						Flags: append(cmd.Flags, apiVersionFlag,
+							&cli.StringFlag{
+								Name:    "namespace",
+								Aliases: []string{"n"},
+								Usage:   "Filter by namespace",
+							},
+							&cli.BoolFlag{
+								Name:    "jsonl",
+								Aliases: []string{"j"},
+								Usage:   "Output the definitions in JSONL format",
+							},
+						),
 						Action: definitionsAction,
 						Usage:  "List metafield definitions for the given resource",
 					},

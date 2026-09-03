@@ -112,7 +112,7 @@ func importDefinitionsAction(c *cli.Context) error {
 			continue
 		}
 		created++
-		id = strings.TrimPrefix(id, "gid://shopify/MetafieldDefinition/")
+		id = strings.TrimPrefix(id, definitionGIDPrefix)
 		if jsonOutput {
 			jsonResults = append(jsonResults, map[string]interface{}{
 				"row":       n + 2,
@@ -343,11 +343,13 @@ mutation metafieldDefinitionCreate($definition: MetafieldDefinitionInput!) {
 }
 `
 
+const definitionGIDPrefix = "gid://shopify/MetafieldDefinition/"
+
 // definitionGID accepts either a numeric id or a full GID and returns the
 // GID form the API requires.
 func definitionGID(id string) string {
 	if _, err := strconv.ParseInt(id, 10, 64); err == nil {
-		return "gid://shopify/MetafieldDefinition/" + id
+		return definitionGIDPrefix + id
 	}
 	return id
 }
