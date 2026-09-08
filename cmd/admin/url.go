@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 // In the general case we'd have a type for each URL and each function
@@ -32,7 +33,12 @@ const settingsApps = "/settings/apps"
 const settingsNotifications = "/settings/notifications"
 const settingsUsers = "/settings/organization-account"
 
+const adminDomain = ".myshopify.com"
+
 func NewAdminURL(shop string) *Admin {
+	// allow for NAME.myshopify.com or just NAME
+	shop = strings.TrimSuffix(shop, adminDomain)
+
 	return &Admin{fmt.Sprintf(endpoint, shop)}
 }
 
