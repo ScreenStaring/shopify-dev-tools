@@ -1644,6 +1644,276 @@ func listShopMetafields(client *gql.Client, namespace, key string, reverse bool)
 	return metafields, nil
 }
 
+const locationMetafieldsQuery = `
+query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [String!], $reverse: Boolean) {
+  location(id: $ownerId) {
+    id
+    metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
+      edges {
+        node {
+          id
+          namespace
+          key
+          description
+          value
+          type
+          createdAt
+          updatedAt
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`
+
+type locationMetafieldsResponse struct {
+	Data struct {
+		Location struct {
+			ID         string `json:"id"`
+			Metafields struct {
+				Edges []struct {
+					Node struct {
+						ID          string `json:"id"`
+						Namespace   string `json:"namespace"`
+						Key         string `json:"key"`
+						Description string `json:"description"`
+						Value       string `json:"value"`
+						Type        string `json:"type"`
+						CreatedAt   string `json:"createdAt"`
+						UpdatedAt   string `json:"updatedAt"`
+					} `json:"node"`
+				} `json:"edges"`
+				PageInfo struct {
+					HasNextPage bool   `json:"hasNextPage"`
+					EndCursor   string `json:"endCursor"`
+				} `json:"pageInfo"`
+			} `json:"metafields"`
+		} `json:"location"`
+	} `json:"data"`
+}
+
+// listLocationMetafields lists metafields for the given location. When the
+// location doesn't exist (e.g. it was deleted or access is denied) the query
+// returns null and the error is non-nil.
+func listLocationMetafields(client *gql.Client, locationID int64, namespace, key string, reverse bool) ([]Metafield, error) {
+	vars := map[string]interface{}{
+		"ownerId": fmt.Sprintf("gid://shopify/Location/%d", locationID),
+		"first":   250,
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	if reverse {
+		vars["reverse"] = true
+	}
+
+	// The GraphQL keys argument requires the namespace.key format, so a bare
+	// key filter (no namespace) is applied client-side below.
+	filterByKey := false
+	if key != "" {
+		if namespace != "" {
+			vars["keys"] = []string{namespace + "." + key}
+		} else {
+			filterByKey = true
+		}
+	}
+
+	var metafields []Metafield
+	found := false
+
+	for {
+		data, err := client.Execute(locationMetafieldsQuery, vars)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for location: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for location: %s", err)
+		}
+
+		var response locationMetafieldsResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for location: %s", err)
+		}
+
+		if response.Data.Location.ID != "" {
+			found = true
+		}
+
+		for _, edge := range response.Data.Location.Metafields.Edges {
+			n := edge.Node
+			if filterByKey && n.Key != key {
+				continue
+			}
+
+			metafields = append(metafields, Metafield{
+				ID:          n.ID,
+				Namespace:   n.Namespace,
+				Key:         n.Key,
+				Description: n.Description,
+				Value:       n.Value,
+				Type:        n.Type,
+				CreatedAt:   n.CreatedAt,
+				UpdatedAt:   n.UpdatedAt,
+			})
+		}
+
+		if !response.Data.Location.Metafields.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.Location.Metafields.PageInfo.EndCursor
+	}
+
+	if !found {
+		return nil, errors.New("not found")
+	}
+
+	return metafields, nil
+}
+
+const collectionMetafieldsQuery = `
+query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [String!], $reverse: Boolean) {
+  collection(id: $ownerId) {
+    id
+    metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
+      edges {
+        node {
+          id
+          namespace
+          key
+          description
+          value
+          type
+          createdAt
+          updatedAt
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`
+
+type collectionMetafieldsResponse struct {
+	Data struct {
+		Collection struct {
+			ID         string `json:"id"`
+			Metafields struct {
+				Edges []struct {
+					Node struct {
+						ID          string `json:"id"`
+						Namespace   string `json:"namespace"`
+						Key         string `json:"key"`
+						Description string `json:"description"`
+						Value       string `json:"value"`
+						Type        string `json:"type"`
+						CreatedAt   string `json:"createdAt"`
+						UpdatedAt   string `json:"updatedAt"`
+					} `json:"node"`
+				} `json:"edges"`
+				PageInfo struct {
+					HasNextPage bool   `json:"hasNextPage"`
+					EndCursor   string `json:"endCursor"`
+				} `json:"pageInfo"`
+			} `json:"metafields"`
+		} `json:"collection"`
+	} `json:"data"`
+}
+
+// listCollectionMetafields lists metafields for the given collection. When the
+// collection doesn't exist (e.g. it was deleted or access is denied) the query
+// returns null and the error is non-nil.
+func listCollectionMetafields(client *gql.Client, collectionID int64, namespace, key string, reverse bool) ([]Metafield, error) {
+	vars := map[string]interface{}{
+		"ownerId": fmt.Sprintf("gid://shopify/Collection/%d", collectionID),
+		"first":   250,
+	}
+
+	if namespace != "" {
+		vars["namespace"] = namespace
+	}
+
+	if reverse {
+		vars["reverse"] = true
+	}
+
+	// The GraphQL keys argument requires the namespace.key format, so a bare
+	// key filter (no namespace) is applied client-side below.
+	filterByKey := false
+	if key != "" {
+		if namespace != "" {
+			vars["keys"] = []string{namespace + "." + key}
+		} else {
+			filterByKey = true
+		}
+	}
+
+	var metafields []Metafield
+	found := false
+
+	for {
+		data, err := client.Execute(collectionMetafieldsQuery, vars)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for collection: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for collection: %s", err)
+		}
+
+		var response collectionMetafieldsResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot list metafields for collection: %s", err)
+		}
+
+		if response.Data.Collection.ID != "" {
+			found = true
+		}
+
+		for _, edge := range response.Data.Collection.Metafields.Edges {
+			n := edge.Node
+			if filterByKey && n.Key != key {
+				continue
+			}
+
+			metafields = append(metafields, Metafield{
+				ID:          n.ID,
+				Namespace:   n.Namespace,
+				Key:         n.Key,
+				Description: n.Description,
+				Value:       n.Value,
+				Type:        n.Type,
+				CreatedAt:   n.CreatedAt,
+				UpdatedAt:   n.UpdatedAt,
+			})
+		}
+
+		if !response.Data.Collection.Metafields.PageInfo.HasNextPage {
+			break
+		}
+
+		vars["after"] = response.Data.Collection.Metafields.PageInfo.EndCursor
+	}
+
+	if !found {
+		return nil, errors.New("not found")
+	}
+
+	return metafields, nil
+}
+
 const metafieldsDeleteMutation = `
 mutation metafieldsDelete($metafields: [MetafieldIdentifierInput!]!) {
   metafieldsDelete(metafields: $metafields) {

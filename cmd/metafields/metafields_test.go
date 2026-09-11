@@ -79,6 +79,60 @@ func TestParseOrderArgs(t *testing.T) {
 	}
 }
 
+func TestParseIDArgsOnly(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		want    []int64
+		wantErr bool
+	}{
+		{
+			name: "single id",
+			args: []string{"123"},
+			want: []int64{123},
+		},
+		{
+			name: "multiple ids",
+			args: []string{"123", "456"},
+			want: []int64{123, 456},
+		},
+		{
+			name: "empty",
+			args: nil,
+			want: []int64{},
+		},
+		{
+			name:    "invalid id",
+			args:    []string{"abc"},
+			wantErr: true,
+		},
+		{
+			name:    "sku not allowed",
+			args:    []string{"sku:FOO"},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseIDArgsOnly(tt.args, "Location")
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("parseIDArgsOnly(%v) = %v, want error", tt.args, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("parseIDArgsOnly(%v) unexpected error: %v", tt.args, err)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseIDArgsOnly(%v) = %v, want %v", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMissingSkus(t *testing.T) {
 	tests := []struct {
 		name      string

@@ -135,6 +135,87 @@ func productAction(c *cli.Context) error {
 	return nil
 }
 
+// parseIDArgsOnly parses args as numeric IDs, one per argument. name names
+// the resource for the error message, e.g. "Location".
+func parseIDArgsOnly(args []string, name string) ([]int64, error) {
+	ids := make([]int64, len(args))
+	for i, arg := range args {
+		id, err := strconv.ParseInt(arg, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%s id '%s' invalid: must be an int", name, arg)
+		}
+		ids[i] = id
+	}
+
+	return ids, nil
+}
+
+func locationAction(c *cli.Context) error {
+	if c.NArg() == 0 {
+		return errors.New("Location id required")
+	}
+
+	ids, err := parseIDArgsOnly(c.Args().Slice(), "Location")
+	if err != nil {
+		return err
+	}
+
+	options := contextToOptions(c)
+	client := cmd.NewGraphQLClient(c)
+
+	var metafields []Metafield
+	var failures []string
+	for _, id := range ids {
+		mfs, err := listLocationMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%d: %s", id, err))
+			continue
+		}
+		metafields = append(metafields, mfs...)
+	}
+
+	printMetafields(metafields, options)
+
+	if len(failures) > 0 {
+		return fmt.Errorf("Cannot retrieve metafield(s): %s", strings.Join(failures, ", "))
+	}
+
+	return nil
+}
+
+func collectionAction(c *cli.Context) error {
+	if c.NArg() == 0 {
+		return errors.New("Collection id required")
+	}
+
+	ids, err := parseIDArgsOnly(c.Args().Slice(), "Collection")
+	if err != nil {
+		return err
+	}
+
+	options := contextToOptions(c)
+	client := cmd.NewGraphQLClient(c)
+
+	var metafields []Metafield
+	var failures []string
+	for _, id := range ids {
+		mfs, err := listCollectionMetafields(client, id, options.Namespace, options.Key, c.Bool("reverse"))
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%d: %s", id, err))
+			continue
+		}
+		metafields = append(metafields, mfs...)
+	}
+
+	printMetafields(metafields, options)
+
+	if len(failures) > 0 {
+		return fmt.Errorf("Cannot retrieve metafield(s): %s", strings.Join(failures, ", "))
+	}
+
+	return nil
+}
+
 func shopAction(c *cli.Context) error {
 	options := contextToOptions(c)
 	client := cmd.NewGraphQLClient(c)
@@ -651,6 +732,13 @@ func init() {
 				Usage:   "List metafields for the given customer",
 			},
 			{
+				Name:      "collection",
+				Flags:     append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
+				Action:    collectionAction,
+				Usage:     "List metafields for the given collection(s)",
+				ArgsUsage: "[ID [ID ...]]",
+			},
+			{
 				Name:    "draftorders",
 				Aliases: []string{"draftorder", "do"},
 				Flags: append(append(cmd.Flags, metafieldFlags...), &cli.IntFlag{
@@ -675,6 +763,13 @@ func init() {
 				Action:    orderAction,
 				Usage:     "List metafields for the given order(s)",
 				ArgsUsage: "[ID|name:VALUE|sku:VALUE [ID|name:VALUE|sku:VALUE ...]]",
+			},
+			{
+				Name:      "location",
+				Flags:     append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
+				Action:    locationAction,
+				Usage:     "List metafields for the given location(s)",
+				ArgsUsage: "[ID [ID ...]]",
 			},
 			{
 				Name:      "product",
