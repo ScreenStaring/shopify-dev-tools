@@ -166,17 +166,19 @@ For more info see [Shopify's documentation](https://shopify.dev/docs/apps/build/
        sdt metafield command [command options] [arguments...]
 
     COMMANDS:
-       definitions, def            Metafield definition utilities
-       delete, d                   Delete one or more metafields
-       app                         List metafields for the app installation associated with the credentials
-       customer, c                 List metafields for the given customer
-       draftorders, draftorder, do  List metafields for the draft orders matching the given IDs, 'name:VALUE' and/or 'sku:VALUE' arguments
-       orders, order, o            List metafields for the orders matching the given IDs, 'name:VALUE' and/or 'sku:VALUE' arguments
-       product, products, prod, p  List metafields for the products matching the given IDs and/or 'sku:VALUE' arguments
-       shop, s                     List metafields for the given shop
-       storefront, sf              Storefront API utilities
-       variant, var, v             List metafields for the variants matching the given IDs and/or 'sku:VALUE' arguments
-       help, h                     Shows a list of commands or help for one command
+       definitions, def             Metafield definition utilities
+       delete, d                    Delete one or more metafields
+       app                          List metafields for the app installation associated with the credentials
+       customer, c                  List metafields for the given customer
+       collection                   List metafields for the given collection(s)
+       draftorders, draftorder, do  List metafields for the given draft order(s)
+       orders, order, o             List metafields for the given order(s)
+       location                     List metafields for the given location(s)
+       product, products, prod, p   List metafields for the given product(s)
+       shop, s                      List metafields for the given shop
+       storefront, sf               Storefront API utilities
+       variant, var, v              List metafields for the given variant(s)
+       help, h                      Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)

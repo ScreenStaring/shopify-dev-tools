@@ -727,12 +727,13 @@ func init() {
 			{
 				Name:    "customer",
 				Flags:   append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
-				Aliases: []string{"c"},
+				Aliases: []string{"customers","c"},
 				Action:  customerAction,
 				Usage:   "List metafields for the given customer",
 			},
 			{
 				Name:      "collection",
+				Aliases: []string{"collections","col"},
 				Flags:     append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
 				Action:    collectionAction,
 				Usage:     "List metafields for the given collection(s)",
@@ -766,6 +767,7 @@ func init() {
 			},
 			{
 				Name:      "location",
+				Aliases: []string{"locations","loc"},
 				Flags:     append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
 				Action:    locationAction,
 				Usage:     "List metafields for the given location(s)",
