@@ -147,7 +147,7 @@ query($first: Int!, $after: String, $namespace: String) {
     metafields(first: $first, after: $after, namespace: $namespace) {
       edges {
         node {
-          id
+          id: legacyResourceId
           namespace
           key
           description
@@ -250,7 +250,7 @@ query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [S
     metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
       edges {
         node {
-          id
+          id: legacyResourceId
           namespace
           key
           description
@@ -373,7 +373,7 @@ query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [S
     metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
       edges {
         node {
-          id
+          id: legacyResourceId
           namespace
           key
           description
@@ -515,7 +515,7 @@ query($query: String!, $first: Int!, $after: String, $namespace: String, $keys: 
         metafields(first: 250, namespace: $namespace, keys: $keys, reverse: $reverse) {
           edges {
             node {
-              id
+              id: legacyResourceId
               namespace
               key
               description
@@ -682,7 +682,7 @@ query($query: String!, $first: Int!, $after: String, $namespace: String, $keys: 
         metafields(first: 250, namespace: $namespace, keys: $keys, reverse: $reverse) {
           edges {
             node {
-              id
+              id: legacyResourceId
               namespace
               key
               description
@@ -849,7 +849,7 @@ query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [S
     metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
       edges {
         node {
-          id
+          id: legacyResourceId
           namespace
           key
           description
@@ -984,7 +984,7 @@ query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [S
     metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
       edges {
         node {
-          id
+          id: legacyResourceId
           namespace
           key
           description
@@ -1121,7 +1121,7 @@ query($query: String!, $first: Int!, $namespace: String, $keys: [String!], $reve
         metafields(first: 250, namespace: $namespace, keys: $keys, reverse: $reverse) {
           edges {
             node {
-              id
+              id: legacyResourceId
               namespace
               key
               description
@@ -1256,7 +1256,7 @@ query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [S
     metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
       edges {
         node {
-          id
+          id: legacyResourceId
           namespace
           key
           description
@@ -1393,7 +1393,7 @@ query($query: String!, $first: Int!, $namespace: String, $keys: [String!], $reve
         metafields(first: 250, namespace: $namespace, keys: $keys, reverse: $reverse) {
           edges {
             node {
-              id
+              id: legacyResourceId
               namespace
               key
               description
@@ -1529,7 +1529,7 @@ query($first: Int!, $after: String, $namespace: String, $keys: [String!], $rever
     metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
       edges {
         node {
-          id
+          id: legacyResourceId
           namespace
           key
           description
@@ -1651,7 +1651,7 @@ query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [S
     metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
       edges {
         node {
-          id
+          id: legacyResourceId
           namespace
           key
           description
@@ -1786,7 +1786,7 @@ query($ownerId: ID!, $first: Int!, $after: String, $namespace: String, $keys: [S
     metafields(first: $first, after: $after, namespace: $namespace, keys: $keys, reverse: $reverse) {
       edges {
         node {
-          id
+          id: legacyResourceId
           namespace
           key
           description

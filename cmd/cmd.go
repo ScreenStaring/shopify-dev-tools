@@ -74,7 +74,6 @@ func PrintSeparator() {
 // ID, *time.Time timestamps) as-is; a nil ID omits the "Id" line entirely.
 type MetafieldPrintable struct {
 	ID          interface{}
-	Gid         interface{}
 	Namespace   interface{}
 	Key         interface{}
 	Description interface{}
@@ -90,7 +89,6 @@ func PrintMetafields(items []MetafieldPrintable) {
 		if mf.ID != nil {
 			t.AddLine("Id", mf.ID)
 		}
-		t.AddLine("Gid", mf.Gid)
 		t.AddLine("Namespace", mf.Namespace)
 		t.AddLine("Key", mf.Key)
 		t.AddLine("Description", mf.Description)

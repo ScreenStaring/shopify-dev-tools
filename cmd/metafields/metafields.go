@@ -55,7 +55,7 @@ func printFormatted(metafields []Metafield) {
 	items := make([]cmd.MetafieldPrintable, len(metafields))
 	for i, mf := range metafields {
 		items[i] = cmd.MetafieldPrintable{
-			Gid:         mf.ID,
+			ID:          mf.ID,
 			Namespace:   mf.Namespace,
 			Key:         mf.Key,
 			Description: mf.Description,
@@ -237,21 +237,7 @@ func appAction(c *cli.Context) error {
 		return err
 	}
 
-	items := make([]cmd.MetafieldPrintable, len(metafields))
-	for i, mf := range metafields {
-		items[i] = cmd.MetafieldPrintable{
-			Gid:         mf.ID,
-			Namespace:   mf.Namespace,
-			Key:         mf.Key,
-			Description: mf.Description,
-			Value:       mf.Value,
-			Type:        mf.Type,
-			CreatedAt:   mf.CreatedAt,
-			UpdatedAt:   mf.UpdatedAt,
-		}
-	}
-
-	cmd.PrintMetafields(items)
+	printMetafields(metafields, metafieldOptions{})
 
 	return nil
 }
@@ -727,13 +713,13 @@ func init() {
 			{
 				Name:    "customer",
 				Flags:   append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
-				Aliases: []string{"customers","c"},
+				Aliases: []string{"customers", "c"},
 				Action:  customerAction,
 				Usage:   "List metafields for the given customer",
 			},
 			{
 				Name:      "collection",
-				Aliases: []string{"collections","col"},
+				Aliases:   []string{"collections", "col"},
 				Flags:     append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
 				Action:    collectionAction,
 				Usage:     "List metafields for the given collection(s)",
@@ -767,7 +753,7 @@ func init() {
 			},
 			{
 				Name:      "location",
-				Aliases: []string{"locations","loc"},
+				Aliases:   []string{"locations", "loc"},
 				Flags:     append(append(cmd.Flags, metafieldFlags...), apiVersionFlag),
 				Action:    locationAction,
 				Usage:     "List metafields for the given location(s)",
