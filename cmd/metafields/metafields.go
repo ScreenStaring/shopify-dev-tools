@@ -508,6 +508,10 @@ func definitionsAction(c *cli.Context) error {
 		t.AddLine("Description", def.Description)
 		t.AddLine("Type", def.Type)
 		t.AddLine("Owner Type", def.OwnerType)
+		// Labels match the import CSV's Access columns.
+		t.AddLine("Access Admin", def.Access.Admin)
+		t.AddLine("Access Customer Account", def.Access.CustomerAccount)
+		t.AddLine("Access Storefront", def.Access.Storefront)
 		t.Print()
 		fmt.Printf("%s\n", strings.Repeat("-", 20))
 	}

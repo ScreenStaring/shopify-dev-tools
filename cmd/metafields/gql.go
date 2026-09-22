@@ -25,6 +25,11 @@ query($ownerType: MetafieldOwnerType!, $first: Int!, $after: String, $namespace:
           name
         }
         ownerType
+        access {
+          admin
+          customerAccount
+          storefront
+        }
       }
     }
     pageInfo {
@@ -35,14 +40,24 @@ query($ownerType: MetafieldOwnerType!, $first: Int!, $after: String, $namespace:
 }
 `
 
+// MetafieldDefinitionAccess is a definition's visibility per surface. Values
+// are the API's access enums (MetafieldAdminAccess, MetafieldCustomerAccountAccess,
+// MetafieldStorefrontAccess), e.g. MERCHANT_READ_WRITE, NONE, PUBLIC_READ.
+type MetafieldDefinitionAccess struct {
+	Admin           string `json:"admin"`
+	CustomerAccount string `json:"customerAccount"`
+	Storefront      string `json:"storefront"`
+}
+
 type MetafieldDefinition struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Namespace   string `json:"namespace"`
-	Key         string `json:"key"`
-	Description string `json:"description"`
-	Type        string `json:"type"`
-	OwnerType   string `json:"ownerType"`
+	ID          string                    `json:"id"`
+	Name        string                    `json:"name"`
+	Namespace   string                    `json:"namespace"`
+	Key         string                    `json:"key"`
+	Description string                    `json:"description"`
+	Type        string                    `json:"type"`
+	OwnerType   string                    `json:"ownerType"`
+	Access      MetafieldDefinitionAccess `json:"access"`
 }
 
 // Metafield is the package's native metafield shape as returned by the
@@ -79,6 +94,11 @@ type metafieldDefinitionsResponse struct {
 						Name string `json:"name"`
 					} `json:"type"`
 					OwnerType string `json:"ownerType"`
+					Access    struct {
+						Admin           string `json:"admin"`
+						CustomerAccount string `json:"customerAccount"`
+						Storefront      string `json:"storefront"`
+					} `json:"access"`
 				} `json:"node"`
 			} `json:"edges"`
 			PageInfo struct {
@@ -127,6 +147,11 @@ func listMetafieldDefinitions(client *gql.Client, ownerType, namespace string) (
 				Description: n.Description,
 				Type:        n.Type.Name,
 				OwnerType:   n.OwnerType,
+				Access: MetafieldDefinitionAccess{
+					Admin:           n.Access.Admin,
+					CustomerAccount: n.Access.CustomerAccount,
+					Storefront:      n.Access.Storefront,
+				},
 			})
 		}
 
