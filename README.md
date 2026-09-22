@@ -31,7 +31,7 @@ The CLI interface uses the executable `sdt`:
        metaobjects, mo              Metaobject utilities
        orders, o                    Information about orders
        products, p                  Do things with products
-       graphql, gql                 Run a GraphQL query against the Admin API
+       graphql, gql                 Run a GraphQL query against the Admin or Storefront API
        shop, s                      Information about the given shop
        customers, cust              Do things with customers
        scripttags                   ScriptTag utilities
@@ -543,10 +543,10 @@ sdt products delete < list-of-ids.txt
 
 ### GraphQL
 
-Run a GraphQL query against the Admin API
+Run a GraphQL query against the Admin or Storefront API
 
     NAME:
-       sdt graphql - Run a GraphQL query against the Admin API
+       sdt graphql - Run a GraphQL query against the Admin or Storefront API
 
     USAGE:
        sdt graphql [command options] [query-file.graphql]
@@ -563,6 +563,7 @@ Run a GraphQL query against the Admin API
        --api-version value  API version to use; default is a versionless call
        --variable value, -v value  GraphQL variable in the format name=value; can be specified multiple times
        --extras, -x                Include extension information in the response (default: false)
+       --storefront, -s            Use the Storefront API instead of the Admin API; requires a Storefront access token (default: false)
        --help, -h                  show help (default: false)
 
 
@@ -571,6 +572,10 @@ The `-v`/`--variable` argument is used to provide GraphQL variables. To specify 
 ```
 -v ids='["gid://shopify/Product/123", "gid://shopify/Product/456"]'
 ```
+
+By default queries are run against the Admin API. Use `-s`/`--storefront` to run them against the Storefront API instead.
+The Storefront API requires a [Storefront access token](https://shopify.dev/docs/api/usage/authentication#storefront-access-token), not an Admin API access token,
+so pass one via `--access-token` or `$SHOPIFY_ACCESS_TOKEN`.
 
 #### Read-Only Mode
 

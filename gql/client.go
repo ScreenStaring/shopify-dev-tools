@@ -17,14 +17,19 @@ import (
 )
 
 type Client struct {
-	endpoint  string
-	token     string
-	costDebug bool
-	verbose   bool
+	endpoint   string
+	token      string
+	storefront bool
+	costDebug  bool
+	verbose    bool
 }
 
-// We omit the "/" after API for the case where there's no version.
-const endpoint = "https://%s.myshopify.com/admin/api%s/graphql.json"
+// We omit the "/" after API for the case where there's no version. The
+// Storefront API has no "/admin" path, hence the separate endpoint.
+const (
+	endpoint           = "https://%s.myshopify.com/admin/api%s/graphql.json"
+	storefrontEndpoint = "https://%s.myshopify.com/api%s/graphql.json"
+)
 
 // DefaultAPIVersion is used when NewClient is called without a "version"
 // option. Set once per process (the CLI sets it from --api-version).
@@ -74,12 +79,19 @@ func NewClient(shop, token string, options ...map[string]interface{}) *Client {
 
 	extras, _ := opts["extras"].(bool)
 	verbose, _ := opts["verbose"].(bool)
+	storefront, _ := opts["storefront"].(bool)
+
+	url := endpoint
+	if storefront {
+		url = storefrontEndpoint
+	}
 
 	return &Client{
-		endpoint:  fmt.Sprintf(endpoint, shop, version),
-		token:     token,
-		costDebug: extras,
-		verbose:   verbose,
+		endpoint:   fmt.Sprintf(url, shop, version),
+		token:      token,
+		storefront: storefront,
+		costDebug:  extras,
+		verbose:    verbose,
 	}
 }
 
@@ -155,7 +167,11 @@ func (c *Client) roundTrip(client http.Client, body, gql string) (mxj.Map, time.
 	}
 
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-Shopify-Access-Token", c.token)
+	if c.storefront {
+		req.Header.Add("X-Shopify-Storefront-Access-Token", c.token)
+	} else {
+		req.Header.Add("X-Shopify-Access-Token", c.token)
+	}
 	if c.costDebug {
 		req.Header.Add("Shopify-GraphQL-Cost-Debug", "1")
 	}

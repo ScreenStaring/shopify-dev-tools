@@ -251,6 +251,65 @@ func TestRetryDelay(t *testing.T) {
 	}
 }
 
+func TestNewClientStorefrontEndpoint(t *testing.T) {
+	client := NewClient("test", "token", map[string]interface{}{"version": "2026-07", "storefront": true})
+	if !strings.HasSuffix(client.endpoint, ".myshopify.com/api/2026-07/graphql.json") {
+		t.Errorf("storefront endpoint not used: %s", client.endpoint)
+	}
+	if strings.Contains(client.endpoint, "/admin") {
+		t.Errorf("storefront endpoint must not include /admin: %s", client.endpoint)
+	}
+
+	client = NewClient("test", "token", map[string]interface{}{"version": "2026-07"})
+	if !strings.HasSuffix(client.endpoint, "/admin/api/2026-07/graphql.json") {
+		t.Errorf("expected admin endpoint by default: %s", client.endpoint)
+	}
+}
+
+func TestStorefrontUsesStorefrontAccessTokenHeader(t *testing.T) {
+	var headers http.Header
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		headers = r.Header
+		fmt.Fprint(w, `{"data":{"shop":{"name":"test"}}}`)
+	}))
+	t.Cleanup(server.Close)
+
+	client := &Client{endpoint: server.URL, token: "storefront-token", storefront: true}
+	if _, err := client.Execute("query { shop { name } }"); err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+
+	if got := headers.Get("X-Shopify-Storefront-Access-Token"); got != "storefront-token" {
+		t.Errorf("expected storefront access token header, got %q", got)
+	}
+	if got := headers.Get("X-Shopify-Access-Token"); got != "" {
+		t.Errorf("expected no admin access token header, got %q", got)
+	}
+}
+
+func TestAdminDoesNotUseStorefrontAccessTokenHeader(t *testing.T) {
+	var headers http.Header
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		headers = r.Header
+		fmt.Fprint(w, `{"data":{"shop":{"name":"test"}}}`)
+	}))
+	t.Cleanup(server.Close)
+
+	client := &Client{endpoint: server.URL, token: "admin-token"}
+	if _, err := client.Execute("query { shop { name } }"); err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+
+	if got := headers.Get("X-Shopify-Access-Token"); got != "admin-token" {
+		t.Errorf("expected admin access token header, got %q", got)
+	}
+	if got := headers.Get("X-Shopify-Storefront-Access-Token"); got != "" {
+		t.Errorf("expected no storefront access token header, got %q", got)
+	}
+}
+
 func TestNewClientDefaultAPIVersion(t *testing.T) {
 	old := DefaultAPIVersion
 	defer func() { DefaultAPIVersion = old }()

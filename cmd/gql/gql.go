@@ -58,8 +58,9 @@ func parseVariables(args []string) (map[string]interface{}, error) {
 func queryAction(c *cli.Context) error {
 	shop := c.String("shop")
 	options := map[string]interface{}{
-		"extras":  c.Bool("extras"),
-		"verbose": c.Bool("verbose"),
+		"extras":     c.Bool("extras"),
+		"storefront": c.Bool("storefront"),
+		"verbose":    c.Bool("verbose"),
 	}
 	client := gql.NewClient(shop, cmd.LookupAccessToken(shop, c.String("access-token")), options)
 
@@ -99,13 +100,18 @@ func init() {
 			Aliases: []string{"x"},
 			Usage:   "Include extension information in the response",
 		},
+		&cli.BoolFlag{
+			Name:    "storefront",
+			Aliases: []string{"s"},
+			Usage:   "Use the Storefront API instead of the Admin API; requires a Storefront access token",
+		},
 	}
 
 	Cmd = cli.Command{
 		Name:        "graphql",
 		Aliases:     []string{"gql"},
 		ArgsUsage:   "[query-file.graphql]",
-		Usage:       "Run a GraphQL query against the Admin API",
+		Usage:       "Run a GraphQL query against the Admin or Storefront API",
 		Description: "If query-file.graphql is not given query is read from stdin",
 		Flags:       append(cmd.Flags, flags...),
 		Action:      queryAction,
