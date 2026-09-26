@@ -208,6 +208,15 @@ func init() {
 				Action: importEntryAction,
 			},
 			{
+				Name:        "delete",
+				Aliases:     []string{"del", "rm"},
+				ArgsUsage:   "ID|GID|TYPE:HANDLE [ID|GID|TYPE:HANDLE ...]",
+				Usage:       "Delete the given metaobject entries",
+				Description: "If arguments are not given they're read from stdin one per line",
+				Flags:       append(cmd.Flags, apiVersionFlag),
+				Action:      deleteEntryAction,
+			},
+			{
 				Name:    "def",
 				Aliases: []string{"d"},
 				Usage:   "Metaobject definition utilities",

@@ -125,11 +125,12 @@ If you need a specific version specify it with the `--api-version` option.
        sdt metaobjects command [command options] [arguments...]
 
     COMMANDS:
-       ls, l      List metaobjects of the given type
-       export, x  Export metaobjects of the given type to CSV or JSONL
-       import, i  Create metaobjects from a CSV spreadsheet (reads stdin if FILE not given)
-       def, d     Metaobject definition utilities
-       help, h    Shows a list of commands or help for one command
+       ls, l             List metaobjects of the given type
+       export, x         Export metaobjects of the given type to CSV or JSONL
+       import, i         Create metaobjects from a CSV spreadsheet (reads stdin if FILE not given)
+       delete, del, rm   Delete metaobjects entries
+       def, d            Metaobject definition utilities
+       help, h           Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)

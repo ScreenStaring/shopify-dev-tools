@@ -1,6 +1,7 @@
 package metaobjects
 
 import (
+	"bufio"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
@@ -326,4 +328,136 @@ func rowIsEmpty(row []string) bool {
 	}
 
 	return true
+}
+
+// entryRef is one metaobject to delete, as given on the command line or read
+// from stdin: an id, a GID, or a type and handle.
+type entryRef struct {
+	Arg    string // as given, used in output and errors
+	ID     string // numeric id or GID, empty when the reference gave a handle
+	Type   string
+	Handle string
+}
+
+// parseEntryRef parses a metaobject reference. A reference is a numeric id, a
+// GID, or a 'type:handle' pair. The type is everything before the last ':' so
+// app owned types keep their '$app:' prefix.
+func parseEntryRef(arg string) (*entryRef, error) {
+	arg = strings.TrimSpace(arg)
+	if arg == "" {
+		return nil, errors.New("Metaobject id, GID, or type:handle required")
+	}
+
+	if strings.HasPrefix(arg, "gid://") {
+		if !strings.HasPrefix(arg, gql.MetaobjectGIDPrefix) {
+			return nil, fmt.Errorf("Argument '%s' invalid: must be a metaobject id, GID, or 'type:handle'", arg)
+		}
+
+		return &entryRef{Arg: arg, ID: arg}, nil
+	}
+
+	if _, err := strconv.ParseInt(arg, 10, 64); err == nil {
+		return &entryRef{Arg: arg, ID: arg}, nil
+	}
+
+	i := strings.LastIndex(arg, ":")
+	if i < 0 || i == 0 || i == len(arg)-1 {
+		return nil, fmt.Errorf("Argument '%s' invalid: must be a metaobject id, GID, or 'type:handle'", arg)
+	}
+
+	return &entryRef{Arg: arg, Type: arg[:i], Handle: arg[i+1:]}, nil
+}
+
+// deleteEntryAction deletes each of the given metaobjects, by numeric id, GID
+// or 'type:handle'.
+func deleteEntryAction(c *cli.Context) error {
+	refs, err := entryRefs(c.Args().Slice())
+	if err != nil {
+		return err
+	}
+
+	if len(refs) == 0 {
+		return errors.New("Metaobject id, GID, or type:handle required")
+	}
+
+	client := cmd.NewGraphQLClient(c)
+
+	var failures []string
+	for _, ref := range refs {
+		id, err := deleteEntry(client, ref)
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %s", ref.Arg, err))
+			continue
+		}
+
+		if ref.ID == "" {
+			fmt.Printf("Deleted %s (%s)\n", ref.Arg, id)
+		} else {
+			fmt.Printf("Deleted %s\n", id)
+		}
+	}
+
+	if len(failures) > 0 {
+		return fmt.Errorf("Cannot delete metaobject(s): %s", strings.Join(failures, ", "))
+	}
+
+	return nil
+}
+
+// entryRefs returns the metaobjects the command deletes: its arguments, or one
+// per line of stdin when it has none.
+func entryRefs(args []string) ([]*entryRef, error) {
+	if len(args) > 0 {
+		refs := make([]*entryRef, 0, len(args))
+		for _, arg := range args {
+			ref, err := parseEntryRef(arg)
+			if err != nil {
+				return nil, err
+			}
+			refs = append(refs, ref)
+		}
+
+		return refs, nil
+	}
+
+	var refs []*entryRef
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		ref, err := parseEntryRef(line)
+		if err != nil {
+			return nil, err
+		}
+		refs = append(refs, ref)
+	}
+
+	return refs, scanner.Err()
+}
+
+// deleteEntry deletes one metaobject: the one of the reference's id, or the one
+// of its type and handle, and returns the deleted metaobject's numeric id.
+func deleteEntry(client *gqlclient.Client, ref *entryRef) (string, error) {
+	id := ref.ID
+	if id == "" {
+		mo, err := gql.MetaobjectByHandle(client, ref.Type, ref.Handle)
+		if err != nil {
+			return "", err
+		}
+		if mo == nil {
+			return "", errors.New("no metaobject with that type and handle")
+		}
+
+		id = mo.ID
+	}
+
+	deletedID, err := gql.DeleteMetaobject(client, id)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimPrefix(deletedID, gql.MetaobjectGIDPrefix), nil
 }

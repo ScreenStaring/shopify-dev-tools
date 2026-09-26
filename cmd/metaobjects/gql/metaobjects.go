@@ -83,6 +83,17 @@ query($id: ID!) {
 }
 `
 
+const metaobjectByHandleQuery = `
+query($handle: MetaobjectHandleInput!) {
+  metaobjectByHandle(handle: $handle) {
+    id
+    handle
+    type
+    displayName
+  }
+}
+`
+
 const metaobjectDefinitionByTypeQuery = `
 query($type: String!) {
   metaobjectDefinitionByType(type: $type) {
@@ -178,6 +189,13 @@ func ToDefinitionGID(id string) string {
 		return id
 	}
 	return DefinitionGIDPrefix + id
+}
+
+func ToMetaobjectGID(id string) string {
+	if strings.HasPrefix(id, "gid://") {
+		return id
+	}
+	return MetaobjectGIDPrefix + id
 }
 
 func jsonToMetaobject(n metaobjectJSON) Metaobject {
@@ -543,6 +561,19 @@ mutation metaobjectUpsert($handle: MetaobjectHandleInput!, $metaobject: Metaobje
 }
 `
 
+const metaobjectDeleteMutation = `
+mutation metaobjectDelete($id: ID!) {
+  metaobjectDelete(id: $id) {
+    deletedId
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+`
+
 // CreateMetaobject creates one metaobject from the given
 // MetaobjectCreateInput and returns the created metaobject's id.
 func CreateMetaobject(client *gqlclient.Client, metaobject map[string]interface{}) (string, error) {
@@ -577,6 +608,67 @@ func UpsertMetaobject(client *gqlclient.Client, moType, handle string, metaobjec
 	}
 
 	return metaobjectID(data, "data.metaobjectUpsert.metaobject.id")
+}
+
+// MetaobjectByHandle returns the metaobject of the given type with the given
+// handle, or nil when the shop has no metaobject of that type with that handle.
+// App owned types are given with their '$app:' prefix.
+func MetaobjectByHandle(client *gqlclient.Client, moType, handle string) (*Metaobject, error) {
+	return metaobject(client, metaobjectByHandleQuery, "metaobjectByHandle", map[string]interface{}{
+		"handle": map[string]interface{}{"type": moType, "handle": handle},
+	})
+}
+
+// metaobject runs one of the single metaobject queries and returns the
+// metaobject found at the response's key, or nil when there was none.
+func metaobject(client *gqlclient.Client, query, key string, variables map[string]interface{}) (*Metaobject, error) {
+	data, err := client.Execute(query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot get metaobject: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot re-encode metaobject response: %s", err)
+	}
+
+	var response struct {
+		Data map[string]*metaobjectJSON `json:"data"`
+	}
+
+	if err := json.Unmarshal(b, &response); err != nil {
+		return nil, fmt.Errorf("Cannot parse metaobject response: %s", err)
+	}
+
+	found, ok := response.Data[key]
+	if !ok || found == nil {
+		return nil, nil
+	}
+
+	mo := jsonToMetaobject(*found)
+	return &mo, nil
+}
+
+// DeleteMetaobject deletes the metaobject with the given numeric id or GID and
+// returns the deleted metaobject's id.
+func DeleteMetaobject(client *gqlclient.Client, id string) (string, error) {
+	data, err := client.Execute(metaobjectDeleteMutation, map[string]interface{}{
+		"id": ToMetaobjectGID(id),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if messages := userErrorMessages(data, "data.metaobjectDelete.userErrors"); len(messages) > 0 {
+		return "", errors.New(strings.Join(messages, "; "))
+	}
+
+	ids, _ := data.ValuesForPath("data.metaobjectDelete.deletedId")
+	if len(ids) == 0 || ids[0] == nil {
+		return "", errors.New("not found or access denied")
+	}
+
+	return fmt.Sprint(ids[0]), nil
 }
 
 // metaobjectID returns the id at the given path of a metaobject mutation
