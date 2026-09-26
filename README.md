@@ -136,9 +136,9 @@ If you need a specific version specify it with the `--api-version` option.
        --help, -h  show help (default: false)
 
 
-#### Exporting Metaobject Values
+#### Exporting Metaobject Entries
 
-Metaobject values can be exported to CSV or JSONL. By default they're exported to CSV. Use the `-j`/`--jsonl` option to export to JSON:
+Metaobject entries can be exported to CSV or JSONL. By default they're exported to CSV. Use the `-j`/`--jsonl` option to export to JSON:
 
 ```
 sdt metaobjects export TYPE
