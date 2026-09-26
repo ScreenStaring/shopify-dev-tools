@@ -30,7 +30,7 @@ var APIVersionFlag = &cli.StringFlag{
 func NewGraphQLClient(c *cli.Context) *gql.Client {
 	shop := c.String("shop")
 	token := LookupAccessToken(shop, c.String("access-token"))
-	return gql.NewClient(shop, token)
+	return gql.NewClient(shop, token, map[string]interface{}{"verbose": c.Bool("verbose")})
 }
 
 func ParseIntAt(c *cli.Context, pos int) (int64, error) {
