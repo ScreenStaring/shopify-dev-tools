@@ -135,30 +135,6 @@ If you need a specific version specify it with the `--api-version` option.
     OPTIONS:
        --help, -h  show help (default: false)
 
-
-#### Exporting Metaobject Entries
-
-Metaobject entries can be exported to CSV or JSONL. By default they're exported to CSV. Use the `-j`/`--jsonl` option to export to JSON:
-
-```
-sdt metaobjects export TYPE
-```
-
-Where `TYPE` is the metaobject type you want to export values for.
-
-The resulting export will be output to a file in the current directory as `SHOP-TYPE.csv` or `.json`:
-
-Values can be filtered via the `-q`/`--query` option. For example, given the `users` type with a field of `country`, you can export
-users with a country value of `"Mexico"`via:
-
-```
-sdt -q 'fields.country:Mexico' users
-```
-
-Note that the field must be configured as searchable in Shopify.
-
-For more info see [Shopify's documentation](https://shopify.dev/docs/apps/build/metafields/query-using-metafields) on querying metafields.
-
 #### Creating Metaobject Definitions in Bulk
 
 Create metaobject definitions from a CSV spreadsheet:
@@ -236,6 +212,29 @@ have in the shop.
 Rows are submitted as they're read. Shopify rejects a row whose columns aren't fields of its type, or whose
 type has no definition, and the import reports each rejected row and exits non-zero. The rows before it are
 still created, so a rejected row doesn't undo the rest of the run. `-j`/`--json` reports every row's status.
+
+#### Exporting Metaobject Entries
+
+Metaobject entries can be exported to CSV or JSONL. By default they're exported to CSV. Use the `-j`/`--jsonl` option to export to JSON:
+
+```
+sdt metaobjects export TYPE
+```
+
+Where `TYPE` is the metaobject type you want to export values for.
+
+The resulting export will be output to a file in the current directory as `SHOP-TYPE.csv` or `.json`:
+
+Values can be filtered via the `-q`/`--query` option. For example, given the `users` type with a field of `country`, you can export
+users with a country value of `"Mexico"`via:
+
+```
+sdt -q 'fields.country:Mexico' users
+```
+
+Note that the field must be configured as searchable in Shopify.
+
+For more info see [Shopify's documentation](https://shopify.dev/docs/apps/build/metafields/query-using-metafields) on querying metafields.
 
 ### Metafields
 
