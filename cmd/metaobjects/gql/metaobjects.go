@@ -83,6 +83,24 @@ query($id: ID!) {
 }
 `
 
+const metaobjectDefinitionByTypeQuery = `
+query($type: String!) {
+  metaobjectDefinitionByType(type: $type) {
+    id
+    name
+    type
+    displayNameKey
+    fieldDefinitions {
+      key
+      name
+      type {
+        name
+      }
+    }
+  }
+}
+`
+
 type MetaobjectField struct {
 	Key   string
 	Value string
@@ -150,6 +168,10 @@ type metaobjectDefinitionJSON struct {
 // DefinitionGIDPrefix is the GID prefix of metaobject definition ids. Ids are
 // displayed without it.
 const DefinitionGIDPrefix = "gid://shopify/MetaobjectDefinition/"
+
+// MetaobjectGIDPrefix is the GID prefix of metaobject ids. Ids are displayed
+// without it.
+const MetaobjectGIDPrefix = "gid://shopify/Metaobject/"
 
 func ToDefinitionGID(id string) string {
 	if strings.HasPrefix(id, "gid://") {
@@ -306,7 +328,29 @@ func FetchAllMetaobjects(shop, token, moType, query string, verbose bool, fn fun
 func GetMetaobjectDefinition(shop, token, id string, verbose bool) (*MetaobjectDefinition, error) {
 	client := gqlclient.NewClient(shop, token, map[string]interface{}{"verbose": verbose})
 
-	data, err := client.Execute(metaobjectDefinitionQuery, map[string]interface{}{"id": ToDefinitionGID(id)})
+	d, err := metaobjectDefinition(client, metaobjectDefinitionQuery, "metaobjectDefinition", map[string]interface{}{"id": ToDefinitionGID(id)})
+	if err != nil {
+		return nil, err
+	}
+
+	if d == nil {
+		return nil, fmt.Errorf("Metaobject definition not found")
+	}
+
+	return d, nil
+}
+
+// MetaobjectDefinitionByType returns the metaobject definition of the given
+// type, or nil when the shop has no definition of that type.
+func MetaobjectDefinitionByType(client *gqlclient.Client, moType string) (*MetaobjectDefinition, error) {
+	return metaobjectDefinition(client, metaobjectDefinitionByTypeQuery, "metaobjectDefinitionByType", map[string]interface{}{"type": moType})
+}
+
+// metaobjectDefinition runs one of the metaobject definition queries and
+// returns the definition found at the response's key, or nil when there was
+// none.
+func metaobjectDefinition(client *gqlclient.Client, query, key string, variables map[string]interface{}) (*MetaobjectDefinition, error) {
+	data, err := client.Execute(query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot get metaobject definition: %s", err)
 	}
@@ -317,20 +361,19 @@ func GetMetaobjectDefinition(shop, token, id string, verbose bool) (*MetaobjectD
 	}
 
 	var response struct {
-		Data struct {
-			MetaobjectDefinition *metaobjectDefinitionJSON `json:"metaobjectDefinition"`
-		} `json:"data"`
+		Data map[string]*metaobjectDefinitionJSON `json:"data"`
 	}
 
 	if err := json.Unmarshal(b, &response); err != nil {
 		return nil, fmt.Errorf("Cannot parse metaobject definition response: %s", err)
 	}
 
-	if response.Data.MetaobjectDefinition == nil {
-		return nil, fmt.Errorf("Metaobject definition not found")
+	found, ok := response.Data[key]
+	if !ok || found == nil {
+		return nil, nil
 	}
 
-	d := jsonToMetaobjectDefinition(*response.Data.MetaobjectDefinition)
+	d := jsonToMetaobjectDefinition(*found)
 	return &d, nil
 }
 
@@ -461,6 +504,87 @@ func DeleteMetaobjectDefinition(client *gqlclient.Client, id string) (string, er
 	ids, _ := data.ValuesForPath("data.metaobjectDefinitionDelete.deletedId")
 	if len(ids) == 0 || ids[0] == nil {
 		return "", errors.New("not found or access denied")
+	}
+
+	return fmt.Sprint(ids[0]), nil
+}
+
+const metaobjectCreateMutation = `
+mutation metaobjectCreate($metaobject: MetaobjectCreateInput!) {
+  metaobjectCreate(metaobject: $metaobject) {
+    metaobject {
+      id
+      handle
+      type
+    }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+`
+
+const metaobjectUpsertMutation = `
+mutation metaobjectUpsert($handle: MetaobjectHandleInput!, $metaobject: MetaobjectUpsertInput!) {
+  metaobjectUpsert(handle: $handle, metaobject: $metaobject) {
+    metaobject {
+      id
+      handle
+      type
+    }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+`
+
+// CreateMetaobject creates one metaobject from the given
+// MetaobjectCreateInput and returns the created metaobject's id.
+func CreateMetaobject(client *gqlclient.Client, metaobject map[string]interface{}) (string, error) {
+	data, err := client.Execute(metaobjectCreateMutation, map[string]interface{}{
+		"metaobject": metaobject,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if messages := userErrorMessages(data, "data.metaobjectCreate.userErrors"); len(messages) > 0 {
+		return "", errors.New(strings.Join(messages, "; "))
+	}
+
+	return metaobjectID(data, "data.metaobjectCreate.metaobject.id")
+}
+
+// UpsertMetaobject creates or updates the metaobject of the given type and
+// handle from the given MetaobjectUpsertInput and returns its id. Only the
+// fields in the input are set: the fields it leaves out keep their value.
+func UpsertMetaobject(client *gqlclient.Client, moType, handle string, metaobject map[string]interface{}) (string, error) {
+	data, err := client.Execute(metaobjectUpsertMutation, map[string]interface{}{
+		"handle":     map[string]interface{}{"type": moType, "handle": handle},
+		"metaobject": metaobject,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if messages := userErrorMessages(data, "data.metaobjectUpsert.userErrors"); len(messages) > 0 {
+		return "", errors.New(strings.Join(messages, "; "))
+	}
+
+	return metaobjectID(data, "data.metaobjectUpsert.metaobject.id")
+}
+
+// metaobjectID returns the id at the given path of a metaobject mutation
+// response.
+func metaobjectID(data mxj.Map, path string) (string, error) {
+	ids, _ := data.ValuesForPath(path)
+	if len(ids) == 0 || ids[0] == nil {
+		return "", errors.New("no id returned")
 	}
 
 	return fmt.Sprint(ids[0]), nil

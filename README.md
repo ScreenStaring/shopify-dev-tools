@@ -127,6 +127,7 @@ If you need a specific version specify it with the `--api-version` option.
     COMMANDS:
        ls, l      List metaobjects of the given type
        export, x  Export metaobjects of the given type to CSV or JSONL
+       import, i  Create metaobjects from a CSV spreadsheet (reads stdin if FILE not given)
        def, d     Metaobject definition utilities
        help, h    Shows a list of commands or help for one command
 
@@ -189,6 +190,51 @@ If `FILE` is not given the CSV is read from stdin. Each row is one field of a de
 
 Deleting a definition also deletes its metafield definitions, metaobjects and metafields. Shopify does
 this asynchronously, so they may still appear for a short time after the definition is deleted.
+
+#### Creating Metaobjects Entries in Bulk
+
+Create metaobjects from a CSV spreadsheet:
+
+```
+sdt metaobjects import FILE.csv
+```
+
+If `FILE` is not given the CSV is read from stdin. Each row is one metaobject. The columns are the ones the
+export spreadsheet uses, so an export can be edited and imported back. Supported columns:
+
+| Column | Description |
+| ------ | ----------- |
+| `Type` | Required. Type of the metaobject, e.g. `author`, which must have a definition in the shop |
+| `Handle` | Handle of the metaobject within its type. Optional: Shopify generates one when the cell is empty. Required with `-u`/`--upsert`, which matches metaobjects by handle |
+| Any other column | Value of the field whose key is the column's name, e.g. `bio`. Columns are matched to field keys case-insensitively |
+| `ID`, `Display Name`, `Updated At` | Ignored, Shopify assigns them. They're accepted so an exported spreadsheet can be imported as-is |
+
+Values are passed to Shopify as-is: references are GIDs (`gid://shopify/MediaImage/123`), list types are
+JSON arrays (`["a","b"]`), and rich text is its JSON. A blank cell doesn't set the field.
+
+A spreadsheet can hold several types; each row is imported as its `Type` and only that type's fields are read
+from it.
+
+```
+Type,Handle,name,bio,question,answer
+author,jane-austen,Jane Austen,"English novelist, wrote Pride and Prejudice",,
+faq,shipping-times,,,How long does shipping take?,Orders ship within 1-2 business days.
+```
+
+Each row is created, and Shopify allows a metaobject to reuse a handle one of the shop's metaobjects already
+has, so importing the same file twice creates duplicates. Use `-u`/`--upsert` to create the metaobjects whose
+handle the shop doesn't have and update the ones whose handle it does, which makes re-running an import safe:
+
+```
+sdt metaobjects import -u FILE.csv
+```
+
+Updating only sets the spreadsheet's fields: fields that are blank in the spreadsheet keep the value they
+have in the shop.
+
+Rows are submitted as they're read. Shopify rejects a row whose columns aren't fields of its type, or whose
+type has no definition, and the import reports each rejected row and exits non-zero. The rows before it are
+still created, so a rejected row doesn't undo the rest of the run. `-j`/`--json` reports every row's status.
 
 ### Metafields
 
