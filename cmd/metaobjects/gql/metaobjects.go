@@ -2,10 +2,13 @@ package gql
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	gqlclient "github.com/ScreenStaring/shopify-dev-tools/gql"
+	"github.com/clbanning/mxj"
 )
 
 const metaobjectsQuery = `
@@ -144,11 +147,15 @@ type metaobjectDefinitionJSON struct {
 	} `json:"fieldDefinitions"`
 }
 
+// DefinitionGIDPrefix is the GID prefix of metaobject definition ids. Ids are
+// displayed without it.
+const DefinitionGIDPrefix = "gid://shopify/MetaobjectDefinition/"
+
 func ToDefinitionGID(id string) string {
 	if strings.HasPrefix(id, "gid://") {
 		return id
 	}
-	return "gid://shopify/MetaobjectDefinition/" + id
+	return DefinitionGIDPrefix + id
 }
 
 func jsonToMetaobject(n metaobjectJSON) Metaobject {
@@ -381,4 +388,100 @@ func ListMetaobjectDefinitions(shop, token string, limit, page int, verbose bool
 	}
 
 	return result, nil
+}
+
+const metaobjectDefinitionCreateMutation = `
+mutation metaobjectDefinitionCreate($definition: MetaobjectDefinitionCreateInput!) {
+  metaobjectDefinitionCreate(definition: $definition) {
+    metaobjectDefinition {
+      id
+      name
+      type
+    }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+`
+
+const metaobjectDefinitionDeleteMutation = `
+mutation metaobjectDefinitionDelete($id: ID!) {
+  metaobjectDefinitionDelete(id: $id) {
+    deletedId
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+`
+
+// CreateMetaobjectDefinition creates one metaobject definition from the given
+// MetaobjectDefinitionCreateInput and returns the created definition's id.
+func CreateMetaobjectDefinition(client *gqlclient.Client, definition map[string]interface{}) (string, error) {
+	data, err := client.Execute(metaobjectDefinitionCreateMutation, map[string]interface{}{
+		"definition": definition,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if messages := userErrorMessages(data, "data.metaobjectDefinitionCreate.userErrors"); len(messages) > 0 {
+		return "", errors.New(strings.Join(messages, "; "))
+	}
+
+	ids, _ := data.ValuesForPath("data.metaobjectDefinitionCreate.metaobjectDefinition.id")
+	if len(ids) == 0 || ids[0] == nil {
+		return "", errors.New("no id returned")
+	}
+
+	return fmt.Sprint(ids[0]), nil
+}
+
+// DeleteMetaobjectDefinition deletes the metaobject definition with the given
+// numeric id or GID and returns the deleted definition's id. The definition's
+// metafield definitions, metaobjects and metafields are deleted by Shopify
+// asynchronously.
+func DeleteMetaobjectDefinition(client *gqlclient.Client, id string) (string, error) {
+	data, err := client.Execute(metaobjectDefinitionDeleteMutation, map[string]interface{}{
+		"id": ToDefinitionGID(id),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if messages := userErrorMessages(data, "data.metaobjectDefinitionDelete.userErrors"); len(messages) > 0 {
+		return "", errors.New(strings.Join(messages, "; "))
+	}
+
+	ids, _ := data.ValuesForPath("data.metaobjectDefinitionDelete.deletedId")
+	if len(ids) == 0 || ids[0] == nil {
+		return "", errors.New("not found or access denied")
+	}
+
+	return fmt.Sprint(ids[0]), nil
+}
+
+// userErrorMessages returns the messages of the userErrors at the given path,
+// prefixed by their field when they have one, sorted so error output is stable.
+func userErrorMessages(data mxj.Map, path string) []string {
+	userErrors, _ := data.ValuesForPath(path)
+
+	messages := make([]string, 0, len(userErrors))
+	for _, ue := range userErrors {
+		m := ue.(map[string]interface{})
+		field := fmt.Sprint(m["field"])
+		if field != "" && field != "<nil>" {
+			messages = append(messages, fmt.Sprintf("%s: %s", field, m["message"]))
+		} else {
+			messages = append(messages, fmt.Sprint(m["message"]))
+		}
+	}
+	sort.Strings(messages)
+
+	return messages
 }

@@ -157,6 +157,39 @@ Note that the field must be configured as searchable in Shopify.
 
 For more info see [Shopify's documentation](https://shopify.dev/docs/apps/build/metafields/query-using-metafields) on querying metafields.
 
+#### Creating Metaobject Definitions in Bulk
+
+Create metaobject definitions from a CSV spreadsheet:
+
+```
+sdt metaobjects def import FILE.csv
+```
+
+If `FILE` is not given the CSV is read from stdin. Each row is one field of a definition; rows with the same
+`Type` are merged into a single definition. Supported columns:
+
+| Column | Description |
+| ------ | ----------- |
+| `Type` | Required. Metaobject type, e.g. `author`; prefix with `$app:` to define it as app-owned |
+| `Name` | Required. Human-readable name |
+| `Description` | Optional |
+| `Display Name Key` | Key of the field used as the metaobject's display name |
+| `Access Admin` | [MetaobjectAdminAccessInput](https://shopify.dev/docs/api/admin-graphql/latest/enums/MetaobjectAdminAccessInput), e.g. `MERCHANT_READ_WRITE`; empty means the API default |
+| `Access Customer Account` | [MetaobjectCustomerAccountAccess](https://shopify.dev/docs/api/admin-graphql/latest/enums/MetaobjectCustomerAccountAccess), e.g. `READ`. Requires API version `2026-01` or later (`--api-version 2026-01`); older versions reject it |
+| `Access Storefront` | [MetaobjectStorefrontAccess](https://shopify.dev/docs/api/admin-graphql/latest/enums/MetaobjectStorefrontAccess), e.g. `PUBLIC_READ` |
+| `Capability Publishable` / `Capability Online Store` / `Capability Translatable` / `Capability Renderable` | `true`/`false`, default `false` |
+| `Capability Online Store URL Handle` / `Capability Online Store Create Redirects` | [MetaobjectCapabilityDefinitionDataOnlineStore](https://shopify.dev/docs/api/admin-graphql/latest/input-objects/MetaobjectCapabilityDefinitionDataOnlineStore). URL handle is required by the API when `Capability Online Store` is `true`; redirects default `false` |
+| `Capability Renderable Meta Title Key` / `Capability Renderable Meta Description Key` | [MetaobjectCapabilityDefinitionDataRenderable](https://shopify.dev/docs/api/admin-graphql/latest/input-objects/MetaobjectCapabilityDefinitionDataRenderable). Keys of the fields used for SEO title and description |
+| `Field Key` | Required. Unique identifier of the field, e.g. `bio` |
+| `Field Name` | Human-readable field name |
+| `Field Type` | Required. [Metafield type](https://shopify.dev/docs/apps/build/metafields/list-of-data-types), e.g. `single_line_text_field` |
+| `Field Description` | Optional |
+| `Field Required` | `true`/`false`, default `false` |
+| `Validation Name` / `Validation Value` | Validations for the row's field per the [validation specs](https://shopify.dev/docs/apps/build/metafields/list-of-validation-options). One validation per column pair. To specify multiple validations add multiple `Validation Name` / `Validation Value` columns. |
+
+Deleting a definition also deletes its metafield definitions, metaobjects and metafields. Shopify does
+this asynchronously, so they may still appear for a short time after the definition is deleted.
+
 ### Metafields
 
     NAME:

@@ -87,7 +87,7 @@ func defListAction(c *cli.Context) error {
 func printMetaobjectDefinitions(definitions []gql.MetaobjectDefinition) {
 	t := tabby.New()
 	for _, d := range definitions {
-		t.AddLine("ID", strings.TrimPrefix(d.ID, "gid://shopify/MetaobjectDefinition/"))
+		t.AddLine("ID", strings.TrimPrefix(d.ID, gql.DefinitionGIDPrefix))
 		t.AddLine("Name", d.Name)
 		t.AddLine("Type", d.Type)
 		t.AddLine("Display Name Key", d.DisplayNameKey)
@@ -200,6 +200,26 @@ func init() {
 						Usage:     "List metaobject definitions or the definitions given by ID",
 						Flags:     append(cmd.Flags, append(defListFlags, apiVersionFlag)...),
 						Action:    defListAction,
+					},
+					{
+						Name:      "import",
+						Aliases:   []string{"i"},
+						ArgsUsage: "[FILE]",
+						Usage:     "Create metaobject definitions from a CSV spreadsheet (reads stdin if FILE not given)",
+						Flags: append(cmd.Flags, apiVersionFlag, &cli.BoolFlag{
+							Name:    "json",
+							Aliases: []string{"j"},
+							Usage:   "Output the results in JSON format",
+						}),
+						Action: importDefinitionAction,
+					},
+					{
+						Name:      "delete",
+						Aliases:   []string{"del", "rm", "d"},
+						ArgsUsage: "ID|GID [ID|GID ...]",
+						Usage:     "Delete the given metaobject definition(s)",
+						Flags:     append(cmd.Flags, apiVersionFlag),
+						Action:    deleteDefinitionAction,
 					},
 				},
 			},
