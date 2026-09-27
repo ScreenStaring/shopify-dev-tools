@@ -1,5 +1,15 @@
-Unreleased
+v0.1.3 2026-09-26
 --------------------
+- Fix admin command bug when shop given with its myshopify.com domain
+- Add `collections` command
+- Add `locations` command
+- Add `metaobjects import` command to bulk import metaobject entries
+- Add `metaobjects delete` command to bulk delete metaobject entries
+- Add `metaobjects def import` command to bulk import metaobject definitions
+- Add `metaobjects def delete` command to bulk delete metaobject definitions
+- Add support for Storefront API GraphQL queries
+- Add `--print` option to print, not open, admin URL
+- Add option to output metafield definitions as JSONL
 - Add `SDT_MAX_RETRY_ATTEMPTS` environment variable to control GraphQL retry attempts (default: 10)
 
 v0.1.2 2026-09-01
