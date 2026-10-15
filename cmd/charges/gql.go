@@ -199,6 +199,7 @@ type OneTimeCharge struct {
 	Name            string `json:"name"`
 	Status          string `json:"status"`
 	Price           string `json:"price"`
+	Currency        string `json:"currency,omitempty"`
 	Test            bool   `json:"test"`
 	CreatedAt       string `json:"createdAt"`
 	ConfirmationURL string `json:"confirmationUrl,omitempty"`
@@ -214,6 +215,7 @@ type RecurringCharge struct {
 	Name            string `json:"name"`
 	Status          string `json:"status"`
 	Price           string `json:"price"`
+	Currency        string `json:"currency,omitempty"`
 	Interval        string `json:"interval"`
 	Test            bool   `json:"test"`
 	ReturnURL       string `json:"returnUrl"`
@@ -222,7 +224,8 @@ type RecurringCharge struct {
 }
 
 type priceJSON struct {
-	Amount string `json:"amount"`
+	Amount   string `json:"amount"`
+	Currency string `json:"currencyCode"`
 }
 
 type oneTimeChargeNodeJSON struct {
@@ -358,8 +361,18 @@ func shopCurrencyCode(client *gql.Client) (string, error) {
 	return fmt.Sprint(values[0]), nil
 }
 
-func createOneTimeCharge(client *gql.Client, name, price string, test bool, returnURL string) (*OneTimeCharge, error) {
-	currencyCode, err := shopCurrencyCode(client)
+// chargeCurrencyCode returns the currency to use for a charge's price: the
+// given code when one is set, otherwise the shop's currency.
+func chargeCurrencyCode(client *gql.Client, currency string) (string, error) {
+	if len(currency) > 0 {
+		return currency, nil
+	}
+
+	return shopCurrencyCode(client)
+}
+
+func createOneTimeCharge(client *gql.Client, name, price string, test bool, returnURL, currency string) (*OneTimeCharge, error) {
+	currencyCode, err := chargeCurrencyCode(client, currency)
 	if err != nil {
 		return nil, err
 	}
@@ -414,13 +427,13 @@ func recurringIntervalFor(interval string) (string, error) {
 	return "", fmt.Errorf("invalid interval %q: must be one of 30d, 1y, 365d", interval)
 }
 
-func createRecurringCharge(client *gql.Client, name, price string, test bool, returnURL, interval string) (*RecurringCharge, error) {
+func createRecurringCharge(client *gql.Client, name, price string, test bool, returnURL, interval, currency string) (*RecurringCharge, error) {
 	gqlInterval, err := recurringIntervalFor(interval)
 	if err != nil {
 		return nil, err
 	}
 
-	currencyCode, err := shopCurrencyCode(client)
+	currencyCode, err := chargeCurrencyCode(client, currency)
 	if err != nil {
 		return nil, err
 	}
@@ -524,6 +537,7 @@ func oneTimeChargeFromNode(n *oneTimeChargeNodeJSON, confirmationURL, returnURL 
 
 	if n.Price != nil {
 		charge.Price = n.Price.Amount
+		charge.Currency = n.Price.Currency
 	}
 
 	return charge
@@ -548,6 +562,7 @@ func recurringChargeFromNode(n recurringChargeNodeJSON) RecurringCharge {
 
 		if lineItem.Plan.PricingDetails.Price != nil {
 			charge.Price = lineItem.Plan.PricingDetails.Price.Amount
+			charge.Currency = lineItem.Plan.PricingDetails.Price.Currency
 		}
 
 		break

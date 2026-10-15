@@ -35,13 +35,23 @@ func printChargeJSONL(charge interface{}) {
 	fmt.Println(string(line))
 }
 
+// priceWithCurrency renders a charge's price and the currency it's in,
+// e.g. 4.55 USD. The currency is omitted when the API didn't return one.
+func priceWithCurrency(price, currency string) string {
+	if len(currency) == 0 {
+		return price
+	}
+
+	return fmt.Sprintf("%s %s", price, currency)
+}
+
 func printFormattedRecurringCharge(charge *RecurringCharge) {
 	t := tabby.New()
 
 	t.AddLine("Id", charge.ID)
 	t.AddLine("Type", "Recurring")
 	t.AddLine("Name", charge.Name)
-	t.AddLine("Price", charge.Price)
+	t.AddLine("Price", priceWithCurrency(charge.Price, charge.Currency))
 	t.AddLine("Interval", charge.Interval)
 	t.AddLine("Status", charge.Status)
 	t.AddLine("Return URL", charge.ReturnURL)
@@ -77,7 +87,7 @@ func printFormattedApplicationCharge(charge *OneTimeCharge) {
 	t.AddLine("Id", charge.ID)
 	t.AddLine("Type", "One-Time")
 	t.AddLine("Name", charge.Name)
-	t.AddLine("Price", charge.Price)
+	t.AddLine("Price", priceWithCurrency(charge.Price, charge.Currency))
 	t.AddLine("Status", charge.Status)
 
 	// The GraphQL API only exposes the confirmation and return URLs on
@@ -95,6 +105,28 @@ func printFormattedApplicationCharge(charge *OneTimeCharge) {
 	t.Print()
 }
 
+// normalizeCurrencyCode upcases and validates a user-supplied ISO 4217
+// currency code, e.g. usd becomes USD. An empty code is returned as-is so
+// callers can fall back to the shop's currency.
+func normalizeCurrencyCode(currency string) (string, error) {
+	code := strings.ToUpper(strings.TrimSpace(currency))
+	if len(code) == 0 {
+		return "", nil
+	}
+
+	if len(code) != 3 {
+		return "", fmt.Errorf("invalid currency %q: must be a 3-letter ISO 4217 code such as USD", currency)
+	}
+
+	for _, r := range code {
+		if r < 'A' || r > 'Z' {
+			return "", fmt.Errorf("invalid currency %q: must be a 3-letter ISO 4217 code such as USD", currency)
+		}
+	}
+
+	return code, nil
+}
+
 func createCharge(c *cli.Context) error {
 	if c.Args().Len() < 3 {
 		return fmt.Errorf("You must supply charge name, price, and return URL")
@@ -107,10 +139,15 @@ func createCharge(c *cli.Context) error {
 
 	returnURL := c.Args().Get(2)
 
+	currency, err := normalizeCurrencyCode(c.String("currency"))
+	if err != nil {
+		return fmt.Errorf("Cannot create charge: %s", err)
+	}
+
 	client := cmd.NewGraphQLClient(c)
 
 	if c.IsSet("interval") {
-		charge, err := createRecurringCharge(client, c.Args().Get(0), price.String(), c.Bool("test"), returnURL, c.String("interval"))
+		charge, err := createRecurringCharge(client, c.Args().Get(0), price.String(), c.Bool("test"), returnURL, c.String("interval"), currency)
 		if err != nil {
 			return fmt.Errorf("Cannot create charge: %s", err)
 		}
@@ -124,7 +161,7 @@ func createCharge(c *cli.Context) error {
 		return nil
 	}
 
-	charge, err := createOneTimeCharge(client, c.Args().Get(0), price.String(), c.Bool("test"), returnURL)
+	charge, err := createOneTimeCharge(client, c.Args().Get(0), price.String(), c.Bool("test"), returnURL, currency)
 	if err != nil {
 		return fmt.Errorf("Cannot create charge: %s", err)
 	}
@@ -353,12 +390,11 @@ func init() {
 			Aliases: []string{"t"},
 			Usage:   "Make the charge a test charge",
 		},
-		// lib does not support
-		// &cli.StringFlag{
-		// 	Name:    "currency",
-		// 	Aliases: []string{"c"},
-		// 	Usage:   "Currency to use",
-		// },
+		&cli.StringFlag{
+			Name:    "currency",
+			Aliases: []string{"c"},
+			Usage:   "Currency of the price, as an ISO 4217 code such as USD (default: the shop's currency)",
+		},
 	}
 
 	Cmd = cli.Command{
