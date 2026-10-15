@@ -2,7 +2,10 @@ package draftorders
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/ScreenStaring/shopify-dev-tools/cmd"
 	"github.com/cheynewallace/tabby"
@@ -41,6 +44,51 @@ func listAction(c *cli.Context) error {
 	printDraftOrders(orders)
 
 	return nil
+}
+
+func deleteAction(c *cli.Context) error {
+	if c.NArg() == 0 {
+		return errors.New("Draft order id required")
+	}
+
+	ids, err := draftOrderIDs(c.Args().Slice())
+	if err != nil {
+		return err
+	}
+
+	client := cmd.NewGraphQLClient(c)
+
+	var failures []string
+	for _, id := range ids {
+		deletedID, err := deleteDraftOrder(client, id)
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%d: %s", id, err))
+			continue
+		}
+
+		fmt.Printf("Deleted %s\n", deletedID)
+	}
+
+	if len(failures) > 0 {
+		return fmt.Errorf("Cannot delete draft order(s): %s", strings.Join(failures, ", "))
+	}
+
+	return nil
+}
+
+// draftOrderIDs parses draft order IDs as given on the command line.
+func draftOrderIDs(args []string) ([]int64, error) {
+	ids := make([]int64, 0, len(args))
+
+	for _, arg := range args {
+		id, err := strconv.ParseInt(arg, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("Argument '%s' invalid: must be a draft order id", arg)
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, nil
 }
 
 // printJSONL outputs the draft orders one JSON object per line.
@@ -155,6 +203,14 @@ func init() {
 				Usage:   "List the shop's draft orders or the draft orders matching the given IDs and/or 'sku:VALUE' arguments",
 				Flags:   append(cmd.Flags, draftOrdersFlags...),
 				Action:  listAction,
+			},
+			{
+				Name:      "delete",
+				Aliases:   []string{"del", "rm", "d"},
+				ArgsUsage: "ID [ID ...]",
+				Usage:     "Delete the draft orders of the given IDs",
+				Flags:     append(cmd.Flags, cmd.APIVersionFlag),
+				Action:    deleteAction,
 			},
 		},
 	}

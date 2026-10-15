@@ -2,11 +2,26 @@ package draftorders
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/ScreenStaring/shopify-dev-tools/gql"
 )
+
+const draftOrderGIDPrefix = "gid://shopify/DraftOrder/"
+
+const draftOrderDeleteMutation = `
+mutation draftOrderDelete($input: DraftOrderDeleteInput!) {
+  draftOrderDelete(input: $input) {
+    deletedId
+    userErrors {
+      field
+      message
+    }
+  }
+}
+`
 
 const draftOrdersQuery = `
 query($query: String!, $first: Int!, $sortKey: DraftOrderSortKeys!) {
@@ -102,6 +117,20 @@ type draftOrdersResponse struct {
 				Node draftOrderJSON `json:"node"`
 			} `json:"edges"`
 		} `json:"draftOrders"`
+	} `json:"data"`
+}
+
+type userErrorJSON struct {
+	Field   []string `json:"field"`
+	Message string   `json:"message"`
+}
+
+type draftOrderDeleteResponse struct {
+	Data struct {
+		DraftOrderDelete struct {
+			DeletedID  string          `json:"deletedId"`
+			UserErrors []userErrorJSON `json:"userErrors"`
+		} `json:"draftOrderDelete"`
 	} `json:"data"`
 }
 
@@ -212,4 +241,46 @@ func listDraftOrders(shop, token string, ids []int64, skus []string, status stri
 	}
 
 	return result, nil
+}
+
+// deleteDraftOrder deletes the draft order with the given numeric id and
+// returns the deleted draft order's numeric id.
+func deleteDraftOrder(client *gql.Client, id int64) (string, error) {
+	data, err := client.Execute(draftOrderDeleteMutation, map[string]interface{}{
+		"input": map[string]interface{}{"id": fmt.Sprintf("%s%d", draftOrderGIDPrefix, id)},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("Cannot re-encode draft order delete response: %s", err)
+	}
+
+	var response draftOrderDeleteResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return "", fmt.Errorf("Cannot parse draft order delete response: %s", err)
+	}
+
+	result := response.Data.DraftOrderDelete
+
+	if len(result.UserErrors) > 0 {
+		messages := make([]string, 0, len(result.UserErrors))
+		for _, ue := range result.UserErrors {
+			if len(ue.Field) > 0 {
+				messages = append(messages, fmt.Sprintf("%s: %s", strings.Join(ue.Field, "."), ue.Message))
+			} else {
+				messages = append(messages, ue.Message)
+			}
+		}
+
+		return "", errors.New(strings.Join(messages, "; "))
+	}
+
+	if len(result.DeletedID) == 0 {
+		return "", errors.New("not found or access denied")
+	}
+
+	return strings.TrimPrefix(result.DeletedID, draftOrderGIDPrefix), nil
 }

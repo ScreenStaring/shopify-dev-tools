@@ -18,7 +18,7 @@ The CLI interface uses the executable `sdt`:
        sdt [global options] command [command options] [arguments...]
 
     VERSION:
-       0.1.2
+       0.1.3
 
     COMMANDS:
        admin, a                     Open admin pages
@@ -483,8 +483,9 @@ Information about draft orders
        sdt draftorders command [command options] [arguments...]
 
     COMMANDS:
-       ls, l    List the shop's draft orders or the draft orders matching the given IDs and/or 'sku:VALUE' arguments
-       help, h  Shows a list of commands or help for one command
+       ls, l               List the shop's draft orders or the draft orders matching the given IDs and/or 'sku:VALUE' arguments
+       delete, del, rm, d  Delete the draft orders of the given IDs
+       help, h             Shows a list of commands or help for one command
 
     OPTIONS:
        --help, -h  show help (default: false)
