@@ -58,6 +58,7 @@ mutation($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUr
                 amount
                 currencyCode
               }
+              interval
             }
           }
         }
@@ -133,6 +134,7 @@ query($first: Int!, $after: String) {
                     amount
                     currencyCode
                   }
+                  interval
                 }
               }
             }
@@ -178,6 +180,7 @@ query($ids: [ID!]!) {
                 amount
                 currencyCode
               }
+              interval
             }
           }
         }
@@ -211,6 +214,7 @@ type RecurringCharge struct {
 	Name            string `json:"name"`
 	Status          string `json:"status"`
 	Price           string `json:"price"`
+	Interval        string `json:"interval"`
 	Test            bool   `json:"test"`
 	ReturnURL       string `json:"returnUrl"`
 	ConfirmationURL string `json:"confirmationUrl,omitempty"`
@@ -297,7 +301,8 @@ type recurringChargeNodeJSON struct {
 	LineItems []struct {
 		Plan *struct {
 			PricingDetails *struct {
-				Price *priceJSON `json:"price"`
+				Price    *priceJSON `json:"price"`
+				Interval string     `json:"interval"`
 			} `json:"pricingDetails"`
 		} `json:"plan"`
 	} `json:"lineItems"`
@@ -332,7 +337,8 @@ type chargeNodeJSON struct {
 	LineItems          []struct {
 		Plan *struct {
 			PricingDetails *struct {
-				Price *priceJSON `json:"price"`
+				Price    *priceJSON `json:"price"`
+				Interval string     `json:"interval"`
 			} `json:"pricingDetails"`
 		} `json:"plan"`
 	} `json:"lineItems"`
@@ -534,11 +540,16 @@ func recurringChargeFromNode(n recurringChargeNodeJSON) RecurringCharge {
 	}
 
 	for _, lineItem := range n.LineItems {
-		if lineItem.Plan == nil || lineItem.Plan.PricingDetails == nil || lineItem.Plan.PricingDetails.Price == nil {
+		if lineItem.Plan == nil || lineItem.Plan.PricingDetails == nil {
 			continue
 		}
 
-		charge.Price = lineItem.Plan.PricingDetails.Price.Amount
+		charge.Interval = lineItem.Plan.PricingDetails.Interval
+
+		if lineItem.Plan.PricingDetails.Price != nil {
+			charge.Price = lineItem.Plan.PricingDetails.Price.Amount
+		}
+
 		break
 	}
 

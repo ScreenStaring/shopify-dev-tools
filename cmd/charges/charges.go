@@ -42,6 +42,7 @@ func printFormattedRecurringCharge(charge *RecurringCharge) {
 	t.AddLine("Type", "Recurring")
 	t.AddLine("Name", charge.Name)
 	t.AddLine("Price", charge.Price)
+	t.AddLine("Interval", charge.Interval)
 	t.AddLine("Status", charge.Status)
 	t.AddLine("Return URL", charge.ReturnURL)
 
