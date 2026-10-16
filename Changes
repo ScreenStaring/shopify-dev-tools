@@ -1,3 +1,10 @@
+v0.1.4 2026-10-16
+--------------------
+- Add support for bulk deleting for metafield definitions by resource and namespace
+- Add `draftorders delete` command
+- Add billing interval and currency to charge list output
+- Add `--currency` option to `charges create` command
+
 v0.1.3 2026-09-26
 --------------------
 - Fix admin command bug when shop given with its myshopify.com domain
