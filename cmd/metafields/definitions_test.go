@@ -1,6 +1,7 @@
 package metafields
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -274,5 +275,87 @@ func TestParseBool(t *testing.T) {
 	}
 	if _, err := parseBool("yes"); err == nil {
 		t.Error("parseBool(yes) want error")
+	}
+}
+
+func TestDefinitionTargets(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		wantTargets []definitionTarget
+		wantSets    []definitionSet
+		wantErr     bool
+	}{
+		{
+			name: "id and gid",
+			args: []string{"123", "gid://shopify/MetafieldDefinition/456"},
+			wantTargets: []definitionTarget{
+				{label: "123", id: "gid://shopify/MetafieldDefinition/123"},
+				{label: "gid://shopify/MetafieldDefinition/456", id: "gid://shopify/MetafieldDefinition/456"},
+			},
+		},
+		{
+			name:     "owner and namespace",
+			args:     []string{"PRODUCT@custom"},
+			wantSets: []definitionSet{{ownerType: "PRODUCT", namespace: "custom"}},
+		},
+		{
+			name:     "owner type is uppercased",
+			args:     []string{"product@custom"},
+			wantSets: []definitionSet{{ownerType: "PRODUCT", namespace: "custom"}},
+		},
+		{
+			name:     "namespace case is preserved",
+			args:     []string{"SHOP@Mixed Case"},
+			wantSets: []definitionSet{{ownerType: "SHOP", namespace: "Mixed Case"}},
+		},
+		{
+			name: "multiple sets",
+			args: []string{"PRODUCT@custom", "COLLECTION@other"},
+			wantSets: []definitionSet{
+				{ownerType: "PRODUCT", namespace: "custom"},
+				{ownerType: "COLLECTION", namespace: "other"},
+			},
+		},
+		{
+			name: "mixed ids and sets",
+			args: []string{"123", "PRODUCT@custom", "456"},
+			wantTargets: []definitionTarget{
+				{label: "123", id: "gid://shopify/MetafieldDefinition/123"},
+				{label: "456", id: "gid://shopify/MetafieldDefinition/456"},
+			},
+			wantSets: []definitionSet{{ownerType: "PRODUCT", namespace: "custom"}},
+		},
+		{
+			name:    "owner type missing",
+			args:    []string{"@custom"},
+			wantErr: true,
+		},
+		{
+			name:    "namespace missing",
+			args:    []string{"PRODUCT@"},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			targets, sets, err := definitionTargets(tt.args)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("definitionTargets(%v) = %v, %v; want error", tt.args, targets, sets)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("definitionTargets(%v) unexpected error: %s", tt.args, err)
+			}
+			if !reflect.DeepEqual(targets, tt.wantTargets) {
+				t.Errorf("definitionTargets(%v) targets = %v, want %v", tt.args, targets, tt.wantTargets)
+			}
+			if !reflect.DeepEqual(sets, tt.wantSets) {
+				t.Errorf("definitionTargets(%v) sets = %v, want %v", tt.args, sets, tt.wantSets)
+			}
+		})
 	}
 }

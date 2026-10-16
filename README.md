@@ -317,6 +317,24 @@ If `FILE` is not given the CSV is read from stdin. Supported columns:
 
 Column names are matched case-insensitively. Each row is one definition.
 
+#### Deleting Metafield Definitions in Bulk
+
+Delete definitions by ID or GID:
+
+```
+sdt metafield definitions delete 123456789 gid://shopify/MetafieldDefinition/987654321
+```
+
+Or delete every definition of an owner type in a namespace, with the argument given as `OWNER@NAMESPACE`:
+
+```
+sdt metafield definitions delete PRODUCT@custom COLLECTION@custom
+```
+
+`OWNER@NAMESPACE` arguments and IDs can be mixed.
+
+Any associated metafields will be deleted unless `--no-metafields`/`-n` is provided.
+
 ### Charges
 
 Do things with app and onetime charges

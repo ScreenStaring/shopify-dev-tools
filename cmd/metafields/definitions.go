@@ -366,23 +366,112 @@ mutation metafieldDefinitionDelete($id: ID!, $deleteAllAssociatedMetafields: Boo
 }
 `
 
+// definitionSet is a group of definitions to delete: every definition of one
+// owner type in one namespace, e.g. PRODUCT@custom.
+type definitionSet struct {
+	ownerType string
+	namespace string
+}
+
+// definitionTarget is one definition to delete and the argument it came from,
+// which names it in error output.
+type definitionTarget struct {
+	label string
+	id    string
+}
+
+// definitionTargets splits delete arguments into the definitions to delete and
+// the sets of definitions to resolve. An argument of the form OWNER@NAMESPACE
+// names a set, any other argument is a definition id or GID.
+func definitionTargets(args []string) ([]definitionTarget, []definitionSet, error) {
+	var targets []definitionTarget
+	var sets []definitionSet
+
+	for _, arg := range args {
+		parts := strings.SplitN(arg, "@", 2)
+		if len(parts) == 1 {
+			targets = append(targets, definitionTarget{label: arg, id: definitionGID(arg)})
+			continue
+		}
+
+		ownerType, namespace := parts[0], parts[1]
+		if ownerType == "" {
+			return nil, nil, fmt.Errorf("%s: owner type missing before '@'", arg)
+		}
+		if namespace == "" {
+			return nil, nil, fmt.Errorf("%s: namespace missing after '@'", arg)
+		}
+
+		// The API's MetafieldOwnerType values are uppercase.
+		sets = append(sets, definitionSet{ownerType: strings.ToUpper(ownerType), namespace: namespace})
+	}
+
+	return targets, sets, nil
+}
+
+// definitionIDs returns the id of every definition of the given owner type in
+// the given namespace.
+func definitionIDs(client *gql.Client, ownerType, namespace string) ([]string, error) {
+	definitions, err := listMetafieldDefinitions(client, ownerType, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]string, 0, len(definitions))
+	for _, d := range definitions {
+		ids = append(ids, d.ID)
+	}
+
+	return ids, nil
+}
+
 func deleteDefinitionAction(c *cli.Context) error {
 	if c.NArg() == 0 {
-		return errors.New("Metafield definition id required")
+		return errors.New("Metafield definition id or OWNER@NAMESPACE required")
+	}
+
+	targets, sets, err := definitionTargets(c.Args().Slice())
+	if err != nil {
+		return err
 	}
 
 	client := cmd.NewGraphQLClient(c)
 	deleteAll := !c.Bool("no-metafields")
 
 	var failures []string
-	for _, arg := range c.Args().Slice() {
-		id := definitionGID(arg)
+
+	for _, set := range sets {
+		label := set.ownerType + "@" + set.namespace
+		ids, err := definitionIDs(client, set.ownerType, set.namespace)
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %s", label, err))
+			continue
+		}
+		if len(ids) == 0 {
+			failures = append(failures, fmt.Sprintf("%s: no definitions found", label))
+			continue
+		}
+		for _, id := range ids {
+			targets = append(targets, definitionTarget{label: label, id: id})
+		}
+	}
+
+	// The same definition can be named more than once, by id and namespace or by
+	// two namespaces; delete it once.
+	seen := make(map[string]bool, len(targets))
+
+	for _, target := range targets {
+		if seen[target.id] {
+			continue
+		}
+		seen[target.id] = true
+
 		data, err := client.Execute(metafieldDefinitionDeleteMutation, map[string]interface{}{
-			"id":                            id,
+			"id":                            target.id,
 			"deleteAllAssociatedMetafields": deleteAll,
 		})
 		if err != nil {
-			failures = append(failures, fmt.Sprintf("%s: %s", arg, err))
+			failures = append(failures, fmt.Sprintf("%s: %s", target.label, err))
 			continue
 		}
 
@@ -399,13 +488,13 @@ func deleteDefinitionAction(c *cli.Context) error {
 				}
 			}
 			sort.Strings(messages)
-			failures = append(failures, fmt.Sprintf("%s: %s", arg, strings.Join(messages, "; ")))
+			failures = append(failures, fmt.Sprintf("%s: %s", target.label, strings.Join(messages, "; ")))
 			continue
 		}
 
 		deletedID, _ := data.ValuesForPath("data.metafieldDefinitionDelete.deletedDefinitionId")
 		if len(deletedID) == 0 || deletedID[0] == nil {
-			failures = append(failures, fmt.Sprintf("%s: not found or access denied", arg))
+			failures = append(failures, fmt.Sprintf("%s: not found or access denied", target.label))
 			continue
 		}
 
