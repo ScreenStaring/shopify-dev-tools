@@ -16,6 +16,7 @@ import (
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/metaobjects"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/orders"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/products"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/purchaseorders"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/scripttags"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/shop"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/themes"
@@ -42,6 +43,7 @@ func main() {
 			&metaobjects.Cmd,
 			&orders.Cmd,
 			&products.Cmd,
+			&purchaseorders.Cmd,
 			&gql.Cmd,
 			&shop.Cmd,
 			&customers.Cmd,

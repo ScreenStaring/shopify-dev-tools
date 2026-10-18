@@ -31,6 +31,7 @@ The CLI interface uses the executable `sdt`:
        metaobjects, mo              Metaobject utilities
        orders, o                    Information about orders
        products, p                  Do things with products
+       purchaseorders, po           Information about purchase orders
        graphql, gql                 Run a GraphQL query against the Admin or Storefront API
        shop, s                      Information about the given shop
        customers, cust              Do things with customers
@@ -511,6 +512,34 @@ Information about draft orders
 #### Listing Draft Orders
 
 `sdt draftorders ls` accepts the same arguments as [`orders ls`](#listing-orders).
+
+### Purchase Orders
+
+Information about purchase orders
+
+    NAME:
+       sdt purchaseorders - Information about purchase orders
+
+    USAGE:
+       sdt purchaseorders command [command options] [arguments...]
+
+    COMMANDS:
+       ls, l         List the shop's purchase orders or the purchase orders matching the given IDs
+       export, e, x  Export the shop's purchase orders and their line items to a CSV file
+       help, h       Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
+
+Requires:
+
+1. Minimum API version 2026-10 (`--api-version 2026-10`)
+1. `read_inventory_purchase_orders` access scope
+1. `ls` requires `read_inventory_transfers` and, for the expected arrival, `read_inventory_shipments`
+
+#### Exporting Purchase Orders
+
+`sdt purchaseorders export` writes every purchase order and its line items to `SHOP-purchase-orders.csv` in the current directory.
 
 ### Products
 
