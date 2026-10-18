@@ -29,6 +29,59 @@ query VariantsByInventoryItemIds($ids: [ID!]!) {
 }
 `
 
+const inventoryTransfersQuery = `
+query InventoryTransfers($first: Int!, $after: String, $query: String) {
+  inventoryTransfers(first: $first, after: $after, query: $query) {
+    nodes {
+      id
+      name
+      status
+      origin {
+        name
+      }
+      destination {
+        name
+      }
+      lineItems(first: 250) {
+        nodes {
+          id
+          title
+          totalQuantity
+          shippedQuantity
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+`
+
+const inventoryTransferLineItemsQuery = `
+query InventoryTransferLineItems($id: ID!, $after: String) {
+  inventoryTransfer(id: $id) {
+    lineItems(first: 250, after: $after) {
+      nodes {
+        id
+        title
+        totalQuantity
+        shippedQuantity
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`
+
 type inventoryItemJSON struct {
 	ID      string `json:"id"`
 	Variant *struct {
@@ -45,6 +98,73 @@ type inventoryItemJSON struct {
 type inventoryItemsResponse struct {
 	Data struct {
 		Nodes []*inventoryItemJSON `json:"nodes"`
+	} `json:"data"`
+}
+
+type pageInfoJSON struct {
+	HasNextPage bool   `json:"hasNextPage"`
+	EndCursor   string `json:"endCursor"`
+}
+
+// TransferLineItem is an item transferred between locations.
+type TransferLineItem struct {
+	ID              string `json:"id"`
+	Title           string `json:"title"`
+	TotalQuantity   int    `json:"totalQuantity"`
+	ShippedQuantity int    `json:"shippedQuantity"`
+}
+
+// Transfer is the movement of inventory items from an origin location to a
+// destination location.
+type Transfer struct {
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Status      string             `json:"status"`
+	Origin      string             `json:"origin,omitempty"`
+	Destination string             `json:"destination,omitempty"`
+	LineItems   []TransferLineItem `json:"lineItems,omitempty"`
+}
+
+type transferLineItemNodeJSON struct {
+	ID              string `json:"id"`
+	Title           string `json:"title"`
+	TotalQuantity   int    `json:"totalQuantity"`
+	ShippedQuantity int    `json:"shippedQuantity"`
+}
+
+type transferNodeJSON struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Origin *struct {
+		Name string `json:"name"`
+	} `json:"origin"`
+	Destination *struct {
+		Name string `json:"name"`
+	} `json:"destination"`
+	LineItems struct {
+		Nodes    []transferLineItemNodeJSON `json:"nodes"`
+		PageInfo pageInfoJSON               `json:"pageInfo"`
+	} `json:"lineItems"`
+}
+
+type inventoryTransfersResponse struct {
+	Data struct {
+		InventoryTransfers struct {
+			Nodes    []transferNodeJSON `json:"nodes"`
+			PageInfo pageInfoJSON       `json:"pageInfo"`
+		} `json:"inventoryTransfers"`
+	} `json:"data"`
+}
+
+type inventoryTransferLineItemsResponse struct {
+	Data struct {
+		InventoryTransfer *struct {
+			LineItems struct {
+				Nodes    []transferLineItemNodeJSON `json:"nodes"`
+				PageInfo pageInfoJSON               `json:"pageInfo"`
+			} `json:"lineItems"`
+		} `json:"inventoryTransfer"`
 	} `json:"data"`
 }
 
@@ -119,6 +239,174 @@ func productsFromInventoryItems(nodes []*inventoryItemJSON, ids []string) ([]pro
 	}
 
 	return products, missing, nil
+}
+
+// inventoryTransferSearchQuery builds the inventoryTransfers search query for
+// the given origin and destination location ids.
+func inventoryTransferSearchQuery(originID, destinationID string) string {
+	var parts []string
+
+	if len(originID) > 0 {
+		parts = append(parts, "origin_id:"+originID)
+	}
+
+	if len(destinationID) > 0 {
+		parts = append(parts, "destination_id:"+destinationID)
+	}
+
+	return strings.Join(parts, " AND ")
+}
+
+// listInventoryTransfers returns the inventory transfers of the given 1-based
+// page, optionally restricted by a search query. Each page holds limit
+// transfers; pages before it are skipped by following the connection's cursor.
+func listInventoryTransfers(client *gqlclient.Client, search string, limit, page int) ([]Transfer, error) {
+	if page < 1 {
+		return nil, fmt.Errorf("--page must be 1 or greater")
+	}
+
+	if limit < 1 {
+		return nil, fmt.Errorf("--limit must be 1 or greater")
+	}
+
+	variables := map[string]interface{}{"first": limit}
+	if len(search) > 0 {
+		variables["query"] = search
+	}
+
+	after := ""
+	for current := 1; ; current++ {
+		if len(after) > 0 {
+			variables["after"] = after
+		}
+
+		data, err := client.Execute(inventoryTransfersQuery, variables)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot list inventory transfers: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot re-encode inventory transfers response: %s", err)
+		}
+
+		var response inventoryTransfersResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot parse inventory transfers response: %s", err)
+		}
+
+		result := response.Data.InventoryTransfers
+
+		if current == page {
+			transfers := make([]Transfer, 0, len(result.Nodes))
+			for _, node := range result.Nodes {
+				transfer, err := transferFromNode(client, node)
+				if err != nil {
+					return nil, err
+				}
+
+				transfers = append(transfers, transfer)
+			}
+
+			return transfers, nil
+		}
+
+		if !result.PageInfo.HasNextPage {
+			return nil, nil
+		}
+
+		after = result.PageInfo.EndCursor
+	}
+}
+
+// transferFromNode converts a transfer node, fetching the remaining line items
+// when the transfer has more than one page of them.
+func transferFromNode(client *gqlclient.Client, node transferNodeJSON) (Transfer, error) {
+	transfer := transferFromNodeJSON(node)
+
+	if node.LineItems.PageInfo.HasNextPage {
+		lineItems, err := fetchTransferLineItems(client, node.ID, node.LineItems.PageInfo.EndCursor)
+		if err != nil {
+			return transfer, err
+		}
+
+		transfer.LineItems = append(transfer.LineItems, lineItems...)
+	}
+
+	return transfer, nil
+}
+
+func transferFromNodeJSON(node transferNodeJSON) Transfer {
+	transfer := Transfer{
+		ID:     node.ID,
+		Name:   node.Name,
+		Status: node.Status,
+	}
+
+	if node.Origin != nil {
+		transfer.Origin = node.Origin.Name
+	}
+	if node.Destination != nil {
+		transfer.Destination = node.Destination.Name
+	}
+
+	for _, line := range node.LineItems.Nodes {
+		transfer.LineItems = append(transfer.LineItems, transferLineItemFromNode(line))
+	}
+
+	return transfer
+}
+
+func transferLineItemFromNode(node transferLineItemNodeJSON) TransferLineItem {
+	return TransferLineItem{
+		ID:              node.ID,
+		Title:           node.Title,
+		TotalQuantity:   node.TotalQuantity,
+		ShippedQuantity: node.ShippedQuantity,
+	}
+}
+
+// fetchTransferLineItems returns the transfer's line items after the given
+// cursor.
+func fetchTransferLineItems(client *gqlclient.Client, id, after string) ([]TransferLineItem, error) {
+	var lineItems []TransferLineItem
+
+	for len(after) > 0 {
+		data, err := client.Execute(inventoryTransferLineItemsQuery, map[string]interface{}{
+			"id":    id,
+			"after": after,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("Cannot get inventory transfer %s line items: %s", id, err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot re-encode inventory transfer line items response: %s", err)
+		}
+
+		var response inventoryTransferLineItemsResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return nil, fmt.Errorf("Cannot parse inventory transfer line items response: %s", err)
+		}
+
+		node := response.Data.InventoryTransfer
+		if node == nil {
+			return nil, fmt.Errorf("Cannot get inventory transfer %s: not found or access denied", id)
+		}
+
+		for _, line := range node.LineItems.Nodes {
+			lineItems = append(lineItems, transferLineItemFromNode(line))
+		}
+
+		if !node.LineItems.PageInfo.HasNextPage {
+			break
+		}
+
+		after = node.LineItems.PageInfo.EndCursor
+	}
+
+	return lineItems, nil
 }
 
 // idFromGID extracts the numeric id from a Shopify GID like

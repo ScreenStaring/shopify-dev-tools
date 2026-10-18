@@ -121,6 +121,7 @@ func init() {
 				),
 				Action: export.Inventory,
 			},
+			transfersCommand(),
 		},
 	}
 }

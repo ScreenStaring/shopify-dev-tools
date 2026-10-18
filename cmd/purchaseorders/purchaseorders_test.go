@@ -3,7 +3,6 @@ package purchaseorders
 import (
 	"bytes"
 	"encoding/csv"
-	"encoding/json"
 	"strings"
 	"testing"
 )
