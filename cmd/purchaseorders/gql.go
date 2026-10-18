@@ -579,13 +579,17 @@ func fetchPurchaseOrderExport(client *gql.Client, id string) (ExportPurchaseOrde
 	return po, nil
 }
 
-// fetchPurchaseOrderIDs returns the GIDs of every purchase order in the shop.
-func fetchPurchaseOrderIDs(client *gql.Client) ([]string, error) {
-	var ids []string
-	after := ""
+// fetchPurchaseOrderIDs returns the GIDs of the purchase orders of the given
+// 1-based page. Each page holds limit purchase orders; pages before it are
+// skipped by following the connection's cursor.
+func fetchPurchaseOrderIDs(client *gql.Client, limit, page int) ([]string, error) {
+	if page < 1 {
+		return nil, fmt.Errorf("--page must be 1 or greater")
+	}
 
-	for {
-		variables := map[string]interface{}{"first": 10}
+	after := ""
+	for current := 1; ; current++ {
+		variables := map[string]interface{}{"first": limit}
 		if len(after) > 0 {
 			variables["after"] = after
 		}
@@ -605,18 +609,21 @@ func fetchPurchaseOrderIDs(client *gql.Client) ([]string, error) {
 			return nil, fmt.Errorf("Cannot parse purchase orders response: %s", err)
 		}
 
-		page := response.Data.InventoryPurchaseOrders
-		for _, node := range page.Nodes {
+		result := response.Data.InventoryPurchaseOrders
+		ids := make([]string, 0, len(result.Nodes))
+		for _, node := range result.Nodes {
 			ids = append(ids, node.ID)
 		}
 
-		if !page.PageInfo.HasNextPage {
-			break
+		if current == page {
+			return ids, nil
 		}
-		after = page.PageInfo.EndCursor
-	}
 
-	return ids, nil
+		if !result.PageInfo.HasNextPage {
+			return nil, nil
+		}
+		after = result.PageInfo.EndCursor
+	}
 }
 
 const purchaseOrderIDsQuery = `

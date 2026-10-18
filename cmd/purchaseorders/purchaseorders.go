@@ -75,24 +75,36 @@ func printPurchaseOrders(orders []PurchaseOrder) {
 }
 
 func init() {
+	limitFlag := &cli.IntFlag{
+		Name:    "limit",
+		Aliases: []string{"l"},
+		Usage:   "Number of purchase orders per page, must be <= 250",
+		Value:   10,
+	}
+
+	pageFlag := &cli.IntFlag{
+		Name:    "page",
+		Aliases: []string{"p"},
+		Usage:   "Page of purchase orders to return, 1-based",
+		Value:   1,
+	}
+
 	listFlags := []cli.Flag{
-		&cli.IntFlag{
-			Name:    "limit",
-			Aliases: []string{"l"},
-			Usage:   "Number of purchase orders per page, must be <= 250",
-			Value:   10,
-		},
-		&cli.IntFlag{
-			Name:    "page",
-			Aliases: []string{"p"},
-			Usage:   "Page of purchase orders to return, 1-based",
-			Value:   1,
-		},
+		limitFlag,
+		pageFlag,
 		&cli.StringFlag{
 			Name:    "status",
 			Aliases: []string{"s"},
 			Usage:   "Purchase order status to filter: DRAFT or ORDERED",
 		},
+		cmd.APIVersionFlag,
+	}
+
+	// Export honours the same paging flags as ls, but exports only the
+	// purchase orders on the given page.
+	exportFlags := []cli.Flag{
+		limitFlag,
+		pageFlag,
 		cmd.APIVersionFlag,
 	}
 
@@ -114,7 +126,7 @@ func init() {
 				Name:    "export",
 				Aliases: []string{"e", "x"},
 				Usage:   "Export the shop's purchase orders and their line items to a CSV file",
-				Flags:   append(cmd.Flags, cmd.APIVersionFlag),
+				Flags:   append(cmd.Flags, exportFlags...),
 				Action:  exportAction,
 			},
 		},

@@ -20,7 +20,7 @@ func exportAction(c *cli.Context) error {
 	shop := c.String("shop")
 	client := cmd.NewGraphQLClient(c)
 
-	ids, err := fetchPurchaseOrderIDs(client)
+	ids, err := fetchPurchaseOrderIDs(client, c.Int("limit"), c.Int("page"))
 	if err != nil {
 		return err
 	}
