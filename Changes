@@ -1,3 +1,10 @@
+v0.1.5 2026-10-20
+--------------------
+- Add `purchaseorders ls` command to output purchase orders
+- Add `purchaseorders export` command to export purchase orders to a spreadsheet
+- Add `inventories transfers` command to list inventory transfers
+- Fix `products import` variant grouping
+
 v0.1.4 2026-10-16
 --------------------
 - Add support for bulk deleting for metafield definitions by resource and namespace
