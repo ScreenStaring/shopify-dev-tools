@@ -684,8 +684,8 @@ func init() {
 					{
 						Name:      "delete",
 						Aliases:   []string{"d"},
-						ArgsUsage: "ID|GID [ID|GID ...]",
-						Usage:     "Delete the given metafield definition(s)",
+						ArgsUsage: "ID|GID|RESOURCE@NAMESPACE [ID|GID|RESOURCE@NAMESPACE ...]",
+						Usage:     "Delete the given metafield definition(s), or every definition of a resource in a namespace",
 						Flags: append(cmd.Flags, apiVersionFlag, &cli.BoolFlag{
 							Name:    "no-metafields",
 							Aliases: []string{"n"},
