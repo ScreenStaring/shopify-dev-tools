@@ -217,10 +217,21 @@ func parseCSV(filename string, locations map[string]string) ([]importProductInpu
 		handle := get(row, "handle")
 		id := get(row, "product id")
 
+		// A row continues the current product when it repeats the same
+		// handle or product id (Shopify exports repeat both on every
+		// variant row); only a differing identifier starts a new product.
+		newProduct := false
+		if current == nil {
+			newProduct = handle != "" || id != ""
+		} else if id != "" {
+			newProduct = id != current.ID
+		} else if handle != "" {
+			newProduct = handle != current.Handle
+		}
+
 		// Without handle/id columns every row carrying product or variant
 		// data is a new product; rows with only metafields attach to the
 		// current product.
-		newProduct := handle != "" || id != ""
 		if !newProduct && !hasIDColumns {
 			for _, name := range []string{
 				"title", "vendor", "body (html)", "body", "status", "product image url",

@@ -192,6 +192,58 @@ func TestParseCSVOptions(t *testing.T) {
 	}
 }
 
+func TestParseCSVRepeatedHandle(t *testing.T) {
+	csv := "Handle,Title,Variant SKU,Option1 Name,Option1 Value,Option2 Name,Option2 Value\n" +
+		"chair,Chair,CHAIR-S,Size,Small,Color,Red\n" +
+		"chair,Chair,CHAIR-L,Size,Large,Color,Blue\n" +
+		"desk,Desk,DESK,Title,Default Title,,\n"
+	prods, err := parseCSV(writeCSV(t, csv), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(prods) != 2 {
+		t.Fatalf("len(prods) = %d, want 2", len(prods))
+	}
+
+	chair := prods[0].Input
+	if len(chair.Variants) != 2 {
+		t.Fatalf("len(chair variants) = %d, want 2", len(chair.Variants))
+	}
+	if got := chair.Variants[1].SKU; got != "CHAIR-L" {
+		t.Errorf("variant2 sku = %q, want %q", got, "CHAIR-L")
+	}
+	wantOpts := []optionCreateInput{
+		{Name: "Size", Values: []optionValueInput{{Name: "Small"}, {Name: "Large"}}},
+		{Name: "Color", Values: []optionValueInput{{Name: "Red"}, {Name: "Blue"}}},
+	}
+	if got := chair.ProductOptions; !reflect.DeepEqual(got, wantOpts) {
+		t.Errorf("product options = %+v, want %+v", got, wantOpts)
+	}
+
+	if got := prods[1].Input.Handle; got != "desk" {
+		t.Errorf("product2 handle = %q, want %q", got, "desk")
+	}
+}
+
+func TestParseCSVRepeatedProductID(t *testing.T) {
+	csv := "Handle,Product ID,Title,Variant SKU\n" +
+		"chair,123,Chair,CHAIR-S\n" +
+		"chair,123,Chair,CHAIR-L\n"
+	prods, err := parseCSV(writeCSV(t, csv), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(prods) != 1 {
+		t.Fatalf("len(prods) = %d, want 1", len(prods))
+	}
+	if len(prods[0].Input.Variants) != 2 {
+		t.Fatalf("len(variants) = %d, want 2", len(prods[0].Input.Variants))
+	}
+	if id := prods[0].Identifier; id == nil || id.ID != "gid://shopify/Product/123" {
+		t.Errorf("identifier = %+v, want product 123", id)
+	}
+}
+
 func TestParseCSVDefaultTitleVariant(t *testing.T) {
 	csv := "handle,title,Variant SKU\n" +
 		"chair,Chair,CHAIR\n"
