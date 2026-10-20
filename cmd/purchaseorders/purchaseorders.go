@@ -3,6 +3,7 @@ package purchaseorders
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/cheynewallace/tabby"
 	"github.com/urfave/cli/v2"
@@ -11,6 +12,34 @@ import (
 )
 
 var Cmd cli.Command
+
+// column is one selectable output column of a purchase orders command. Value
+// extracts the column's value from the command's row type.
+type column[T any] struct {
+	Name    string
+	Aliases []string
+	Value   func(T) string
+}
+
+// listColumns are the `purchaseorders ls` columns, in output order.
+var listColumns = []column[PurchaseOrder]{
+	{Name: "ID", Value: func(po PurchaseOrder) string { return purchaseOrderID(po.ID) }},
+	{Name: "Purchase Order", Aliases: []string{"Name"}, Value: func(po PurchaseOrder) string { return po.Name }},
+	{Name: "Supplier", Value: func(po PurchaseOrder) string { return po.Supplier }},
+	{Name: "Destination", Value: func(po PurchaseOrder) string { return po.Destination }},
+	{Name: "Status", Value: func(po PurchaseOrder) string { return po.Status }},
+	{Name: "Linked Transfer", Aliases: []string{"Transfers", "Transfer"}, Value: func(po PurchaseOrder) string { return transferNames(po.Transfers) }},
+	{Name: "Received", Value: func(po PurchaseOrder) string {
+		received, total, ok := receivedQuantity(po.Transfers)
+		if !ok {
+			return ""
+		}
+
+		return fmt.Sprintf("%d/%d", received, total)
+	}},
+	{Name: "Total", Value: func(po PurchaseOrder) string { return po.Total }},
+	{Name: "Expected Arrival", Value: func(po PurchaseOrder) string { return po.ExpectedArrival }},
+}
 
 // purchaseOrderIDs parses purchase order IDs as given on the command line.
 func purchaseOrderIDs(args []string) ([]int64, error) {
@@ -33,45 +62,112 @@ func listAction(c *cli.Context) error {
 		return err
 	}
 
+	columns := matchingColumns(listColumns, c.String("fields"))
+
 	orders, err := listPurchaseOrders(cmd.NewGraphQLClient(c), ids, c.String("status"), c.Int("limit"), c.Int("page"))
 	if err != nil {
 		return err
 	}
 
-	printPurchaseOrders(orders)
+	printPurchaseOrders(orders, columns)
 
 	return nil
 }
 
-func printPurchaseOrders(orders []PurchaseOrder) {
+func printPurchaseOrders(orders []PurchaseOrder, columns []column[PurchaseOrder]) {
 	if len(orders) == 0 {
 		fmt.Println("No purchase orders")
 		return
 	}
 
 	t := tabby.New()
-	t.AddHeader("ID", "Purchase Order", "Supplier", "Destination", "Status", "Linked Transfer", "Received", "Total", "Expected Arrival")
+	t.AddHeader(columnHeaders(columns)...)
 
 	for _, order := range orders {
-		received := ""
-		if quantity, total, ok := receivedQuantity(order.Transfers); ok {
-			received = fmt.Sprintf("%d/%d", quantity, total)
-		}
-
-		t.AddLine(
-			purchaseOrderID(order.ID),
-			order.Name,
-			order.Supplier,
-			order.Destination,
-			order.Status,
-			transferNames(order.Transfers),
-			received,
-			order.Total,
-			order.ExpectedArrival,
-		)
+		t.AddLine(columnValues(columns, order)...)
 	}
 
 	t.Print()
+}
+
+// parseFields splits a --fields value into its field names.
+func parseFields(value string) []string {
+	var fields []string
+
+	for _, field := range strings.Split(value, ",") {
+		field = strings.TrimSpace(field)
+		if len(field) == 0 {
+			continue
+		}
+		fields = append(fields, field)
+	}
+
+	return fields
+}
+
+// matches reports whether the column is named by any of the given fields.
+func (c column[T]) matches(fields []string) bool {
+	names := append([]string{c.Name}, c.Aliases...)
+
+	for _, name := range names {
+		normalized := cmd.NormalizeField(name)
+		for _, field := range fields {
+			if cmd.NormalizeField(field) == normalized {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// matchingColumns returns the columns named by a --fields value, in output
+// order. Every column is returned when value is empty, and no column is
+// returned when no field matches.
+func matchingColumns[T any](columns []column[T], value string) []column[T] {
+	fields := parseFields(value)
+	if len(fields) == 0 {
+		return columns
+	}
+
+	var selected []column[T]
+	for _, col := range columns {
+		if col.matches(fields) {
+			selected = append(selected, col)
+		}
+	}
+
+	return selected
+}
+
+// columnNames returns the columns' output headers.
+func columnNames[T any](columns []column[T]) []string {
+	names := make([]string, 0, len(columns))
+	for _, col := range columns {
+		names = append(names, col.Name)
+	}
+
+	return names
+}
+
+// columnHeaders returns the columns' headers in the form tabby takes.
+func columnHeaders[T any](columns []column[T]) []interface{} {
+	headers := make([]interface{}, 0, len(columns))
+	for _, col := range columns {
+		headers = append(headers, col.Name)
+	}
+
+	return headers
+}
+
+// columnValues returns the columns' values for the given row.
+func columnValues[T any](columns []column[T], row T) []interface{} {
+	values := make([]interface{}, 0, len(columns))
+	for _, col := range columns {
+		values = append(values, col.Value(row))
+	}
+
+	return values
 }
 
 func init() {
@@ -89,9 +185,16 @@ func init() {
 		Value:   1,
 	}
 
+	fieldsFlag := &cli.StringFlag{
+		Name:    "fields",
+		Aliases: []string{"f"},
+		Usage:   "Comma separated list of fields to output",
+	}
+
 	listFlags := []cli.Flag{
 		limitFlag,
 		pageFlag,
+		fieldsFlag,
 		&cli.StringFlag{
 			Name:    "status",
 			Aliases: []string{"s"},
@@ -105,6 +208,7 @@ func init() {
 	exportFlags := []cli.Flag{
 		limitFlag,
 		pageFlag,
+		fieldsFlag,
 		cmd.APIVersionFlag,
 	}
 

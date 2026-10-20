@@ -67,6 +67,13 @@ func PrintSeparator() {
 	fmt.Printf("%s\n", strings.Repeat("-", 20))
 }
 
+// NormalizeField returns a --fields name in the form used to match it against
+// a field or column name: lowercase with spaces removed, so "Expected Arrival",
+// "expected arrival", and "ExpectedArrival" all match.
+func NormalizeField(name string) string {
+	return strings.ReplaceAll(strings.ToLower(strings.TrimSpace(name)), " ", "")
+}
+
 // MetafieldPrintable exists because callers source metafields from
 // different gql-only result types that share no common shape. This is the
 // shape each converts into so print logic lives once.

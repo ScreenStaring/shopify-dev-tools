@@ -16,9 +16,51 @@ func exportBaseName(shop string) string {
 	return strings.SplitN(shop, ".", 2)[0] + "-purchase-orders"
 }
 
+// exportRow is one CSV row: a purchase order and, when it has line items, the
+// line item the row is for.
+type exportRow struct {
+	order ExportPurchaseOrder
+	line  *ExportLineItem
+}
+
+// lineValue returns fn applied to the row's line item, or "" when the row has
+// no line item.
+func (r exportRow) lineValue(fn func(ExportLineItem) string) string {
+	if r.line == nil {
+		return ""
+	}
+
+	return fn(*r.line)
+}
+
+// exportColumns are the `purchaseorders export` columns, in output order.
+var exportColumns = []column[exportRow]{
+	{Name: "ID", Value: func(r exportRow) string { return purchaseOrderID(r.order.ID) }},
+	{Name: "Purchase Order", Aliases: []string{"Name"}, Value: func(r exportRow) string { return r.order.Name }},
+	{Name: "Supplier", Value: func(r exportRow) string { return r.order.Supplier }},
+	{Name: "Destination", Value: func(r exportRow) string { return r.order.Destination }},
+	{Name: "Status", Value: func(r exportRow) string { return r.order.Status }},
+	{Name: "Transfers", Aliases: []string{"Transfer", "Linked Transfer"}, Value: func(r exportRow) string { return transferNames(r.order.Transfers) }},
+	{Name: "Line Item", Aliases: []string{"Title"}, Value: func(r exportRow) string { return r.lineValue(func(li ExportLineItem) string { return li.Title }) }},
+	{Name: "SKU", Value: func(r exportRow) string { return r.lineValue(func(li ExportLineItem) string { return li.SKU }) }},
+	{Name: "Quantity", Value: func(r exportRow) string {
+		return r.lineValue(func(li ExportLineItem) string { return strconv.Itoa(li.Quantity) })
+	}},
+	{Name: "Unit Cost", Value: func(r exportRow) string { return r.lineValue(func(li ExportLineItem) string { return li.UnitCost }) }},
+	{Name: "Unit Cost Currency", Value: func(r exportRow) string {
+		return r.lineValue(func(li ExportLineItem) string { return li.UnitCurrency })
+	}},
+	{Name: "Total Cost", Value: func(r exportRow) string { return r.lineValue(func(li ExportLineItem) string { return li.TotalCost }) }},
+	{Name: "Total Cost Currency", Value: func(r exportRow) string {
+		return r.lineValue(func(li ExportLineItem) string { return li.TotalCurrency })
+	}},
+}
+
 func exportAction(c *cli.Context) error {
 	shop := c.String("shop")
 	client := cmd.NewGraphQLClient(c)
+
+	columns := matchingColumns(exportColumns, c.String("fields"))
 
 	ids, err := fetchPurchaseOrderIDs(client, c.Int("limit"), c.Int("page"))
 	if err != nil {
@@ -35,22 +77,8 @@ func exportAction(c *cli.Context) error {
 
 	w := csv.NewWriter(file)
 
-	if err := w.Write([]string{
-		"ID",
-		"Purchase Order",
-		"Supplier",
-		"Destination",
-		"Status",
-		"Transfers",
-		"Line Item",
-		"SKU",
-		"Quantity",
-		"Unit Cost",
-		"Unit Cost Currency",
-		"Total Cost",
-		"Total Cost Currency",
-	}); err != nil {
-		return fmt.Errorf("Cannot write CSV header: %s", err)
+	if err := writeCSVHeader(w, columns); err != nil {
+		return err
 	}
 
 	for i, id := range ids {
@@ -59,7 +87,7 @@ func exportAction(c *cli.Context) error {
 			return err
 		}
 
-		if err := writePurchaseOrderRow(w, order); err != nil {
+		if err := writePurchaseOrderRow(w, order, columns); err != nil {
 			return err
 		}
 
@@ -76,21 +104,34 @@ func exportAction(c *cli.Context) error {
 	return nil
 }
 
-// writePurchaseOrderRow writes one row per line item. Purchase orders without
-// line items still get a row so they appear in the export.
-func writePurchaseOrderRow(w *csv.Writer, order ExportPurchaseOrder) error {
-	head := []string{
-		purchaseOrderID(order.ID),
-		order.Name,
-		order.Supplier,
-		order.Destination,
-		order.Status,
-		transferNames(order.Transfers),
+// writeCSVHeader writes the given columns' headers.
+func writeCSVHeader(w *csv.Writer, columns []column[exportRow]) error {
+	if len(columns) == 0 {
+		return nil
 	}
 
-	write := func(fields ...string) error {
-		row := append(append([]string{}, head...), fields...)
-		if err := w.Write(row); err != nil {
+	if err := w.Write(columnNames(columns)); err != nil {
+		return fmt.Errorf("Cannot write CSV header: %s", err)
+	}
+
+	return nil
+}
+
+// writePurchaseOrderRow writes one row per line item, restricted to the given
+// columns. Purchase orders without line items still get a row so they appear
+// in the export.
+func writePurchaseOrderRow(w *csv.Writer, order ExportPurchaseOrder, columns []column[exportRow]) error {
+	if len(columns) == 0 {
+		return nil
+	}
+
+	write := func(row exportRow) error {
+		values := make([]string, 0, len(columns))
+		for _, col := range columns {
+			values = append(values, col.Value(row))
+		}
+
+		if err := w.Write(values); err != nil {
 			return fmt.Errorf("Cannot write CSV row for purchase order %s: %s", order.Name, err)
 		}
 
@@ -98,19 +139,11 @@ func writePurchaseOrderRow(w *csv.Writer, order ExportPurchaseOrder) error {
 	}
 
 	if len(order.LineItems) == 0 {
-		return write("", "", "", "", "", "", "")
+		return write(exportRow{order: order})
 	}
 
-	for _, line := range order.LineItems {
-		if err := write(
-			line.Title,
-			line.SKU,
-			strconv.Itoa(line.Quantity),
-			line.UnitCost,
-			line.UnitCurrency,
-			line.TotalCost,
-			line.TotalCurrency,
-		); err != nil {
+	for i := range order.LineItems {
+		if err := write(exportRow{order: order, line: &order.LineItems[i]}); err != nil {
 			return err
 		}
 	}

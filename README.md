@@ -535,8 +535,24 @@ Information about purchase orders
 Requires:
 
 1. Minimum API version 2026-10 (`--api-version 2026-10`)
-1. `read_inventory_purchase_orders` access scope
-1. `ls` requires `read_inventory_transfers` and, for the expected arrival, `read_inventory_shipments`
+1. The access scopes below
+
+Use the `-f`/`--fields` option to specify what to output, skipping those your token does not have authorization for.
+
+`sdt purchaseorders ls` prints these fields:
+
+| Access scope | Fields |
+| --- | --- |
+| `read_inventory_purchase_orders` | `ID`, `Purchase Order`, `Supplier`, `Destination`, `Status`, `Total` |
+| `read_inventory_transfers` | `Linked Transfer`, `Received` |
+| `read_inventory_shipments` | `Expected Arrival` |
+
+`sdt purchaseorders export` writes these CSV columns, one row per line item:
+
+| Access scope | Columns |
+| --- | --- |
+| `read_inventory_purchase_orders` | `ID`, `Purchase Order`, `Supplier`, `Destination`, `Status`, `Line Item`, `SKU`, `Quantity`, `Unit Cost`, `Unit Cost Currency`, `Total Cost`, `Total Cost Currency` |
+| `read_inventory_transfers` | `Transfers` |
 
 #### Exporting Purchase Orders
 

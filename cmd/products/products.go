@@ -47,10 +47,6 @@ func displayFieldName(name string) string {
 	return result.String()
 }
 
-func normalizeField(name string) string {
-	return strings.ReplaceAll(strings.ToLower(name), " ", "")
-}
-
 func isFieldToPrint(field string, selectedFields []string) bool {
 	for _, f := range selectedFields {
 		if f == field {
@@ -92,7 +88,7 @@ func PrintFormatted(products []gql.Product, fieldsToPrint []string) {
 	normalizedFieldsToPrint := []string{}
 
 	for _, field := range fieldsToPrint {
-		normalizedFieldsToPrint = append(normalizedFieldsToPrint, normalizeField(field))
+		normalizedFieldsToPrint = append(normalizedFieldsToPrint, cmd.NormalizeField(field))
 	}
 
 	for _, product := range products {
@@ -100,7 +96,7 @@ func PrintFormatted(products []gql.Product, fieldsToPrint []string) {
 
 		for i := 0; i < s.NumField(); i++ {
 			field := s.Type().Field(i).Name
-			normalizedField := normalizeField(field)
+			normalizedField := cmd.NormalizeField(field)
 			label := displayFieldName(field)
 
 			if normalizedField == "options" || normalizedField == "variants" || normalizedField == "hasonlydefaultvariant" {

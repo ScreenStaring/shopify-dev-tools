@@ -3,6 +3,7 @@ package purchaseorders
 import (
 	"bytes"
 	"encoding/csv"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -79,7 +80,7 @@ func TestWritePurchaseOrderRow(t *testing.T) {
 		},
 	}
 
-	if err := writePurchaseOrderRow(w, order); err != nil {
+	if err := writePurchaseOrderRow(w, order, exportColumns); err != nil {
 		t.Fatalf("write failed: %s", err)
 	}
 	w.Flush()
@@ -105,7 +106,7 @@ func TestWritePurchaseOrderRowWithoutLineItems(t *testing.T) {
 		Status: "DRAFT",
 	}
 
-	if err := writePurchaseOrderRow(w, order); err != nil {
+	if err := writePurchaseOrderRow(w, order, exportColumns); err != nil {
 		t.Fatalf("write failed: %s", err)
 	}
 	w.Flush()
@@ -113,5 +114,68 @@ func TestWritePurchaseOrderRowWithoutLineItems(t *testing.T) {
 	want := "2,#PO1002,,,DRAFT,,,,,,,,\n"
 	if buf.String() != want {
 		t.Errorf("row = %q, want %q", buf.String(), want)
+	}
+}
+
+func TestMatchingColumns(t *testing.T) {
+	tests := []struct {
+		name   string
+		fields string
+		want   []string
+	}{
+		{name: "no fields", want: columnNames(listColumns)},
+		{name: "one field", fields: "Status", want: []string{"Status"}},
+		{name: "keeps output order", fields: "Total,ID", want: []string{"ID", "Total"}},
+		{name: "case and space insensitive", fields: " expected arrival , purchase order ", want: []string{"Purchase Order", "Expected Arrival"}},
+		{name: "alias", fields: "transfers", want: []string{"Linked Transfer"}},
+		{name: "empty values are skipped", fields: "ID,,,Total", want: []string{"ID", "Total"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			columns := matchingColumns(listColumns, tt.fields)
+
+			if got := columnNames(columns); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("columns = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMatchingColumnsUnknownField(t *testing.T) {
+	// Like `products ls`, unknown fields are not an error: nothing matches, so
+	// nothing is output.
+	if columns := matchingColumns(listColumns, "Suplier"); len(columns) != 0 {
+		t.Errorf("columns = %v, want none", columnNames(columns))
+	}
+}
+
+func TestWritePurchaseOrderRowFields(t *testing.T) {
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
+
+	order := ExportPurchaseOrder{
+		ID:        "gid://shopify/InventoryPurchaseOrder/1234",
+		Name:      "#PO1001",
+		Status:    "ORDERED",
+		Transfers: []Transfer{{Name: "TR-1"}},
+		LineItems: []ExportLineItem{
+			{Title: "Widget", SKU: "ACME-01", Quantity: 10},
+		},
+	}
+
+	columns := matchingColumns(exportColumns, "Purchase Order,SKU,Quantity")
+
+	if err := writeCSVHeader(w, columns); err != nil {
+		t.Fatalf("write failed: %s", err)
+	}
+	if err := writePurchaseOrderRow(w, order, columns); err != nil {
+		t.Fatalf("write failed: %s", err)
+	}
+	w.Flush()
+
+	want := "Purchase Order,SKU,Quantity\n#PO1001,ACME-01,10\n"
+	if buf.String() != want {
+		t.Errorf("CSV = %q, want %q", buf.String(), want)
 	}
 }
