@@ -36,6 +36,7 @@ query InventoryTransfers($first: Int!, $after: String, $query: String) {
       id
       name
       status
+      dateCreated
       origin {
         name
       }
@@ -120,6 +121,7 @@ type Transfer struct {
 	ID          string             `json:"id"`
 	Name        string             `json:"name"`
 	Status      string             `json:"status"`
+	DateCreated string             `json:"dateCreated,omitempty"`
 	Origin      string             `json:"origin,omitempty"`
 	Destination string             `json:"destination,omitempty"`
 	LineItems   []TransferLineItem `json:"lineItems,omitempty"`
@@ -133,10 +135,11 @@ type transferLineItemNodeJSON struct {
 }
 
 type transferNodeJSON struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
-	Origin *struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Status      string `json:"status"`
+	DateCreated string `json:"dateCreated"`
+	Origin      *struct {
 		Name string `json:"name"`
 	} `json:"origin"`
 	Destination *struct {
@@ -338,9 +341,10 @@ func transferFromNode(client *gqlclient.Client, node transferNodeJSON) (Transfer
 
 func transferFromNodeJSON(node transferNodeJSON) Transfer {
 	transfer := Transfer{
-		ID:     node.ID,
-		Name:   node.Name,
-		Status: node.Status,
+		ID:          node.ID,
+		Name:        node.Name,
+		Status:      node.Status,
+		DateCreated: node.DateCreated,
 	}
 
 	if node.Origin != nil {

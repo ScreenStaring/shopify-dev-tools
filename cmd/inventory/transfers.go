@@ -130,6 +130,7 @@ func printTransfers(transfers []Transfer) {
 		t := tabby.New()
 		t.AddLine("ID", idFromGID(transfer.ID))
 		t.AddLine("Name", transfer.Name)
+		t.AddLine("Created At", transfer.DateCreated)
 		t.AddLine("Status", transfer.Status)
 		t.AddLine("Origin", transfer.Origin)
 		t.AddLine("Destination", transfer.Destination)
