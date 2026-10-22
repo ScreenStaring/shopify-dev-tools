@@ -91,7 +91,7 @@ func transfersAction(c *cli.Context) error {
 		return err
 	}
 
-	search := inventoryTransferSearchQuery(ids[0], ids[1])
+	search := inventoryTransferSearchQuery(ids[0], ids[1], c.String("status"))
 
 	transfers, err := listInventoryTransfers(client, search, c.Int("limit"), c.Int("page"))
 	if err != nil {
@@ -174,6 +174,11 @@ func transfersCommand() *cli.Command {
 			Name:    "destination",
 			Aliases: []string{"d"},
 			Usage:   "Only list transfers destined for the location with the given name or id",
+		},
+		&cli.StringFlag{
+			Name:    "status",
+			Aliases: []string{"s"},
+			Usage:   "Only list transfers with the given GraphQL transfer status",
 		},
 		&cli.IntFlag{
 			Name:    "limit",

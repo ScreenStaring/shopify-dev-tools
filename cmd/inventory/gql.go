@@ -30,8 +30,8 @@ query VariantsByInventoryItemIds($ids: [ID!]!) {
 `
 
 const inventoryTransfersQuery = `
-query InventoryTransfers($first: Int!, $after: String, $query: String) {
-  inventoryTransfers(first: $first, after: $after, query: $query) {
+query InventoryTransfers($first: Int!, $after: String, $query: String, $sortKey: TransferSortKeys, $reverse: Boolean) {
+  inventoryTransfers(first: $first, after: $after, query: $query, sortKey: $sortKey, reverse: $reverse) {
     nodes {
       id
       name
@@ -245,8 +245,8 @@ func productsFromInventoryItems(nodes []*inventoryItemJSON, ids []string) ([]pro
 }
 
 // inventoryTransferSearchQuery builds the inventoryTransfers search query for
-// the given origin and destination location ids.
-func inventoryTransferSearchQuery(originID, destinationID string) string {
+// the given origin and destination location ids, and/or transfer status.
+func inventoryTransferSearchQuery(originID, destinationID, status string) string {
 	var parts []string
 
 	if len(originID) > 0 {
@@ -257,12 +257,17 @@ func inventoryTransferSearchQuery(originID, destinationID string) string {
 		parts = append(parts, "destination_id:"+destinationID)
 	}
 
+	if len(strings.TrimSpace(status)) > 0 {
+		parts = append(parts, "status:"+strings.ToLower(strings.TrimSpace(status)))
+	}
+
 	return strings.Join(parts, " AND ")
 }
 
 // listInventoryTransfers returns the inventory transfers of the given 1-based
-// page, optionally restricted by a search query. Each page holds limit
-// transfers; pages before it are skipped by following the connection's cursor.
+// page, newest first, optionally restricted by a search query. Each page holds
+// limit transfers; pages before it are skipped by following the connection's
+// cursor.
 func listInventoryTransfers(client *gqlclient.Client, search string, limit, page int) ([]Transfer, error) {
 	if page < 1 {
 		return nil, fmt.Errorf("--page must be 1 or greater")
@@ -272,7 +277,11 @@ func listInventoryTransfers(client *gqlclient.Client, search string, limit, page
 		return nil, fmt.Errorf("--limit must be 1 or greater")
 	}
 
-	variables := map[string]interface{}{"first": limit}
+	variables := map[string]interface{}{
+		"first":   limit,
+		"sortKey": "CREATED_AT",
+		"reverse": true,
+	}
 	if len(search) > 0 {
 		variables["query"] = search
 	}
