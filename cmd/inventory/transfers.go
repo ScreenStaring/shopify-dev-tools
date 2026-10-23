@@ -15,6 +15,17 @@ import (
 )
 
 const locationGIDPrefix = "gid://shopify/Location/"
+const transferGIDPrefix = "gid://shopify/InventoryTransfer/"
+
+// toInventoryTransferGID returns the id as an InventoryTransfer GID,
+// prepending the gid://shopify/InventoryTransfer/ prefix when given a bare id.
+func toInventoryTransferGID(id string) string {
+	if strings.HasPrefix(id, "gid://") {
+		return id
+	}
+
+	return transferGIDPrefix + id
+}
 
 // resolveLocationIDs returns the ids of the locations matching the given
 // values, which may be names, bare ids, or Location GIDs. An empty value
@@ -86,6 +97,11 @@ func matchLocationID(locs []locations.Location, value string) (string, error) {
 func transfersAction(c *cli.Context) error {
 	client := cmd.NewGraphQLClient(c)
 
+	args := c.Args().Slice()
+	if len(args) > 0 {
+		return transfersByIDs(c, client, args)
+	}
+
 	ids, err := resolveLocationIDs(client, c.String("origin"), c.String("destination"))
 	if err != nil {
 		return err
@@ -98,11 +114,58 @@ func transfersAction(c *cli.Context) error {
 		return err
 	}
 
+	printTransfersOrNotice(c, transfers)
+
+	return nil
+}
+
+// transfersByIDs prints the transfers with the given ids, which may be bare
+// ids or InventoryTransfer GIDs, reporting the ones that don't exist.
+func transfersByIDs(c *cli.Context, client *gqlclient.Client, args []string) error {
+	ids := make([]string, 0, len(args))
+	argForGID := make(map[string]string, len(args))
+	for _, arg := range args {
+		gid := toInventoryTransferGID(arg)
+		ids = append(ids, gid)
+		argForGID[gid] = arg
+	}
+
+	transfers, missing, err := FetchInventoryTransfersByIDs(client, ids)
+	if err != nil {
+		return err
+	}
+
+	printTransfersOrNotice(c, transfers)
+	reportMissing(c, "Inventory Transfer", missing, argForGID)
+
+	if code := exitCodeFor(len(transfers), len(missing)); code != 0 {
+		return cli.Exit("", code)
+	}
+
+	return nil
+}
+
+// exitCodeFor returns the exit code for a lookup of explicitly requested
+// transfers: 1 when none of them exist and 2 when only some do, so callers can
+// tell a bad id from a partially bad list.
+func exitCodeFor(found, missing int) int {
+	if missing == 0 {
+		return 0
+	}
+
+	if found == 0 {
+		return 1
+	}
+
+	return 2
+}
+
+func printTransfersOrNotice(c *cli.Context, transfers []Transfer) {
 	if len(transfers) == 0 {
 		if !c.Bool("jsonl") {
 			fmt.Println("No inventory transfers")
 		}
-		return nil
+		return
 	}
 
 	if c.Bool("jsonl") {
@@ -110,8 +173,6 @@ func transfersAction(c *cli.Context) error {
 	} else {
 		printTransfers(transfers)
 	}
-
-	return nil
 }
 
 func printTransfersJSONL(transfers []Transfer) {
@@ -200,10 +261,12 @@ func transfersCommand() *cli.Command {
 	}
 
 	return &cli.Command{
-		Name:    "transfers",
-		Aliases: []string{"tx"},
-		Usage:   "List the shop's inventory transfers, optionally filtered by origin and/or destination location",
-		Flags:   append(cmd.Flags, append(transferFlags, apiVersionFlag)...),
-		Action:  transfersAction,
+		Name:        "transfers",
+		Aliases:     []string{"tx"},
+		Usage:       "List the shop's inventory transfers, or those with the given IDs",
+		ArgsUsage:   "[ID [ID ...]]",
+		Description: "Without IDs every transfer is listed",
+		Flags:       append(cmd.Flags, append(transferFlags, apiVersionFlag)...),
+		Action:      transfersAction,
 	}
 }

@@ -25,6 +25,28 @@ func toInventoryItemGID(id string) string {
 	return "gid://shopify/InventoryItem/" + id
 }
 
+// reportMissing prints a notice naming the requested ids that weren't found.
+// gids holds the missing GIDs and argForGID maps each GID back to the argument
+// the user gave. In JSONL mode the notice goes to stderr so stdout stays
+// parseable.
+func reportMissing(c *cli.Context, resource string, gids []string, argForGID map[string]string) {
+	if len(gids) == 0 {
+		return
+	}
+
+	args := make([]string, 0, len(gids))
+	for _, gid := range gids {
+		args = append(args, argForGID[gid])
+	}
+
+	notice := resource + "(s) not found: " + strings.Join(args, ", ")
+	if c.Bool("jsonl") {
+		fmt.Fprintln(os.Stderr, notice)
+	} else {
+		fmt.Println(notice)
+	}
+}
+
 func items(c *cli.Context) error {
 	args := make([]string, 0, c.NArg())
 	for i := 0; i < c.NArg(); i++ {
@@ -67,19 +89,7 @@ func items(c *cli.Context) error {
 		products.PrintFormatted(productList, nil)
 	}
 
-	if len(missing) > 0 {
-		missingArgs := make([]string, 0, len(missing))
-		for _, gid := range missing {
-			missingArgs = append(missingArgs, argForGID[gid])
-		}
-
-		notice := "Inventory Item(s) not found: " + strings.Join(missingArgs, ", ")
-		if c.Bool("jsonl") {
-			fmt.Fprintln(os.Stderr, notice)
-		} else {
-			fmt.Println(notice)
-		}
-	}
+	reportMissing(c, "Inventory Item", missing, argForGID)
 
 	return nil
 }

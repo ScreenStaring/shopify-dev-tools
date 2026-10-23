@@ -64,6 +64,37 @@ query InventoryTransfers($first: Int!, $after: String, $query: String, $sortKey:
 }
 `
 
+const inventoryTransfersByIDsQuery = `
+query InventoryTransfersByIds($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on InventoryTransfer {
+      id
+      name
+      status
+      dateCreated
+      origin {
+        name
+      }
+      destination {
+        name
+      }
+      lineItems(first: 250) {
+        nodes {
+          id
+          title
+          totalQuantity
+          shippedQuantity
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+}
+`
+
 const inventoryTransferLineItemsQuery = `
 query InventoryTransferLineItems($id: ID!, $after: String) {
   inventoryTransfer(id: $id) {
@@ -157,6 +188,12 @@ type inventoryTransfersResponse struct {
 			Nodes    []transferNodeJSON `json:"nodes"`
 			PageInfo pageInfoJSON       `json:"pageInfo"`
 		} `json:"inventoryTransfers"`
+	} `json:"data"`
+}
+
+type inventoryTransfersByIDsResponse struct {
+	Data struct {
+		Nodes []*transferNodeJSON `json:"nodes"`
 	} `json:"data"`
 }
 
@@ -262,6 +299,52 @@ func inventoryTransferSearchQuery(originID, destinationID, status string) string
 	}
 
 	return strings.Join(parts, " AND ")
+}
+
+// FetchInventoryTransfersByIDs returns the transfers with the given
+// InventoryTransfer GIDs. The second return value holds the ids for which no
+// transfer was found.
+func FetchInventoryTransfersByIDs(client *gqlclient.Client, ids []string) ([]Transfer, []string, error) {
+	data, err := client.Execute(inventoryTransfersByIDsQuery, map[string]interface{}{"ids": ids})
+	if err != nil {
+		return nil, nil, fmt.Errorf("Cannot fetch inventory transfers: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Cannot re-encode inventory transfers response: %s", err)
+	}
+
+	var response inventoryTransfersByIDsResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return nil, nil, fmt.Errorf("Cannot parse inventory transfers response: %s", err)
+	}
+
+	return transfersFromNodes(client, response.Data.Nodes, ids)
+}
+
+// transfersFromNodes converts the given nodes into transfers. The second
+// return value holds the ids whose node is nil, i.e. the transfers that
+// don't exist.
+func transfersFromNodes(client *gqlclient.Client, nodes []*transferNodeJSON, ids []string) ([]Transfer, []string, error) {
+	transfers := make([]Transfer, 0, len(nodes))
+	var missing []string
+
+	for i, node := range nodes {
+		if node == nil {
+			missing = append(missing, ids[i])
+			continue
+		}
+
+		transfer, err := transferFromNode(client, *node)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		transfers = append(transfers, transfer)
+	}
+
+	return transfers, missing, nil
 }
 
 // listInventoryTransfers returns the inventory transfers of the given 1-based

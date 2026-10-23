@@ -386,7 +386,7 @@ Do things with inventory and inventory items
     COMMANDS:
        items, i     Look up the variants and products for the given inventory item IDs
        export, x    Export inventory quantities by variant and location to a CSV file
-       transfers, tx  List the shop's inventory transfers, optionally filtered by origin and/or destination location
+       transfers, tx  List the shop's inventory transfers, or those with the given IDs
        help, h      Shows a list of commands or help for one command
 
     OPTIONS:
