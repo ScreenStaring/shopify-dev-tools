@@ -39,6 +39,9 @@ query InventoryTransfers($first: Int!, $after: String, $query: String, $sortKey:
       dateCreated
       origin {
         name
+        location {
+          id
+        }
       }
       destination {
         name
@@ -74,6 +77,9 @@ query InventoryTransfersByIds($ids: [ID!]!) {
       dateCreated
       origin {
         name
+        location {
+          id
+        }
       }
       destination {
         name
@@ -149,13 +155,14 @@ type TransferLineItem struct {
 // Transfer is the movement of inventory items from an origin location to a
 // destination location.
 type Transfer struct {
-	ID          string             `json:"id"`
-	Name        string             `json:"name"`
-	Status      string             `json:"status"`
-	DateCreated string             `json:"dateCreated,omitempty"`
-	Origin      string             `json:"origin,omitempty"`
-	Destination string             `json:"destination,omitempty"`
-	LineItems   []TransferLineItem `json:"lineItems,omitempty"`
+	ID               string             `json:"id"`
+	Name             string             `json:"name"`
+	Status           string             `json:"status"`
+	DateCreated      string             `json:"dateCreated,omitempty"`
+	Origin           string             `json:"origin,omitempty"`
+	OriginLocationID string             `json:"originLocationId,omitempty"`
+	Destination      string             `json:"destination,omitempty"`
+	LineItems        []TransferLineItem `json:"lineItems,omitempty"`
 }
 
 type transferLineItemNodeJSON struct {
@@ -171,7 +178,10 @@ type transferNodeJSON struct {
 	Status      string `json:"status"`
 	DateCreated string `json:"dateCreated"`
 	Origin      *struct {
-		Name string `json:"name"`
+		Name     string `json:"name"`
+		Location *struct {
+			ID string `json:"id"`
+		} `json:"location"`
 	} `json:"origin"`
 	Destination *struct {
 		Name string `json:"name"`
@@ -441,6 +451,10 @@ func transferFromNodeJSON(node transferNodeJSON) Transfer {
 
 	if node.Origin != nil {
 		transfer.Origin = node.Origin.Name
+
+		if node.Origin.Location != nil {
+			transfer.OriginLocationID = node.Origin.Location.ID
+		}
 	}
 	if node.Destination != nil {
 		transfer.Destination = node.Destination.Name

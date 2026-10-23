@@ -193,7 +193,7 @@ func printTransfers(transfers []Transfer) {
 		t.AddLine("Name", transfer.Name)
 		t.AddLine("Created At", transfer.DateCreated)
 		t.AddLine("Status", transfer.Status)
-		t.AddLine("Origin", transfer.Origin)
+		t.AddLine("Origin", transferOrigin(transfer))
 		t.AddLine("Destination", transfer.Destination)
 		t.Print()
 
@@ -203,6 +203,22 @@ func printTransfers(transfers []Transfer) {
 
 		cmd.PrintSeparator()
 	}
+}
+
+// transferOrigin returns the transfer's origin location name, noting when the
+// origin no longer links to a live location. Shopify keeps the name snapshot
+// but leaves the location nil once the location is deleted or isn't
+// accessible, which is indistinguishable from one that never was a location.
+func transferOrigin(transfer Transfer) string {
+	if len(transfer.Origin) == 0 {
+		return transfer.Origin
+	}
+
+	if len(transfer.OriginLocationID) == 0 {
+		return transfer.Origin + " (No Location)"
+	}
+
+	return transfer.Origin
 }
 
 func printTransferLineItems(lineItems []TransferLineItem) {
