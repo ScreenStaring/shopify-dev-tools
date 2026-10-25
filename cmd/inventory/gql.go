@@ -52,6 +52,13 @@ query InventoryTransfers($first: Int!, $after: String, $query: String, $sortKey:
           title
           totalQuantity
           shippedQuantity
+          inventoryItem {
+            variants(first: 1) {
+              nodes {
+                title
+              }
+            }
+          }
         }
         pageInfo {
           hasNextPage
@@ -90,6 +97,13 @@ query InventoryTransfersByIds($ids: [ID!]!) {
           title
           totalQuantity
           shippedQuantity
+          inventoryItem {
+            variants(first: 1) {
+              nodes {
+                title
+              }
+            }
+          }
         }
         pageInfo {
           hasNextPage
@@ -110,6 +124,13 @@ query InventoryTransferLineItems($id: ID!, $after: String) {
         title
         totalQuantity
         shippedQuantity
+        inventoryItem {
+          variants(first: 1) {
+            nodes {
+              title
+            }
+          }
+        }
       }
       pageInfo {
         hasNextPage
@@ -148,6 +169,7 @@ type pageInfoJSON struct {
 type TransferLineItem struct {
 	ID              string `json:"id"`
 	Title           string `json:"title"`
+	VariantTitle    string `json:"variantTitle,omitempty"`
 	TotalQuantity   int    `json:"totalQuantity"`
 	ShippedQuantity int    `json:"shippedQuantity"`
 }
@@ -170,6 +192,13 @@ type transferLineItemNodeJSON struct {
 	Title           string `json:"title"`
 	TotalQuantity   int    `json:"totalQuantity"`
 	ShippedQuantity int    `json:"shippedQuantity"`
+	InventoryItem   *struct {
+		Variants struct {
+			Nodes []struct {
+				Title string `json:"title"`
+			} `json:"nodes"`
+		} `json:"variants"`
+	} `json:"inventoryItem"`
 }
 
 type transferNodeJSON struct {
@@ -468,12 +497,18 @@ func transferFromNodeJSON(node transferNodeJSON) Transfer {
 }
 
 func transferLineItemFromNode(node transferLineItemNodeJSON) TransferLineItem {
-	return TransferLineItem{
+	lineItem := TransferLineItem{
 		ID:              node.ID,
 		Title:           node.Title,
 		TotalQuantity:   node.TotalQuantity,
 		ShippedQuantity: node.ShippedQuantity,
 	}
+
+	if node.InventoryItem != nil && len(node.InventoryItem.Variants.Nodes) > 0 {
+		lineItem.VariantTitle = node.InventoryItem.Variants.Nodes[0].Title
+	}
+
+	return lineItem
 }
 
 // fetchTransferLineItems returns the transfer's line items after the given

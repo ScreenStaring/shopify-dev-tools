@@ -223,18 +223,31 @@ func transferOrigin(transfer Transfer) string {
 
 func printTransferLineItems(lineItems []TransferLineItem) {
 	x := tabby.New()
-	x.AddHeader("ID", "Title", "Total Quantity", "Shipped Quantity")
+	x.AddHeader("ID", "Product", "Total Quantity", "Shipped Quantity")
 
 	for _, line := range lineItems {
 		x.AddLine(
 			idFromGID(line.ID),
-			line.Title,
+			lineItemTitle(line),
 			line.TotalQuantity,
 			line.ShippedQuantity,
 		)
 	}
 
 	x.Print()
+}
+
+// defaultVariantTitle is the title Shopify gives a product's only variant.
+const defaultVariantTitle = "Default Title"
+
+// lineItemTitle returns the line item's product title, with the variant title
+// appended when the item isn't the product's default variant.
+func lineItemTitle(line TransferLineItem) string {
+	if len(line.VariantTitle) == 0 || line.VariantTitle == defaultVariantTitle {
+		return line.Title
+	}
+
+	return line.Title + " - " + line.VariantTitle
 }
 
 // transfersCommand builds the `inventory transfers` subcommand.
