@@ -24,6 +24,7 @@ The CLI interface uses the executable `sdt`:
        admin, a                     Open admin pages
        charges, c, ch               Do things with charges
        collections, col             Do things with collections
+       companies, com               Do things with companies
        draftorders, do              Information about draft orders
        inventory, inv               Do things with inventory
        locations, loc               Do things with locations
@@ -372,6 +373,23 @@ Do things with collections
     OPTIONS:
        --help, -h  show help (default: false)
 
+
+### Companies
+
+Do things with companies
+
+    NAME:
+       sdt companies - Do things with companies
+
+    USAGE:
+       sdt companies command [command options] [arguments...]
+
+    COMMANDS:
+       ls, l    List the shop's companies or the companies given by the specified IDs
+       help, h  Shows a list of commands or help for one command
+
+    OPTIONS:
+       --help, -h  show help (default: false)
 
 ### Inventory
 

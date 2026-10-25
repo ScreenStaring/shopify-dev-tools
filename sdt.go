@@ -7,6 +7,7 @@ import (
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/admin"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/charges"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/collections"
+	"github.com/ScreenStaring/shopify-dev-tools/cmd/companies"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/customers"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/draftorders"
 	"github.com/ScreenStaring/shopify-dev-tools/cmd/gql"
@@ -36,6 +37,7 @@ func main() {
 			&admin.Cmd,
 			&charges.Cmd,
 			&collections.Cmd,
+			&companies.Cmd,
 			&draftorders.Cmd,
 			&inventory.Cmd,
 			&locations.Cmd,
