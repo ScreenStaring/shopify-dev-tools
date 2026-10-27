@@ -321,7 +321,7 @@ Column names are matched case-insensitively. Each row is one definition.
 
 ##### Admin Access Errors
 
-If you're importing definitions that were [exported via `sdt metafield definitions export`] you may encounter the following errors:
+If you're importing definitions that were [exported via `sdt metafield definitions export`](#exporting-metafield-definitions) you may encounter the following errors:
 
 - `Expected "PUBLIC_READ_WRITE" to be one of: MERCHANT_READ, MERCHANT_READ_WRITE)`
 - `Setting this access control is not permitted. It must be one of ["public_read_write"]`
