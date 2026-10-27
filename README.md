@@ -7,6 +7,13 @@ Command-line program to assist with the development and/or maintenance of Shopif
 Download the version for your platform on the [releases page](https://github.com/ScreenStaring/shopify_dev_tools/releases).
 Windows, macOS/OS X, and GNU/Linux are supported.
 
+### Using [Homebrew](https://brew.sh/)
+
+```
+brew tap screenstaring/tap
+brew install shopify-dev-tools
+```
+
 ## Usage
 
 The CLI interface uses the executable `sdt`:
