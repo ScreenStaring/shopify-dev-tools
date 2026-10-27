@@ -1,6 +1,6 @@
 v0.1.6 2026-10-27
 --------------------
-- Add `companies ls` to list a shop's companies
+- Add `companies ls` command to list a shop's companies
 - Add `metafields definitions export` command to export metafield definitions to CSV
 - Add support for status filtering to `inventory transfer ls` command
 - Add support for ID arguments to `inventory transfer ls` command
