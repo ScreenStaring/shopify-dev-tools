@@ -18,7 +18,7 @@ The CLI interface uses the executable `sdt`:
        sdt [global options] command [command options] [arguments...]
 
     VERSION:
-       0.1.3
+       0.1.6
 
     COMMANDS:
        admin, a                     Open admin pages
@@ -314,10 +314,37 @@ If `FILE` is not given the CSV is read from stdin. Supported columns:
 | `Access Storefront` | [MetafieldStorefrontAccessInput](https://shopify.dev/docs/api/admin-graphql/latest/enums/MetafieldStorefrontAccessInput) |
 | `Capability Admin Filterable` / `Capability Smart Collection Condition` / `Capability Unique Values` | `true`/`false`, default `false`. `smart_collection_condition` cannot be combined with constraints |
 | `Constraint Key` | Constraint subtype key, e.g. `category`; requires `Constraint Value` |
-| `Constraint Value` | Constraint values (GIDs), `\|`-separated |
+| `Constraint Value` | Constraint values (GIDs), `\|`-separated. For `category` constraints, bare taxonomy category IDs are also accepted and converted to GIDs |
 | `Validation Name` / `Validation Value` | Validations per the [validation specs](https://shopify.dev/docs/apps/build/metafields/list-of-validation-options). One validation per column pair. To specify multiple validations add multiple  `Validation Name` / `Validation Value` columns. |
 
 Column names are matched case-insensitively. Each row is one definition.
+
+##### Admin Access Errors
+
+If you're importing definitions that were [exported via `sdt metafield definitions export`] you may encounter the following errors:
+
+- `Expected "PUBLIC_READ_WRITE" to be one of: MERCHANT_READ, MERCHANT_READ_WRITE)`
+- `Setting this access control is not permitted. It must be one of ["public_read_write"]`
+
+This will happen when importing definitions that are not in the `$app` namespace. In this case you cannot limit Admin access.
+
+#### Exporting Metafield Definitions
+
+Export the metafield definitions of one or more resources to a CSV file. For example, to export the definitions defined on `PRODUCT` and `COLLECTION`:
+
+```
+sdt metafield definitions export product collection
+```
+
+This will output the definitions to `SHOP-metafield-definitions.csv`. The spreadsheet uses the columns of [Creating Metafield Definitions in Bulk](#creating-metafield-definitions-in-bulk).
+
+Resources are metafield owner types, e.g. `PRODUCT`, `PRODUCTVARIANT`, `COLLECTION`, `SHOP`, and are matched case-insensitively.
+
+Use the `-n`/`--namespace` option to only export the given resources' definitions in one namespace:
+
+```
+sdt metafield definitions export -n some-namespace product
+```
 
 #### Deleting Metafield Definitions in Bulk
 
