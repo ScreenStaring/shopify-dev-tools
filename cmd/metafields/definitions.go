@@ -269,7 +269,9 @@ func parseDefinitionCSV(reader io.Reader) ([]*definitionInput, error) {
 
 		d.ConstraintsKey = cell(colConstraintsKey)
 		if values := cell(colConstraintsValues); values != "" {
-			d.ConstraintsValues = splitPipe(values)
+			// Category constraints identify taxonomy categories, which the API
+			// takes as GIDs; a bare category ID is normalized to its GID.
+			d.ConstraintsValues = normalizeConstraintValues(d.ConstraintsKey, splitPipe(values))
 		}
 
 		if d.ConstraintsKey == "" && len(d.ConstraintsValues) > 0 {
@@ -304,6 +306,41 @@ func splitPipe(s string) []string {
 		}
 	}
 	return out
+}
+
+// taxonomyCategoryGIDPrefix is the GID prefix of the categories in Shopify's
+// standard product taxonomy.
+const taxonomyCategoryGIDPrefix = "gid://shopify/TaxonomyCategory/"
+
+// categoryGID accepts a taxonomy category ID ("fb-1-1-5") or GID and returns
+// the GID form, which is what the API's constraint input takes. IDs already in
+// GID form are returned unchanged.
+func categoryGID(value string) string {
+	if strings.HasPrefix(value, "gid://") {
+		return value
+	}
+	return taxonomyCategoryGIDPrefix + value
+}
+
+// normalizeConstraintValues puts category constraint values in the GID form
+// the API takes. The API returns them as bare taxonomy category IDs but
+// accepts GIDs, so exports and hand-written spreadsheets may contain either.
+func normalizeConstraintValues(key string, values []string) []string {
+	if !strings.EqualFold(key, "category") {
+		return values
+	}
+
+	out := make([]string, len(values))
+	for i, v := range values {
+		out[i] = categoryGID(v)
+	}
+	return out
+}
+
+// exportConstraintValues returns a definition's constraint values as they're
+// written to the export spreadsheet, i.e. in the form the import sends.
+func exportConstraintValues(c *MetafieldDefinitionConstraints) []string {
+	return normalizeConstraintValues(c.Key, c.Values)
 }
 
 func getCell(row []string, cols map[string]int, name string) string {

@@ -83,27 +83,47 @@ func TestParseDefinitionCSVHappyPath(t *testing.T) {
 	}
 }
 
-func TestParseDefinitionCSVRepeatedPairColumns(t *testing.T) {
-	// validation name/validation value repeated in the header (no number
-	// suffix) is treated as pair 2 by position.
-	cols := append(append([]string{}, allColumns...), "validation name", "validation value")
-	row := make([]string, len(cols))
-	copy(row, []string{"PRODUCT", "Weight", "weight", "weight", "custom", "", "false"})
-	row[indexOfColumn(colValidationName)] = "min"
-	row[indexOfColumn(colValidationValue)] = "0.1"
-	row[len(cols)-2] = "regex"
-	row[len(cols)-1] = "^(foo|bar)$"
+func TestParseDefinitionCSVMultipleValidationPairs(t *testing.T) {
+	// Each validation name/validation value column pair is one validation.
+	// Repeated header names (no number suffix) pair by position, and a row
+	// may fill only some of the pairs.
+	cols := append(append([]string{}, allColumns...), colValidationName, colValidationValue)
+	cols = append(cols, colValidationName, colValidationValue)
 
-	defs, err := parseDefinitionCSV(strings.NewReader(csvWith(cols, row)))
+	threePairs := make([]string, len(cols))
+	copy(threePairs, []string{"PRODUCT", "Weight", "weight", "weight", "custom", "", "false"})
+	threePairs[indexOfColumn(colValidationName)] = "min"
+	threePairs[indexOfColumn(colValidationValue)] = "0.1"
+	threePairs[len(cols)-4] = "regex"
+	threePairs[len(cols)-3] = "^(foo|bar)$"
+	threePairs[len(cols)-2] = "max"
+	threePairs[len(cols)-1] = "25"
+
+	onePair := make([]string, len(cols))
+	copy(onePair, []string{"PRODUCT", "Dimensions", "dimensions", "number_decimal", "custom", "", "false"})
+	onePair[indexOfColumn(colValidationName)] = "min"
+	onePair[indexOfColumn(colValidationValue)] = "1.5"
+
+	defs, err := parseDefinitionCSV(strings.NewReader(csvWith(cols, threePairs, onePair)))
 	if err != nil {
 		t.Fatalf("parse failed: %s", err)
 	}
-	if len(defs) != 1 {
-		t.Fatalf("want 1 definition, got %d", len(defs))
+	if len(defs) != 2 {
+		t.Fatalf("want 2 definitions, got %d", len(defs))
 	}
-	got := defs[0].Validations
-	if len(got) != 2 || got[1].Name != "regex" || got[1].Value != "^(foo|bar)$" {
-		t.Errorf("validations wrong: %+v", got)
+
+	want := []validationInput{
+		{Name: "min", Value: "0.1"},
+		{Name: "regex", Value: "^(foo|bar)$"},
+		{Name: "max", Value: "25"},
+	}
+	if got := defs[0].Validations; !reflect.DeepEqual(got, want) {
+		t.Errorf("three-pair row validations = %+v, want %+v", got, want)
+	}
+
+	want = []validationInput{{Name: "min", Value: "1.5"}}
+	if got := defs[1].Validations; !reflect.DeepEqual(got, want) {
+		t.Errorf("one-pair row validations = %+v, want %+v", got, want)
 	}
 }
 
@@ -139,6 +159,45 @@ func TestParseDefinitionCSVConstraints(t *testing.T) {
 	}
 	if len(got.ConstraintsValues) != 2 || got.ConstraintsValues[1] != "gid://shopify/TaxonomyCategory/aa-8-1" {
 		t.Errorf("constraints values wrong: %v", got.ConstraintsValues)
+	}
+}
+
+func TestParseDefinitionCSVNormalizesCategoryConstraints(t *testing.T) {
+	// Category constraint values may be given as bare taxonomy category IDs,
+	// as the API returns them, or as GIDs; both are sent as GIDs.
+	csv := csvWith(allColumns,
+		[]string{"PRODUCT", "Mat", "m", "single_line_text_field", "custom", "", "false", "", "", "", "", "", "category", "fb-1-1-5|gid://shopify/TaxonomyCategory/aa-1"},
+	)
+
+	defs, err := parseDefinitionCSV(strings.NewReader(csv))
+	if err != nil {
+		t.Fatalf("parse failed: %s", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("want 1 definition, got %d", len(defs))
+	}
+
+	got := defs[0].ConstraintsValues
+	want := []string{"gid://shopify/TaxonomyCategory/fb-1-1-5", "gid://shopify/TaxonomyCategory/aa-1"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("constraints values = %v, want %v", got, want)
+	}
+}
+
+func TestParseDefinitionCSVLeavesOtherConstraintsAlone(t *testing.T) {
+	csv := csvWith(allColumns,
+		[]string{"PRODUCT", "Mat", "m", "single_line_text_field", "custom", "", "false", "", "", "", "", "", "other", "fb-1-1-5"},
+	)
+
+	defs, err := parseDefinitionCSV(strings.NewReader(csv))
+	if err != nil {
+		t.Fatalf("parse failed: %s", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("want 1 definition, got %d", len(defs))
+	}
+	if got := defs[0].ConstraintsValues; len(got) != 1 || got[0] != "fb-1-1-5" {
+		t.Errorf("constraints values = %v, want unchanged", got)
 	}
 }
 

@@ -670,6 +670,20 @@ func init() {
 						Usage:  "List metafield definitions for the given resource",
 					},
 					{
+						Name:      "export",
+						Aliases:   []string{"x"},
+						ArgsUsage: "RESOURCE [RESOURCE ...]",
+						Usage:     "Export the metafield definitions of the given resource(s) to a CSV spreadsheet",
+						Flags: append(cmd.Flags, apiVersionFlag,
+							&cli.StringFlag{
+								Name:    "namespace",
+								Aliases: []string{"n"},
+								Usage:   "Only export definitions in the given namespace",
+							},
+						),
+						Action: exportDefinitionsAction,
+					},
+					{
 						Name:      "import",
 						Aliases:   []string{"i"},
 						ArgsUsage: "[FILE]",

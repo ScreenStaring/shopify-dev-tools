@@ -25,10 +25,40 @@ query($ownerType: MetafieldOwnerType!, $first: Int!, $after: String, $namespace:
           name
         }
         ownerType
+        pinnedPosition
         access {
           admin
           customerAccount
           storefront
+        }
+        capabilities {
+          adminFilterable {
+            enabled
+          }
+          smartCollectionCondition {
+            enabled
+          }
+          uniqueValues {
+            enabled
+          }
+        }
+        constraints {
+          key
+          values(first: 250) {
+            edges {
+              node {
+                value
+              }
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+        validations {
+          name
+          value
         }
       }
     }
@@ -49,15 +79,41 @@ type MetafieldDefinitionAccess struct {
 	Storefront      string `json:"storefront"`
 }
 
+// MetafieldDefinitionCapabilities is a definition's capabilities. A capability
+// that is off is returned as enabled: false.
+type MetafieldDefinitionCapabilities struct {
+	AdminFilterable          bool `json:"adminFilterable"`
+	SmartCollectionCondition bool `json:"smartCollectionCondition"`
+	UniqueValues             bool `json:"uniqueValues"`
+}
+
+// MetafieldDefinitionConstraints is a definition's constraint subtype and the
+// values it's constrained to, e.g. key "category" and taxonomy category GIDs.
+type MetafieldDefinitionConstraints struct {
+	Key    string   `json:"key"`
+	Values []string `json:"values"`
+}
+
+// MetafieldDefinitionValidation is one validation of a definition, e.g. min
+// with a value of 1.
+type MetafieldDefinitionValidation struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 type MetafieldDefinition struct {
-	ID          string                    `json:"id"`
-	Name        string                    `json:"name"`
-	Namespace   string                    `json:"namespace"`
-	Key         string                    `json:"key"`
-	Description string                    `json:"description"`
-	Type        string                    `json:"type"`
-	OwnerType   string                    `json:"ownerType"`
-	Access      MetafieldDefinitionAccess `json:"access"`
+	ID           string                          `json:"id"`
+	Name         string                          `json:"name"`
+	Namespace    string                          `json:"namespace"`
+	Key          string                          `json:"key"`
+	Description  string                          `json:"description"`
+	Type         string                          `json:"type"`
+	OwnerType    string                          `json:"ownerType"`
+	Pin          bool                            `json:"pin"`
+	Access       MetafieldDefinitionAccess       `json:"access"`
+	Capabilities MetafieldDefinitionCapabilities `json:"capabilities"`
+	Constraints  *MetafieldDefinitionConstraints `json:"constraints,omitempty"`
+	Validations  []MetafieldDefinitionValidation `json:"validations"`
 }
 
 // Metafield is the package's native metafield shape as returned by the
@@ -80,6 +136,23 @@ type orderFilter struct {
 	SKUs  []string
 }
 
+// metafieldDefinitionConstraintsResponse is the API's constraints object: the
+// constraint key and the values it's constrained to.
+type metafieldDefinitionConstraintsResponse struct {
+	Key    string `json:"key"`
+	Values struct {
+		Edges []struct {
+			Node struct {
+				Value string `json:"value"`
+			} `json:"node"`
+		} `json:"edges"`
+		PageInfo struct {
+			HasNextPage bool   `json:"hasNextPage"`
+			EndCursor   string `json:"endCursor"`
+		} `json:"pageInfo"`
+	} `json:"values"`
+}
+
 type metafieldDefinitionsResponse struct {
 	Data struct {
 		MetafieldDefinitions struct {
@@ -93,12 +166,29 @@ type metafieldDefinitionsResponse struct {
 					Type        struct {
 						Name string `json:"name"`
 					} `json:"type"`
-					OwnerType string `json:"ownerType"`
-					Access    struct {
+					OwnerType      string `json:"ownerType"`
+					PinnedPosition *int   `json:"pinnedPosition"`
+					Access         struct {
 						Admin           string `json:"admin"`
 						CustomerAccount string `json:"customerAccount"`
 						Storefront      string `json:"storefront"`
 					} `json:"access"`
+					Capabilities struct {
+						AdminFilterable struct {
+							Enabled bool `json:"enabled"`
+						} `json:"adminFilterable"`
+						SmartCollectionCondition struct {
+							Enabled bool `json:"enabled"`
+						} `json:"smartCollectionCondition"`
+						UniqueValues struct {
+							Enabled bool `json:"enabled"`
+						} `json:"uniqueValues"`
+					} `json:"capabilities"`
+					Constraints *metafieldDefinitionConstraintsResponse `json:"constraints"`
+					Validations []struct {
+						Name  string `json:"name"`
+						Value string `json:"value"`
+					} `json:"validations"`
 				} `json:"node"`
 			} `json:"edges"`
 			PageInfo struct {
@@ -107,6 +197,78 @@ type metafieldDefinitionsResponse struct {
 			} `json:"pageInfo"`
 		} `json:"metafieldDefinitions"`
 	} `json:"data"`
+}
+
+// metafieldDefinitionConstraintValuesQuery reads the rest of a definition's
+// constraint values; the definitions query asks for the first 250.
+const metafieldDefinitionConstraintValuesQuery = `
+query($id: ID!, $first: Int!, $after: String) {
+  metafieldDefinition(id: $id) {
+    constraints {
+      values(first: $first, after: $after) {
+        edges {
+          node {
+            value
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+}
+`
+
+type metafieldDefinitionConstraintValuesResponse struct {
+	Data struct {
+		MetafieldDefinition struct {
+			Constraints *metafieldDefinitionConstraintsResponse `json:"constraints"`
+		} `json:"metafieldDefinition"`
+	} `json:"data"`
+}
+
+// appendConstraintValues reads the constraint values that follow after, adding
+// them to constraints.
+func appendConstraintValues(client *gql.Client, definitionID string, constraints *MetafieldDefinitionConstraints, after string) error {
+	vars := map[string]interface{}{
+		"id":    definitionID,
+		"first": 250,
+		"after": after,
+	}
+
+	for {
+		data, err := client.Execute(metafieldDefinitionConstraintValuesQuery, vars)
+		if err != nil {
+			return fmt.Errorf("Cannot list metafield definition constraint values: %s", err)
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			return fmt.Errorf("Cannot list metafield definition constraint values: %s", err)
+		}
+
+		var response metafieldDefinitionConstraintValuesResponse
+		if err := json.Unmarshal(b, &response); err != nil {
+			return fmt.Errorf("Cannot list metafield definition constraint values: %s", err)
+		}
+
+		if response.Data.MetafieldDefinition.Constraints == nil {
+			return nil
+		}
+
+		values := response.Data.MetafieldDefinition.Constraints.Values
+		for _, edge := range values.Edges {
+			constraints.Values = append(constraints.Values, edge.Node.Value)
+		}
+
+		if !values.PageInfo.HasNextPage {
+			return nil
+		}
+
+		vars["after"] = values.PageInfo.EndCursor
+	}
 }
 
 func listMetafieldDefinitions(client *gql.Client, ownerType, namespace string) ([]MetafieldDefinition, error) {
@@ -139,7 +301,7 @@ func listMetafieldDefinitions(client *gql.Client, ownerType, namespace string) (
 
 		for _, edge := range response.Data.MetafieldDefinitions.Edges {
 			n := edge.Node
-			definitions = append(definitions, MetafieldDefinition{
+			definition := MetafieldDefinition{
 				ID:          n.ID,
 				Name:        n.Name,
 				Namespace:   n.Namespace,
@@ -147,12 +309,39 @@ func listMetafieldDefinitions(client *gql.Client, ownerType, namespace string) (
 				Description: n.Description,
 				Type:        n.Type.Name,
 				OwnerType:   n.OwnerType,
+				Pin:         n.PinnedPosition != nil,
 				Access: MetafieldDefinitionAccess{
 					Admin:           n.Access.Admin,
 					CustomerAccount: n.Access.CustomerAccount,
 					Storefront:      n.Access.Storefront,
 				},
-			})
+				Capabilities: MetafieldDefinitionCapabilities{
+					AdminFilterable:          n.Capabilities.AdminFilterable.Enabled,
+					SmartCollectionCondition: n.Capabilities.SmartCollectionCondition.Enabled,
+					UniqueValues:             n.Capabilities.UniqueValues.Enabled,
+				},
+				Validations: make([]MetafieldDefinitionValidation, 0, len(n.Validations)),
+			}
+
+			for _, v := range n.Validations {
+				definition.Validations = append(definition.Validations, MetafieldDefinitionValidation{Name: v.Name, Value: v.Value})
+			}
+
+			if n.Constraints != nil {
+				constraints := &MetafieldDefinitionConstraints{Key: n.Constraints.Key}
+				for _, edge := range n.Constraints.Values.Edges {
+					constraints.Values = append(constraints.Values, edge.Node.Value)
+				}
+				definition.Constraints = constraints
+
+				if pageInfo := n.Constraints.Values.PageInfo; pageInfo.HasNextPage {
+					if err := appendConstraintValues(client, definition.ID, constraints, pageInfo.EndCursor); err != nil {
+						return nil, err
+					}
+				}
+			}
+
+			definitions = append(definitions, definition)
 		}
 
 		if !response.Data.MetafieldDefinitions.PageInfo.HasNextPage {
