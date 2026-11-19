@@ -13,3 +13,16 @@ snapshot:
 
 changelog:
   disable: true
+
+brews:
+  - name: shopify-dev-tools
+    homepage: "https://github.com/ScreenStaring/shopify-dev-tools"
+    description: "Command-line program to assist with the development and/or maintenance of Shopify apps and stores"
+    license: "MIT"
+    repository:
+      owner: ScreenStaring
+      name: homebrew-tap
+    directory: Formula
+    commit_author:
+      name: screenstaring-bot
+      email: 224665351+screenstaring-bot@users.noreply.github.com
