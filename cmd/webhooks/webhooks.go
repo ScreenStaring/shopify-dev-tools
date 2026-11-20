@@ -119,6 +119,32 @@ func createAction(c *cli.Context) error {
 	return nil
 }
 
+func webhooksFromArgs(shop, token string, args []string, options map[string]interface{}) ([]Webhook, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("You must supply a webhook id or topic")
+	}
+
+	var webhooks []Webhook
+
+	for _, arg := range args {
+		if webhookTopic.MatchString(arg) {
+			found, err := listWebhooks(shop, token, []string{arg}, options)
+			if err != nil {
+				return nil, fmt.Errorf("Cannot list webhooks for topic %s: %s", arg, err)
+			}
+			webhooks = append(webhooks, found...)
+		} else {
+			webhooks = append(webhooks, Webhook{GID: webhookGID(arg)})
+		}
+	}
+
+	if len(webhooks) == 0 {
+		return nil, fmt.Errorf("No webhooks found")
+	}
+
+	return webhooks, nil
+}
+
 func deleteAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
@@ -132,26 +158,15 @@ func deleteAction(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
+		if len(webhooks) == 0 {
+			return fmt.Errorf("No webhooks found")
+		}
 	} else {
-		if c.Args().Len() == 0 {
-			return fmt.Errorf("You must supply a webhook id or topic")
+		var err error
+		webhooks, err = webhooksFromArgs(shop, token, c.Args().Slice(), options)
+		if err != nil {
+			return err
 		}
-
-		for _, arg := range c.Args().Slice() {
-			if webhookTopic.MatchString(arg) {
-				found, err := listWebhooks(shop, token, []string{arg}, options)
-				if err != nil {
-					return fmt.Errorf("Cannot list webhooks for topic %s: %s", arg, err)
-				}
-				webhooks = append(webhooks, found...)
-			} else {
-				webhooks = append(webhooks, Webhook{GID: webhookGID(arg)})
-			}
-		}
-	}
-
-	if len(webhooks) == 0 {
-		return fmt.Errorf("No webhooks found")
 	}
 
 	for _, w := range webhooks {
@@ -168,13 +183,8 @@ func deleteAction(c *cli.Context) error {
 
 func updateAction(c *cli.Context) error {
 	if c.Args().Len() == 0 {
-		return fmt.Errorf("You must supply a webhook id to update")
+		return fmt.Errorf("You must supply a webhook id or topic")
 	}
-
-	shop := c.String("shop")
-	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{"verbose": c.Bool("verbose")}
-	gid := webhookGID(c.Args().Get(0))
 
 	input := map[string]interface{}{}
 	if c.IsSet("address") {
@@ -201,12 +211,23 @@ func updateAction(c *cli.Context) error {
 		return fmt.Errorf("You must supply at least one option to update")
 	}
 
-	err := updateWebhook(shop, token, gid, input, options)
+	shop := c.String("shop")
+	token := cmd.LookupAccessToken(shop, c.String("access-token"))
+	options := map[string]interface{}{"verbose": c.Bool("verbose")}
+
+	webhooks, err := webhooksFromArgs(shop, token, c.Args().Slice(), options)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Webhook updated")
+	for _, w := range webhooks {
+		err := updateWebhook(shop, token, w.GID, input, options)
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Printf("%d webhook(s) updated\n", len(webhooks))
 	return nil
 }
 
@@ -353,7 +374,7 @@ func init() {
 			},
 			{
 				Name:      "update",
-				ArgsUsage: "[webhook ID]",
+				ArgsUsage: "[topic or webhook ID ...]",
 				Aliases:   []string{"u"},
 				Flags:     append(cmd.Flags, updateFlags...),
 				Action:    updateAction,
