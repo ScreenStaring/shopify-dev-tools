@@ -876,7 +876,13 @@ Webhooks utilities
 
 #### Filtering the Webhook List
 
-`sdt webhook ls` supports filtering by topic and address via the `-t`/`--topic` and `-a`/`--address` options. Use the `-j`/`--jsonl` option to output the webhooks in JSONL format.
+`sdt webhook ls` accepts 0 or more positional arguments to list webhooks by ID and/or topic:
+
+```
+sdt webhook ls ORDERS_CREATE 1234567 products/update
+```
+
+It also supports filtering by topic and address via the `-t`/`--topic` and `-a`/`--address` options. Use the `-j`/`--jsonl` option to output the webhooks in JSONL format.
 
 #### Avoiding Duplicate Webhooks
 
@@ -898,6 +904,16 @@ You can delete all of the shop's webhooks via the `--all` option:
 ```
 sdt webhook delete --all
 ```
+
+#### Updating Webhooks
+
+`webhook update` accepts one or more webhook IDs and/or topics. Topics can be given in `resource/action` or `RESOURCE_ACTION` format:
+
+```
+sdt webhook update -a https://example.com/webhook ORDERS_CREATE 1234567 products/update 8901234
+```
+
+This updates every webhook matching the given topics, plus the webhooks with the given IDs.
 
 ## See Also
 

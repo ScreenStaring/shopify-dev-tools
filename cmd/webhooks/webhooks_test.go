@@ -106,3 +106,96 @@ func TestDeleteActionValidation(t *testing.T) {
 		}
 	})
 }
+
+func TestParseListArgs(t *testing.T) {
+	t.Run("no flags and no args", func(t *testing.T) {
+		topics, ids := parseListArgs("", nil)
+		if len(topics) != 0 || len(ids) != 0 {
+			t.Fatalf("expected empty topics and ids, got topics: %v, ids: %v", topics, ids)
+		}
+	})
+
+	t.Run("topic flag only", func(t *testing.T) {
+		topics, ids := parseListArgs("orders/create", nil)
+		if len(topics) != 1 || topics[0] != "orders/create" {
+			t.Fatalf("expected ['orders/create'], got: %v", topics)
+		}
+		if len(ids) != 0 {
+			t.Fatalf("expected empty ids, got: %v", ids)
+		}
+	})
+
+	t.Run("positional topics only", func(t *testing.T) {
+		topics, ids := parseListArgs("", []string{"orders/create", "PRODUCTS_UPDATE"})
+		if len(topics) != 2 || topics[0] != "orders/create" || topics[1] != "PRODUCTS_UPDATE" {
+			t.Fatalf("unexpected topics: %v", topics)
+		}
+		if len(ids) != 0 {
+			t.Fatalf("expected empty ids, got: %v", ids)
+		}
+	})
+
+	t.Run("positional ids only", func(t *testing.T) {
+		topics, ids := parseListArgs("", []string{"123", "gid://shopify/WebhookSubscription/456"})
+		if len(topics) != 0 {
+			t.Fatalf("expected empty topics, got: %v", topics)
+		}
+		if len(ids) != 2 || ids[0] != "123" || ids[1] != "gid://shopify/WebhookSubscription/456" {
+			t.Fatalf("unexpected ids: %v", ids)
+		}
+	})
+
+	t.Run("topic flag and positional args with topics and ids", func(t *testing.T) {
+		topics, ids := parseListArgs("orders/create", []string{"123", "products/update", "456"})
+		if len(topics) != 2 || topics[0] != "orders/create" || topics[1] != "products/update" {
+			t.Fatalf("unexpected topics: %v", topics)
+		}
+		if len(ids) != 2 || ids[0] != "123" || ids[1] != "456" {
+			t.Fatalf("unexpected ids: %v", ids)
+		}
+	})
+
+	t.Run("deduplicates topics and ids", func(t *testing.T) {
+		topics, ids := parseListArgs("orders/create", []string{"orders/create", "123", "123", "gid://shopify/WebhookSubscription/123"})
+		if len(topics) != 1 || topics[0] != "orders/create" {
+			t.Fatalf("unexpected topics: %v", topics)
+		}
+		if len(ids) != 1 || ids[0] != "123" {
+			t.Fatalf("unexpected ids: %v", ids)
+		}
+	})
+}
+
+func TestDedupeWebhooks(t *testing.T) {
+	hooks := []Webhook{
+		{ID: 1, GID: "gid://shopify/WebhookSubscription/1", Topic: "ORDERS_CREATE"},
+		{ID: 2, GID: "gid://shopify/WebhookSubscription/2", Topic: "PRODUCTS_UPDATE"},
+		{ID: 1, GID: "gid://shopify/WebhookSubscription/1", Topic: "ORDERS_CREATE"},
+	}
+
+	deduped := dedupeWebhooks(hooks)
+	if len(deduped) != 2 {
+		t.Fatalf("expected 2 hooks, got: %d", len(deduped))
+	}
+	if deduped[0].ID != 1 || deduped[1].ID != 2 {
+		t.Fatalf("unexpected order or elements: %+v", deduped)
+	}
+}
+
+func TestListCommandMetadata(t *testing.T) {
+	var lsCmd *cli.Command
+	for _, sub := range Cmd.Subcommands {
+		if sub.Name == "ls" {
+			lsCmd = sub
+			break
+		}
+	}
+
+	if lsCmd == nil {
+		t.Fatal("could not find ls subcommand")
+	}
+
+	if lsCmd.ArgsUsage != "[topic or webhook ID ...]" {
+		t.Fatalf("expected ArgsUsage '[topic or webhook ID ...]', got %q", lsCmd.ArgsUsage)
+	}
+}

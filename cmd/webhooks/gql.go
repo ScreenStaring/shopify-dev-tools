@@ -41,6 +41,37 @@ query($first: Int!, $topics: [WebhookSubscriptionTopic!], $uri: String) {
 }
 `
 
+const webhooksByIDQuery = `
+query($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on WebhookSubscription {
+      id
+      legacyResourceId
+      topic
+      format
+      includeFields
+      metafieldNamespaces
+      apiVersion { handle }
+      createdAt
+      updatedAt
+      endpoint {
+        __typename
+        ... on WebhookHttpEndpoint {
+          callbackUrl
+        }
+        ... on WebhookEventBridgeEndpoint {
+          arn
+        }
+        ... on WebhookPubSubEndpoint {
+          pubSubProject
+          pubSubTopic
+        }
+      }
+    }
+  }
+}
+`
+
 const webhookSubscriptionCreateMutation = `
 mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
   webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
@@ -144,6 +175,27 @@ type webhooksResponse struct {
 	} `json:"data"`
 }
 
+type webhooksByIDResponse struct {
+	Data struct {
+		Nodes []*webhookJSON `json:"nodes"`
+	} `json:"data"`
+}
+
+func webhookFromJSON(n webhookJSON) Webhook {
+	return Webhook{
+		ID:                  n.LegacyResourceId,
+		GID:                 n.ID,
+		Topic:               n.Topic,
+		Endpoint:            endpointAddress(n.Endpoint),
+		Format:              n.Format,
+		Fields:              n.IncludeFields,
+		MetafieldNamespaces: n.MetafieldNamespaces,
+		ApiVersion:          n.ApiVersion.Handle,
+		CreatedAt:           n.CreatedAt,
+		UpdatedAt:           n.UpdatedAt,
+	}
+}
+
 func endpointAddress(e endpointJSON) string {
 	switch e.Typename {
 	case "WebhookHttpEndpoint":
@@ -203,22 +255,55 @@ func listWebhooks(shop, token string, topics []string, options map[string]interf
 
 	var result []Webhook
 	for _, edge := range response.Data.WebhookSubscriptions.Edges {
-		n := edge.Node
-		result = append(result, Webhook{
-			ID:                  n.LegacyResourceId,
-			GID:                 n.ID,
-			Topic:               n.Topic,
-			Endpoint:            endpointAddress(n.Endpoint),
-			Format:              n.Format,
-			Fields:              n.IncludeFields,
-			MetafieldNamespaces: n.MetafieldNamespaces,
-			ApiVersion:          n.ApiVersion.Handle,
-			CreatedAt:           n.CreatedAt,
-			UpdatedAt:           n.UpdatedAt,
-		})
+		result = append(result, webhookFromJSON(edge.Node))
 	}
 
 	return result, nil
+}
+
+func parseWebhooksByIDResponse(b []byte, addressFilter string) ([]Webhook, error) {
+	var response webhooksByIDResponse
+	if err := json.Unmarshal(b, &response); err != nil {
+		return nil, fmt.Errorf("Cannot parse webhooks response: %s", err)
+	}
+
+	var result []Webhook
+	for _, n := range response.Data.Nodes {
+		if n == nil || n.ID == "" {
+			continue
+		}
+
+		w := webhookFromJSON(*n)
+		if addressFilter != "" && w.Endpoint != addressFilter {
+			continue
+		}
+
+		result = append(result, w)
+	}
+
+	return result, nil
+}
+
+func webhooksByID(shop, token string, ids []string, options map[string]interface{}) ([]Webhook, error) {
+	client := gql.NewClient(shop, token, options)
+
+	gids := make([]string, len(ids))
+	for i, id := range ids {
+		gids[i] = webhookGID(id)
+	}
+
+	data, err := client.Execute(webhooksByIDQuery, map[string]interface{}{"ids": gids})
+	if err != nil {
+		return nil, fmt.Errorf("Cannot get webhooks: %s", err)
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot re-encode webhooks response: %s", err)
+	}
+
+	addressFilter, _ := options["address"].(string)
+	return parseWebhooksByIDResponse(b, addressFilter)
 }
 
 func createWebhook(shop, token, topic, address, format string, fields []string, options map[string]interface{}) (string, error) {

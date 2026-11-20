@@ -231,23 +231,98 @@ func updateAction(c *cli.Context) error {
 	return nil
 }
 
+func parseListArgs(topicFlag string, args []string) (topics []string, ids []string) {
+	seenTopics := make(map[string]bool)
+	seenIDs := make(map[string]bool)
+
+	addTopic := func(t string) {
+		if !seenTopics[t] {
+			seenTopics[t] = true
+			topics = append(topics, t)
+		}
+	}
+
+	addID := func(id string) {
+		gid := webhookGID(id)
+		if !seenIDs[gid] {
+			seenIDs[gid] = true
+			ids = append(ids, id)
+		}
+	}
+
+	if topicFlag != "" {
+		addTopic(topicFlag)
+	}
+
+	for _, arg := range args {
+		if webhookTopic.MatchString(arg) {
+			addTopic(arg)
+		} else {
+			addID(arg)
+		}
+	}
+
+	return topics, ids
+}
+
+func dedupeWebhooks(webhooks []Webhook) []Webhook {
+	seen := make(map[string]bool, len(webhooks))
+	var unique []Webhook
+	for _, w := range webhooks {
+		key := w.GID
+		if key == "" {
+			key = fmt.Sprint(w.ID)
+		}
+		if !seen[key] {
+			seen[key] = true
+			unique = append(unique, w)
+		}
+	}
+	return unique
+}
+
 func listAction(c *cli.Context) error {
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
-	options := map[string]interface{}{}
+	options := map[string]interface{}{"verbose": c.Bool("verbose")}
 
 	if c.IsSet("address") {
 		options["address"] = c.String("address")
 	}
 
-	var topics []string
+	var topicFlag string
 	if c.IsSet("topic") {
-		topics = []string{c.String("topic")}
+		topicFlag = c.String("topic")
 	}
 
-	hooks, err := listWebhooks(shop, token, topics, options)
-	if err != nil {
-		return err
+	topics, ids := parseListArgs(topicFlag, c.Args().Slice())
+
+	var hooks []Webhook
+
+	if len(topics) == 0 && len(ids) == 0 {
+		var err error
+		hooks, err = listWebhooks(shop, token, nil, options)
+		if err != nil {
+			return err
+		}
+	} else {
+		if len(topics) > 0 {
+			topicHooks, err := listWebhooks(shop, token, topics, options)
+			if err != nil {
+				return err
+			}
+			hooks = append(hooks, topicHooks...)
+		}
+
+		if len(ids) > 0 {
+			idHooks, err := webhooksByID(shop, token, ids, options)
+			if err != nil {
+				return err
+			}
+			hooks = append(hooks, idHooks...)
+		}
+
+		hooks = dedupeWebhooks(hooks)
 	}
 
 	if c.Bool("jsonl") {
@@ -381,10 +456,11 @@ func init() {
 				Usage:     "Update the given webhook",
 			},
 			{
-				Name:   "ls",
-				Flags:  append(cmd.Flags, listFlags...),
-				Action: listAction,
-				Usage:  "List the shop's webhooks",
+				Name:      "ls",
+				ArgsUsage: "[topic or webhook ID ...]",
+				Flags:     append(cmd.Flags, listFlags...),
+				Action:    listAction,
+				Usage:     "List the shop's webhooks",
 			},
 		},
 	}
