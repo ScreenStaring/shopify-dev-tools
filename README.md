@@ -915,9 +915,15 @@ sdt webhook update -a https://example.com/webhook ORDERS_CREATE 1234567 products
 
 This updates every webhook matching the given topics, plus the webhooks with the given IDs.
 
+To update **only the hostname** of given webhook address(es) while preserving the path, query, and other URL components, use `--hostname`:
+
+```
+sdt webhook update --hostname foo.com 1234567 products/update 8901234
+```
+
 ## See Also
 
-- [`ShopifyAPI::GraphQL::Request`](https://github.com/ScreenStaring/shopify_api-graphql-request) - Ruby gem to Simplify GraphQL queries and mutations for Shopify Admin API. Built-in pagination, retry, error handling, and more!
+- [`ShopifyAPI::GraphQL::Request`](https://github.com/ScreenStaring/shopify_api-graphql-request) - Ruby gem to Simplify GraphQL queries and mutations for Shopify Admin API. Built-in OAuth token refresh, pagination, retry, error handling, and more!
 - [`ShopifyAPI::GraphQL::Bulk`](https://github.com/ScreenStaring/shopify_api-graphql-bulk) - Ruby gem to bulk import data with the Shopify GraphQL Admin Bulk API
 
 ## License

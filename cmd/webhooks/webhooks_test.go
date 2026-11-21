@@ -95,6 +95,14 @@ func TestUpdateActionValidation(t *testing.T) {
 			t.Fatalf("expected invalid metafield error, got: %v", err)
 		}
 	})
+
+	t.Run("error when address and hostname used together", func(t *testing.T) {
+		app := newTestApp()
+		err := app.Run([]string{"sdt", "webhook", "update", "--shop", "test-shop", "-a", "https://example.com", "--hostname", "foo.com", "12345"})
+		if err == nil || err.Error() != "--address and --hostname cannot be used together" {
+			t.Fatalf("expected '--address and --hostname cannot be used together', got: %v", err)
+		}
+	})
 }
 
 func TestDeleteActionValidation(t *testing.T) {
@@ -197,5 +205,106 @@ func TestListCommandMetadata(t *testing.T) {
 
 	if lsCmd.ArgsUsage != "[topic or webhook ID ...]" {
 		t.Fatalf("expected ArgsUsage '[topic or webhook ID ...]', got %q", lsCmd.ArgsUsage)
+	}
+}
+
+func TestUpdateAddressHostname(t *testing.T) {
+	tests := []struct {
+		name     string
+		address  string
+		hostname string
+		want     string
+		wantErr  bool
+	}{
+		{
+			name:     "example from prompt",
+			address:  "https://example.com/shopify/app_subscriptions_update",
+			hostname: "foo.com",
+			want:     "https://foo.com/shopify/app_subscriptions_update",
+		},
+		{
+			name:     "with query params and fragment",
+			address:  "https://example.com/webhooks?secret=123#test",
+			hostname: "foo.com",
+			want:     "https://foo.com/webhooks?secret=123#test",
+		},
+		{
+			name:     "preserve existing port when hostname has no port",
+			address:  "https://example.com:8443/shopify/app_subscriptions_update",
+			hostname: "foo.com",
+			want:     "https://foo.com:8443/shopify/app_subscriptions_update",
+		},
+		{
+			name:     "override port when hostname includes port",
+			address:  "https://example.com:8443/shopify/app_subscriptions_update",
+			hostname: "foo.com:9000",
+			want:     "https://foo.com:9000/shopify/app_subscriptions_update",
+		},
+		{
+			name:     "add port when original had no port",
+			address:  "https://example.com/webhook",
+			hostname: "foo.com:3000",
+			want:     "https://foo.com:3000/webhook",
+		},
+		{
+			name:     "hostname with https prefix",
+			address:  "https://example.com/shopify/app_subscriptions_update",
+			hostname: "https://foo.com",
+			want:     "https://foo.com/shopify/app_subscriptions_update",
+		},
+		{
+			name:     "hostname with http prefix",
+			address:  "https://example.com/shopify/app_subscriptions_update",
+			hostname: "http://foo.com",
+			want:     "https://foo.com/shopify/app_subscriptions_update",
+		},
+		{
+			name:     "hostname with trailing slash",
+			address:  "https://example.com/shopify/app_subscriptions_update",
+			hostname: "foo.com/",
+			want:     "https://foo.com/shopify/app_subscriptions_update",
+		},
+		{
+			name:     "http scheme in address is preserved",
+			address:  "http://example.com/webhook",
+			hostname: "foo.com",
+			want:     "http://foo.com/webhook",
+		},
+		{
+			name:     "error on EventBridge endpoint",
+			address:  "arn:aws:events:us-east-1:123456789012:event-bus/default",
+			hostname: "foo.com",
+			wantErr:  true,
+		},
+		{
+			name:     "error on empty address",
+			address:  "",
+			hostname: "foo.com",
+			wantErr:  true,
+		},
+		{
+			name:     "error on pubsub endpoint",
+			address:  "my-project:my-topic",
+			hostname: "foo.com",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := updateAddressHostname(tt.address, tt.hostname)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for address %q and hostname %q, got: %q", tt.address, tt.hostname, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("updateAddressHostname(%q, %q) = %q, want %q", tt.address, tt.hostname, got, tt.want)
+			}
+		})
 	}
 }

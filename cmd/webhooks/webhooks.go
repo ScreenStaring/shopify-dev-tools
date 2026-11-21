@@ -3,6 +3,7 @@ package webhooks
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -181,9 +182,37 @@ func deleteAction(c *cli.Context) error {
 	return nil
 }
 
+func updateAddressHostname(address, hostname string) (string, error) {
+	u, err := url.Parse(address)
+	if err != nil {
+		return "", fmt.Errorf("cannot parse webhook address %q: %w", address, err)
+	}
+
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", fmt.Errorf("cannot update hostname for webhook address %q: must be an http or https URL", address)
+	}
+
+	cleanHost := strings.TrimSpace(hostname)
+	cleanHost = strings.TrimPrefix(cleanHost, "https://")
+	cleanHost = strings.TrimPrefix(cleanHost, "http://")
+	cleanHost = strings.TrimRight(cleanHost, "/")
+
+	if port := u.Port(); port != "" && !strings.Contains(cleanHost, ":") {
+		u.Host = cleanHost + ":" + port
+	} else {
+		u.Host = cleanHost
+	}
+
+	return u.String(), nil
+}
+
 func updateAction(c *cli.Context) error {
 	if c.Args().Len() == 0 {
 		return fmt.Errorf("You must supply a webhook id or topic")
+	}
+
+	if c.IsSet("address") && c.IsSet("hostname") {
+		return fmt.Errorf("--address and --hostname cannot be used together")
 	}
 
 	input := map[string]interface{}{}
@@ -207,9 +236,11 @@ func updateAction(c *cli.Context) error {
 		input["metafields"] = metafields
 	}
 
-	if len(input) == 0 {
+	if len(input) == 0 && !c.IsSet("hostname") {
 		return fmt.Errorf("You must supply at least one option to update")
 	}
+
+	hostname := c.String("hostname")
 
 	shop := c.String("shop")
 	token := cmd.LookupAccessToken(shop, c.String("access-token"))
@@ -219,9 +250,58 @@ func updateAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	webhooks = dedupeWebhooks(webhooks)
+
+	if c.IsSet("hostname") {
+		// webhooksFromArgs populates Endpoint for topic arguments by listing them,
+		// but only creates GID stubs for ID arguments. Fetch the details for any
+		// webhooks with an empty Endpoint so we have their current address.
+		var idsToFetch []string
+		for _, w := range webhooks {
+			if w.Endpoint == "" {
+				idsToFetch = append(idsToFetch, w.GID)
+			}
+		}
+
+		if len(idsToFetch) > 0 {
+			fetched, err := webhooksByID(shop, token, idsToFetch, options)
+			if err != nil {
+				return err
+			}
+
+			fetchedMap := make(map[string]Webhook, len(fetched))
+			for _, fw := range fetched {
+				fetchedMap[fw.GID] = fw
+			}
+
+			for i, w := range webhooks {
+				if w.Endpoint == "" {
+					fw, ok := fetchedMap[w.GID]
+					if !ok {
+						id := strings.TrimPrefix(w.GID, "gid://shopify/WebhookSubscription/")
+						return fmt.Errorf("Webhook not found: %s", id)
+					}
+					webhooks[i] = fw
+				}
+			}
+		}
+	}
 
 	for _, w := range webhooks {
-		err := updateWebhook(shop, token, w.GID, input, options)
+		hookInput := input
+		if c.IsSet("hostname") {
+			newAddress, err := updateAddressHostname(w.Endpoint, hostname)
+			if err != nil {
+				return err
+			}
+			hookInput = make(map[string]interface{}, len(input)+1)
+			for k, v := range input {
+				hookInput[k] = v
+			}
+			hookInput["callbackUrl"] = newAddress
+		}
+
+		err := updateWebhook(shop, token, w.GID, hookInput, options)
 		if err != nil {
 			return err
 		}
@@ -378,6 +458,11 @@ func init() {
 		&cli.StringFlag{
 			Name:    "address",
 			Aliases: []string{"a"},
+		},
+		&cli.StringFlag{
+			Name:    "hostname",
+			Aliases: []string{"H"},
+			Usage:   "Update the webhook address' hostname",
 		},
 		&cli.StringSliceFlag{
 			Name:    "fields",
